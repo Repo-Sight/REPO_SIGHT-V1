@@ -161,6 +161,19 @@ class RepoSightDashboard {
             return;
         }
 
+        // Landing page (#landing-page) is the default-visible markup so
+        // crawlers/no-JS/slow-JS always see real content first. Once we
+        // confirm a real scan is being requested, swap to the dashboard
+        // shell explicitly rather than assuming it's already visible.
+        const landing = this.$('landing-page');
+        if (landing) landing.classList.add('hidden');
+
+        const topbar = document.querySelector('.dash-topbar');
+        if (topbar) topbar.classList.remove('hidden');
+
+        const dashboardMain = document.querySelector('body > main');
+        if (dashboardMain) dashboardMain.classList.remove('hidden');
+
         this.meta.scanId = scanId;
         this.showLoadingState();
         this.pollScan(scanId);
