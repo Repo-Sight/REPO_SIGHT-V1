@@ -16,12 +16,14 @@
   <!-- ==================================================================
        Landing page (shown when the URL has no ?scan= param). Static
        markup rather than a JS-injected template so the marketing copy
-       is crawlable. dashboard.js#renderLandingPage() unhides this block
-       and hides the dashboard shell below; the reverse happens
-       automatically since #landing-page starts hidden and the dashboard
-       shell is what ?scan= URLs render into.
+       is crawlable -- and, critically, this block is visible by default
+       (no "hidden" class) so a crawler or a client where JS is slow/
+       blocked/fails still sees real content instead of the dashboard's
+       loading spinner. The dashboard shell below starts hidden; both
+       dashboard.js#loadReport() branches explicitly toggle both blocks
+       rather than assuming either one's starting state.
        ================================================================== -->
-  <div id="landing-page" class="hidden">
+  <div id="landing-page">
     <header class="site-header">
       <div class="site-header-inner">
         <a class="brand" href="/">
@@ -216,7 +218,7 @@ TODO Comments          : <span class="t-value">9</span>
        to carry the brand, which scan is showing, and the two actions
        (start a different scan, or re-run this one).
        ================================================================== -->
-  <header class="dash-topbar">
+  <header class="dash-topbar hidden">
     <div class="dash-topbar-inner">
       <a class="brand" href="/">
         <span class="brand-mark">
@@ -238,7 +240,7 @@ TODO Comments          : <span class="t-value">9</span>
   </header>
 
   <!-- Main -->
-  <main>
+  <main class="hidden">
     <!-- Loading state -->
     <div id="loading-state">
       <div class="spinner"></div>
