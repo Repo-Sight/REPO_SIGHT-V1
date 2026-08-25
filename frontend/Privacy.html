@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — REPO-SIGHT</title>
+  <meta name="description" content="How REPO-SIGHT handles repository URLs, analysis data, and advertising cookies." />
+  <link rel="canonical" href="https://repo-sight-indol.vercel.app/privacy.html" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>Privacy Policy</h1>
+    <p class="legal-updated">Last updated: August 24, 2026</p>
+
+    <p>REPO-SIGHT ("we," "us") operates repo-sight-indol.vercel.app (the "Service"), a free static-analysis tool for public C++, Python, and Java repositories. This policy explains what data the Service collects and how it's used.</p>
+
+    <h2>1. What we collect</h2>
+    <ul>
+      <li><strong>Repository URL you submit.</strong> Used only to fetch the public repository's source for analysis.</li>
+      <li><strong>Analysis results.</strong> Metrics, health scores, and reports generated from your submission are stored (via Supabase Storage) so the report link stays accessible after the scan finishes.</li>
+      <li><strong>Feedback form input.</strong> If you use the feedback form, we store the text you submit.</li>
+      <li><strong>Standard server logs.</strong> IP address, user agent, and request timestamps, collected automatically by our hosting provider (Vercel) for operational and security purposes.</li>
+    </ul>
+    <p>We do not require an account, and we do not collect names, emails, or payment information.</p>
+
+    <h2>2. Advertising & cookies</h2>
+    <p>This site displays ads served by Google AdSense. Google, as a third-party vendor, uses cookies (including the DoubleClick DART cookie) to serve ads based on your visits to this and other sites. You can opt out of personalized advertising by visiting <a href="https://adssettings.google.com" target="_blank" rel="noopener">Google Ads Settings</a>. Google's use of advertising cookies enables it and its partners to serve ads based on your visit to this site and/or other sites on the Internet. For more detail on how Google uses data, see <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">How Google uses information from sites or apps that use our services</a>.</p>
+
+    <h2>3. Repository data</h2>
+    <p>We analyze only publicly accessible repository source code that you point us to. We do not execute, run, or install any code from the repositories we analyze — analysis is static (read-only source inspection). Repository content is processed to generate metrics and is not sold or shared with third parties beyond what's needed to run the Service (e.g., our storage and hosting providers).</p>
+
+    <h2>4. Data retention</h2>
+    <p>Scan reports are retained so their links remain usable. If you'd like a specific report or feedback submission removed, contact us using the details below.</p>
+
+    <h2>5. Third-party services</h2>
+    <ul>
+      <li><strong>Vercel</strong> — hosting and serverless function execution.</li>
+      <li><strong>Supabase</strong> — storage of scan results.</li>
+      <li><strong>Google AdSense</strong> — advertising, as described above.</li>
+    </ul>
+    <p>Each of these providers has its own privacy policy governing how it handles data.</p>
+
+    <h2>6. Children's privacy</h2>
+    <p>The Service is not directed at children under 13, and we do not knowingly collect personal information from children.</p>
+
+    <h2>7. Changes to this policy</h2>
+    <p>We may update this policy as the Service evolves. Material changes will be reflected by updating the date above.</p>
+
+    <h2>8. Contact</h2>
+    <p>Questions about this policy can be raised via an issue on the <a href="https://github.com/RONAKARORA1/REPO_SIGHT" target="_blank" rel="noopener">GitHub repository</a>.</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
