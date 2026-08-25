@@ -1128,6 +1128,16 @@ main {
   border-radius: 12px;
   padding: 24px;
 }
+.feature-card-link {
+  display: block;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.feature-card-link:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+}
 
 .feature-icon {
   width: 38px;
@@ -1215,8 +1225,7 @@ main {
   max-width: 1180px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr;
-  gap: 32px;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;  gap: 32px;
 }
 
 .site-footer .brand-name,
