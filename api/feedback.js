@@ -8,11 +8,17 @@
 // Returns { count, average } for display (e.g. "4.6/5 from 32 developers").
 //
 // Reuses the existing `scans` Supabase Storage bucket (no new bucket to
-// provision, no new env vars) under a `feedback/` prefix:
+// provision, no new env vars for storage) under a `feedback/` prefix:
 //   feedback/<uuid>.json    one JSON file per submission (audit trail)
 //   feedback/_stats.json    running { count, sum } so GET stays a single
 //                           cheap download instead of listing + downloading
 //                           every submission on every request.
+//
+// Optional email notification: if RESEND_API_KEY and FEEDBACK_NOTIFY_EMAIL
+// are set, each new submission also triggers a best-effort email via the
+// Resend HTTP API (plain fetch, no SDK dependency added). Storage is the
+// record of truth; email is a convenience notification only -- neither the
+// stats update nor the email can fail the user's submission.
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
@@ -42,6 +48,57 @@ const MAX_MESSAGE_LENGTH = 1000;
 // malformed value is dropped rather than rejected; scanId is just optional
 // context for a feedback entry, not something we look up.
 const SCAN_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Best-effort notification email for a new feedback entry. Silently no-ops
+// if RESEND_API_KEY / FEEDBACK_NOTIFY_EMAIL aren't configured, so this is
+// safe to call unconditionally and safe to leave unconfigured. Never throws
+// -- caller doesn't need to wrap this in try/catch.
+async function notifyByEmail(entry) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.FEEDBACK_NOTIFY_EMAIL;
+  if (!apiKey || !to) return;
+
+  const from = process.env.FEEDBACK_FROM_EMAIL || "REPO-SIGHT Feedback <onboarding@resend.dev>";
+  const stars = "★".repeat(entry.rating) + "☆".repeat(5 - entry.rating);
+
+  const html = `
+    <p><strong>New REPO-SIGHT feedback</strong> &mdash; ${stars} (${entry.rating}/5)</p>
+    ${entry.projectName ? `<p><strong>Project:</strong> ${escapeHtml(entry.projectName)}</p>` : ""}
+    ${entry.scanId ? `<p><strong>Scan ID:</strong> ${escapeHtml(entry.scanId)}</p>` : ""}
+    ${entry.message ? `<p><strong>Message:</strong><br>${escapeHtml(entry.message).replace(/\n/g, "<br>")}</p>` : "<p><em>No message provided.</em></p>"}
+    <p style="color:#888;font-size:12px;">Submitted ${entry.createdAt}</p>
+  `.trim();
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        subject: `New feedback: ${entry.rating}/5${entry.projectName ? ` — ${entry.projectName}` : ""}`,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      console.error("Feedback email notification failed:", res.status, await res.text());
+    }
+  } catch (err) {
+    console.error("Feedback email notification error:", err);
+  }
+}
 
 async function readStats(supabase) {
   try {
@@ -117,6 +174,10 @@ async function handlePost(req, res, supabase) {
   } catch (statsErr) {
     console.error("Feedback stats update failed:", statsErr);
   }
+
+  // Fire-and-forget notification -- see notifyByEmail() for why this can
+  // never throw or block the response.
+  await notifyByEmail(entry);
 
   res.status(200).json({ ok: true });
 }
