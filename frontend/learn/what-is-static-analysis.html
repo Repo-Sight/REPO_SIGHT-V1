@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>What Is Static Code Analysis? | REPO-SIGHT</title>
+  <meta name="description" content="How static code analysis reads source code without running it, what it can catch, and where it falls short." />
+  <link rel="canonical" href="https://repo-sight-indol.vercel.app/learn/what-is-static-analysis.html" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>What is static code analysis?</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+    <p>Static code analysis means examining source code without executing it. The tool reads your files as text, builds up an understanding of their structure, and reports on what it finds — size, structure, complexity, and patterns that tend to cause bugs. Nothing runs. No build, no interpreter, no test suite.</p>
+
+    <h2>Why "static" matters</h2>
+    <p>The alternative is dynamic analysis: running the program and observing what actually happens at runtime — a debugger, a profiler, a test suite with coverage tracking. Dynamic tools see real behavior but only along the paths that were actually executed. A static analyzer instead looks at every line in the file, whether or not that line ever runs during a given test. That's its main advantage: full coverage of the source, with no need to get the program running first.</p>
+    <p>This is also why static analysis works on code that can't currently run at all — a repository with a broken build, a language you don't have a compiler installed for, or a project you just want to size up before cloning it.</p>
+
+    <h2>What it typically measures</h2>
+    <ul>
+      <li><strong>Size and shape.</strong> Lines of code, comment density, file and function counts — the basic footprint of a project.</li>
+      <li><strong>Structure.</strong> How functions, classes, and modules relate to each other, and how deeply nested the logic gets.</li>
+      <li><strong>Complexity.</strong> How many independent paths exist through a function's logic — see cyclomatic complexity for the specifics.</li>
+      <li><strong>Rule violations.</strong> Known risky patterns — things like unchecked returns, overly long functions, or suspicious constructs specific to a language.</li>
+    </ul>
+
+    <h2>What it can't tell you</h2>
+    <p>Static analysis is pattern recognition over source text and structure, not proof of correctness. It won't tell you whether your business logic is right, whether an API integration actually works, or whether a feature does what a user expects. It also can't catch bugs that only show up from a specific runtime state — a race condition, a value that depends on live data, a third-party service returning something unexpected. For that, you still need tests, code review, and running the thing.</p>
+    <p>Where static analysis earns its keep is speed and consistency: it looks at 100% of the code, the same way, every time, in seconds — before anyone spends an hour manually reading through a repository to get a sense of it.</p>
+
+    <h2>Where it fits in a workflow</h2>
+    <p>Most teams use static analysis as a first pass, not a final verdict. It's useful for:</p>
+    <ul>
+      <li>Sizing up an unfamiliar repository before diving in — as a new contributor, or before code review.</li>
+      <li>Catching structural warning signs (a 400-line function, deep nesting, a pile of TODOs) before they compound.</li>
+      <li>Getting an objective baseline for a personal project, so "is this code okay?" has a number attached instead of a guess.</li>
+    </ul>
+    <p>REPO-SIGHT runs this kind of analysis on C++, Python, and Java repositories — paste a public GitHub URL and it reports size, structure, complexity, and rule violations in seconds, with no signup. <a href="/#analyze">Try it on a repo</a>.</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+        <a href="/learn/reading-a-code-health-score.html">Reading a health score</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="mailto:ronak.reposight@gmail.com">ronak.reposight@gmail.com</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
