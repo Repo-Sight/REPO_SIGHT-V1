@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to Read a Code Health Score | REPO-SIGHT</title>
+  <meta name="description" content="What REPO-SIGHT's A–F code health grade weighs, how the score is calculated, and what to fix first when a repo grades low." />
+  <link rel="canonical" href="https://repo-sight-indol.vercel.app/learn/reading-a-code-health-score.html" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>How to read a code health score</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+    <p>A single letter grade is convenient, but it's only useful if you know what's actually being measured underneath it. Here's exactly what goes into REPO-SIGHT's health score, in the same weights the analyzer uses.</p>
+
+    <h2>The five components</h2>
+    <p>Each component is scored on a 0&ndash;100 scale by comparing your project's value against a "good" reference point and a "bad" reference point, then the five scores are combined by weight:</p>
+    <ul>
+      <li><strong>Complexity density &mdash; 35%.</strong> Total cyclomatic complexity relative to lines of code. This is the single largest factor: a project can have plenty of code, but if a large share of it is branchy decision logic, the score drops fastest here.</li>
+      <li><strong>Average function length &mdash; 25%.</strong> Shorter, focused functions score higher than long ones that try to do several things at once.</li>
+      <li><strong>Comment coverage &mdash; 20%.</strong> The share of lines that are comments. Too little makes intent hard to recover later; the scoring rewards a healthy middle ground rather than maximizing comments for their own sake.</li>
+      <li><strong>TODO density &mdash; 10%.</strong> How often <code>TODO</code>/<code>FIXME</code>-style markers show up relative to code volume &mdash; a proxy for acknowledged, unfinished work.</li>
+      <li><strong>Max nesting depth &mdash; 10%.</strong> How deeply blocks nest inside each other. Deep nesting is a strong readability signal independent of raw complexity count.</li>
+    </ul>
+
+    <h2>The grade thresholds</h2>
+    <p>The five weighted components sum to one overall score out of 100, which maps to a letter grade:</p>
+    <ul>
+      <li><strong>A</strong> &mdash; 90 and above</li>
+      <li><strong>B</strong> &mdash; 80 to 89</li>
+      <li><strong>C</strong> &mdash; 70 to 79</li>
+      <li><strong>D</strong> &mdash; 60 to 69</li>
+      <li><strong>F</strong> &mdash; below 60</li>
+    </ul>
+
+    <h2>What to fix first on a low grade</h2>
+    <p>Because complexity density carries the most weight, it's usually the highest-leverage place to start. In practice that means:</p>
+    <ul>
+      <li>Sort functions by cyclomatic complexity and look at the top few outliers first, rather than trying to fix everything at once.</li>
+      <li>Check average function length alongside complexity &mdash; the two often move together, since a long function usually accumulates branches as it grows.</li>
+      <li>Look at max nesting depth on the same hotspot functions; flattening nested conditionals frequently improves both the nesting and complexity components at the same time.</li>
+      <li>Treat comment coverage and TODO density as secondary clean-up, not the first fix &mdash; they carry less weight and rarely explain a genuinely low grade on their own.</li>
+    </ul>
+    <p>A score is a starting point for triage, not a verdict on the whole codebase. A project graded C can still be well-designed with a couple of legitimately complex algorithms; a project graded A can still have logic bugs the metrics can't see. Use the grade to find where to look, then read the actual code.</p>
+
+    <p>REPO-SIGHT computes this score automatically for any public C++, Python, or Java repository. <a href="/#analyze">Paste a GitHub URL</a> to see your own grade and hotspot list.</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+        <a href="/learn/reading-a-code-health-score.html">Reading a health score</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="mailto:ronak.reposight@gmail.com">ronak.reposight@gmail.com</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
