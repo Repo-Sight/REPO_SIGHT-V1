@@ -6,6 +6,14 @@
   <meta name="google-adsense-account" content="ca-pub-9491664802154422">
   <title>REPO-SIGHT — The audit you skip when you're solo, done in seconds</title>
   <meta name="description" content="REPO-SIGHT reads your C++, Python, or Java repository and reports the numbers that matter — size, structure, complexity, and rule violations. Paste a public GitHub URL, no signup required." />
+  <link rel="canonical" href="https://repo-sight-indol.vercel.app/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="REPO-SIGHT — The audit you skip when you're solo, done in seconds" />
+  <meta property="og:description" content="REPO-SIGHT reads your C++, Python, or Java repository and reports the numbers that matter — size, structure, complexity, and rule violations. Paste a public GitHub URL, no signup required." />
+  <meta property="og:url" content="https://repo-sight-indol.vercel.app/" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="REPO-SIGHT — The audit you skip when you're solo, done in seconds" />
+  <meta name="twitter:description" content="Paste a public GitHub URL, get code metrics for C++, Python, and Java in seconds." />
   <link rel="stylesheet" href="css/styles.css" />
   <!-- AdSense loader -- publisher ID matches the repo's ads.txt (ca-pub-9491664802154422).
        Safe to ship before the account is approved/units exist; it just won't render anything
@@ -206,6 +214,8 @@ TODO Comments          : <span class="t-value">9</span>
         </div>
         <div class="footer-col">
           <h4>Legal</h4>
+          <a href="/privacy.html">Privacy Policy</a>
+          <a href="/terms.html">Terms of Use</a>
           <span class="footer-static">Apache 2.0 License</span>
         </div>
       </div>
@@ -376,28 +386,4 @@ TODO Comments          : <span class="t-value">9</span>
            #feedback-thanks-state once a rating is submitted. -->
       <div class="panel feedback-widget" id="feedback-widget">
         <div class="panel-head">Rate this report</div>
-        <div class="panel-body" id="feedback-form-state">
-          <p class="feedback-prompt">Was REPO-SIGHT useful? A quick rating helps shape what gets built next.</p>
-          <div class="feedback-stars" id="feedback-stars" role="radiogroup" aria-label="Rate this report from 1 to 5 stars">
-            <button type="button" class="feedback-star" data-value="1" role="radio" aria-checked="false" aria-label="1 star">&#9733;</button>
-            <button type="button" class="feedback-star" data-value="2" role="radio" aria-checked="false" aria-label="2 stars">&#9733;</button>
-            <button type="button" class="feedback-star" data-value="3" role="radio" aria-checked="false" aria-label="3 stars">&#9733;</button>
-            <button type="button" class="feedback-star" data-value="4" role="radio" aria-checked="false" aria-label="4 stars">&#9733;</button>
-            <button type="button" class="feedback-star" data-value="5" role="radio" aria-checked="false" aria-label="5 stars">&#9733;</button>
-          </div>
-          <textarea id="feedback-message" class="feedback-textarea" maxlength="1000" placeholder="What worked, or what didn't? (optional)"></textarea>
-          <!-- Honeypot -- hidden from real users via CSS, never touched by
-               them. A filled-in value marks the submission as a bot. -->
-          <input type="text" id="feedback-company" name="company" class="feedback-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
-          <div class="feedback-actions">
-            <button type="button" class="btn-primary" id="feedback-submit" disabled>Send feedback</button>
-            <span class="feedback-status" id="feedback-status"></span>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <script src="dashboard.js"></script>
-</body>
-</html>
+        <div class="panel-body" id="feed
