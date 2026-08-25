@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cyclomatic Complexity, Explained | REPO-SIGHT</title>
+  <meta name="description" content="What cyclomatic complexity actually counts, why high scores predict bugs, and practical ways to bring a function's complexity down." />
+  <link rel="canonical" href="https://repo-sight-indol.vercel.app/learn/cyclomatic-complexity-explained.html" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>Cyclomatic complexity, explained</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+    <p>Cyclomatic complexity is a count of the independent paths through a function's logic. It was introduced by Thomas McCabe in 1976 as a way to put a number on something programmers already sensed intuitively: some functions are simple to reason about, and some are a tangle.</p>
+
+    <h2>What actually gets counted</h2>
+    <p>Every function starts at a baseline of 1 &mdash; one straight-line path with no branching. From there, the count goes up by one for every point where execution can fork: an <code>if</code>, a loop (<code>for</code>, <code>while</code>), a <code>case</code> in a switch, a <code>catch</code> block, a ternary <code>?:</code>, and short-circuit boolean operators like <code>&amp;&amp;</code> and <code>||</code>. Each of these represents a decision point &mdash; a place where the function can take one of at least two routes.</p>
+    <p>The result is a rough measure of how many distinct paths a test suite would need to exercise every branch at least once. A function with a complexity of 1 has exactly one path. A function with a complexity of 12 has at least 12 meaningfully different routes through it.</p>
+
+    <h2>Why it correlates with bugs</h2>
+    <p>Complexity isn't inherently bad &mdash; some problems are genuinely branchy. But high complexity in practice tends to mean a few things at once: the function is doing more than one job, it's harder for a reader to hold the whole thing in their head, and it's harder to test thoroughly because the number of paths to cover grows fast. Research going back to McCabe's original work has repeatedly found a correlation between high cyclomatic complexity and higher defect rates &mdash; not because the number itself causes bugs, but because it's a proxy for exactly the kind of tangled logic that's easy to get wrong and hard to review.</p>
+
+    <h2>What counts as "too high"</h2>
+    <p>There's no universal cutoff, but common conventions treat single-digit complexity as comfortable, 10&ndash;20 as worth a second look, and anything higher as a strong candidate for refactoring. The number matters less in isolation than relative to the rest of your codebase &mdash; a function that's a clear outlier compared to its neighbors is usually the one worth investigating first, regardless of the exact threshold you use.</p>
+
+    <h2>Bringing it down</h2>
+    <ul>
+      <li><strong>Extract sub-functions.</strong> Pulling a branchy block out into its own well-named function doesn't remove the complexity from the codebase, but it isolates it and makes the caller's path count drop.</li>
+      <li><strong>Replace nested conditionals with early returns.</strong> Guard clauses that exit early often reduce nesting depth even when the branch count stays the same, which makes the remaining logic easier to follow.</li>
+      <li><strong>Replace long if/else or switch chains with a lookup.</strong> A dictionary or map from condition to behavior can replace many branches with one lookup plus a call.</li>
+      <li><strong>Split functions that do two things.</strong> High complexity often means a function is validating, transforming, and reporting all at once &mdash; separating those responsibilities usually collapses the path count in each piece.</li>
+    </ul>
+
+    <h2>How REPO-SIGHT reports it</h2>
+    <p>REPO-SIGHT's parser walks the token stream of each C++, Python, or Java file and increments a per-function counter at every branch point &mdash; loops, conditionals, case labels, catch blocks, ternaries, and short-circuit operators &mdash; the same decision points described above. Per-function totals roll up into a project-wide cyclomatic complexity figure, and complexity density (complexity relative to code volume) feeds into the overall health score at a 35% weight, the single largest factor in the grade. <a href="/#analyze">Run it on a repo</a> to see your own numbers.</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+        <a href="/learn/reading-a-code-health-score.html">Reading a health score</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="mailto:ronak.reposight@gmail.com">ronak.reposight@gmail.com</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
