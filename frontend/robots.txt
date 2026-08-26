@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://repo-sight-indol.vercel.app/sitemap.xml
+ Sitemap: https://reposight.vercel.app/sitemap.xml
