@@ -1,4 +1,3 @@
 User-agent: *
 Allow: /
-
- Sitemap: https://www.repo-sight.com/sitemap.xml
+Sitemap: https://www.repo-sight.com/sitemap.xml
