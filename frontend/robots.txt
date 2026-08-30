@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
- Sitemap: https://reposight.vercel.app/sitemap.xml
+ Sitemap: https://www.repo-sight.com/sitemap.xml
