@@ -161,7 +161,7 @@ void ReportGenerator::writeJson(
     const ViolationReport* violations,
     std::ostream& out) {
     out << "{\n";
-
+    out << "  \"schemaVersion\": 2,\n";
     out << "  \"project\": {\n";
     out << "    \"filesAnalyzed\": "        << m.filesAnalyzed        << ",\n";
     out << "    \"totalLines\": "           << m.totalLines           << ",\n";
