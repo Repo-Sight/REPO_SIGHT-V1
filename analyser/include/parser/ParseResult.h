@@ -25,6 +25,12 @@ struct ClassInfo {
 };
  
 struct FileMetrics {
+    // Populated by main.cpp from the detectLanguage() dispatch that already
+    // runs per file (see common/Language.h::languageToString). Empty only
+    // for FileMetrics built directly in tests without going through main's
+    // pipeline.
+    std::string language;
+
     int totalLines   = 0;
     int blankLines   = 0;
     int commentLines = 0;
