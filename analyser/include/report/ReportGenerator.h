@@ -124,6 +124,8 @@ private:
     static void writeViolationsJson(const ViolationReport& violations, std::ostream& out);
     static void writeFileMetricsJson(const FileMetrics& fm, std::ostream& out);
 
+static void writeByLanguageJson(const std::vector<LanguageAggregate>& byLanguage,
+                                   std::ostream& out);
     [[nodiscard]] static std::string jsonEscape(const std::string& s);
 
     // --- HTML internals ---
