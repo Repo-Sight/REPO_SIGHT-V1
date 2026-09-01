@@ -47,5 +47,17 @@ enum class Language {
     return it->second;
 }
  
+// Canonical lowercase string form of a Language, matching the literal
+// strings already hardcoded per-rule in CppRules.cpp/PythonRules.cpp/
+// JavaRules.cpp for Violation::language ("cpp"/"python"/"java").
+[[nodiscard]] inline std::string languageToString(Language lang) noexcept {
+   switch (lang) {
+       case Language::Cpp:    return "cpp";
+       case Language::Python: return "python";
+       case Language::Java:   return "java";
+   }
+    return "unknown";
+}
+  
 } // namespace cma
  
