@@ -85,7 +85,8 @@ int main(int argc, char* argv[]) {
 
         auto tokens  = tokenizeSource(*lang, *source);
         FileMetrics fm = parseTokens(*lang, tokens, lineCount);
-
+        fm.language = languageToString(*lang);
+ 
         auto fileViolations = checkRules(*lang, filepath.string(), tokens, fm);
         violations.insert(violations.end(),
                           std::make_move_iterator(fileViolations.begin()),
