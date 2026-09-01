@@ -71,7 +71,10 @@ public:
 private:
     void run(const std::string& cmd) const {
         const std::string full = "cd \"" + m_path.string() + "\" && " + cmd + " > /dev/null 2>&1";
-     (void)std::system(full.c_str());
+     if (std::system(full.c_str()) != 0) {
+       // Best-effort test helper; a failed git command here surfaces as a
+      // downstream test assertion failure rather than here.
+     }
     }
  
     fs::path m_path;
