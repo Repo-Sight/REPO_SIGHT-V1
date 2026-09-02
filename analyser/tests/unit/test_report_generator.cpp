@@ -224,4 +224,72 @@ TEST(ReportGeneratorJson, TextReportStillPrintsNoneSentinelUnaffectedByJsonWork)
     ReportGenerator::printSummary(pm, out);
     EXPECT_NE(out.str().find("Longest Function : (none)"), std::string::npos);
 }
- 
+
+// -- Phase 1: language field + byLanguage/scoreBreakdown --
+
+TEST(ReportGeneratorJson, FileEntryIncludesLanguageKey) {
+    ProjectMetrics pm;
+    FileMetrics fm;
+    fm.language = "python";
+    fm.totalLines = 10;
+    std::vector<std::pair<std::string, FileMetrics>> files;
+    files.emplace_back("script.py", fm);
+
+    const auto json = ReportGenerator::toJson(pm, files);
+    EXPECT_TRUE(isBalanced(json));
+    EXPECT_NE(json.find("\"language\": \"python\""), std::string::npos);
+}
+
+TEST(ReportGeneratorJson, ByLanguageBlockPresentEvenWithEmptyProject) {
+    const auto json = ReportGenerator::toJson(makeEmptyProject(), {});
+    EXPECT_TRUE(isBalanced(json));
+    EXPECT_NE(json.find("\"byLanguage\": []"), std::string::npos);
+}
+
+TEST(ReportGeneratorJson, ByLanguageBlockSerializesAggregateFields) {
+    ProjectMetrics pm;
+    LanguageAggregate cpp;
+    cpp.language             = "cpp";
+    cpp.fileCount            = 2;
+    cpp.codeLines            = 120;
+    cpp.cyclomaticComplexity = 15;
+    cpp.avgFunctionLength    = 8.5;
+    pm.byLanguage.push_back(cpp);
+
+    LanguageAggregate py;
+    py.language  = "python";
+    py.fileCount = 1;
+    py.codeLines = 40;
+    pm.byLanguage.push_back(py);
+
+    const auto json = ReportGenerator::toJson(pm, {});
+    EXPECT_TRUE(isBalanced(json));
+    EXPECT_NE(json.find("\"language\": \"cpp\""), std::string::npos);
+    EXPECT_NE(json.find("\"fileCount\": 2"), std::string::npos);
+    EXPECT_NE(json.find("\"codeLines\": 120"), std::string::npos);
+    EXPECT_NE(json.find("\"language\": \"python\""), std::string::npos);
+    EXPECT_NE(json.find("\"fileCount\": 1"), std::string::npos);
+}
+
+TEST(ReportGeneratorJson, ScoreBreakdownOnlyPresentWithHotspotsArg) {
+    ProjectMetrics pm;
+    pm.codeLines = 500;
+    pm.cyclomaticComplexity = 60;
+    pm.avgFunctionLength = 12;
+    std::vector<std::pair<std::string, FileMetrics>> files;
+
+    const auto json2 = ReportGenerator::toJson(pm, files);
+    EXPECT_EQ(json2.find("\"scoreBreakdown\""), std::string::npos);
+
+    DependencyGraph graph;
+    const auto json3 = ReportGenerator::toJson(pm, files, graph);
+    EXPECT_EQ(json3.find("\"scoreBreakdown\""), std::string::npos);
+
+    HotspotReport hotspots;
+    hotspots.gitAvailable = true;
+    const auto json4 = ReportGenerator::toJson(pm, files, graph, hotspots);
+    EXPECT_TRUE(isBalanced(json4));
+    EXPECT_NE(json4.find("\"scoreBreakdown\""), std::string::npos);
+    EXPECT_NE(json4.find("\"complexityDensity\""), std::string::npos);
+    EXPECT_NE(json4.find("\"avgFunctionLength\": 100"), std::string::npos);
+}
