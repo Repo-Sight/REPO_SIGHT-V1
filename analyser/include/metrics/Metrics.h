@@ -33,6 +33,18 @@ struct LanguageAggregate {
     int         longestFunctionLines = 0;
     std::string longestFunctionName;
 };
+// Aggregated view of files discovered on disk whose extension isn't
+// recognized by any language front-end (see FileScanner::scan()'s
+// unsupported out-param). No tokenize/parse runs on these -- only a
+// cheap newline count -- so this tracks presence and volume, not code
+// quality, for languages REPO-SIGHT doesn't analyze yet.
+struct UnanalyzedLanguageSummary {
+    std::string extension;    // e.g. ".go" -- includes the dot, matches FileScanner's convention
+    std::string languageName; // e.g. "Go" -- see common/UnanalyzedLanguageNames.h
+    int         fileCount = 0;
+    int         lineCount = 0; // sum of cheap newline counts across files of this extension
+};
+
 struct ProjectMetrics {
     int filesAnalyzed = 0;
  
@@ -62,6 +74,12 @@ struct ProjectMetrics {
     // Sorted by codeLines descending (largest language in the project first),
      // language name as tiebreak for determinism.
     std::vector<LanguageAggregate> byLanguage;
+
+    // Files discovered on disk but not analyzed (no recognized language
+    // front-end), grouped by extension. Populated via
+    // MetricsEngine::addUnanalyzedFile(); empty if every discovered file
+    // was analyzed. Sorted by lineCount descending, extension as tiebreak.
+    std::vector<U
 };
  
 } // namespace cma
