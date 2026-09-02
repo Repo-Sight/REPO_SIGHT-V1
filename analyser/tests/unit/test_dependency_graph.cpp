@@ -388,3 +388,86 @@ TEST(DependencyGraphEndToEnd, MixedCppFilesProduceCorrectGraph) {
     EXPECT_EQ(fooFc->fanIn, 1);
 }
  
+// -- Phase 1: MetricsEngine::compute() byLanguage grouping --
+// FileMetrics::language is populated by main.cpp, not by the parsers'
+// analyze() calls used here, so each fixture sets it explicitly --
+// mirroring what main.cpp's languageToString(*lang) assignment does.
+
+TEST(MetricsEngineByLanguage, GroupsFilesByLanguageWithCorrectAggregates) {
+    MetricsEngine engine;
+
+    FileMetrics cpp1 = analyzeCpp("int f() { return 1; }\n");
+    cpp1.language = "cpp";
+    engine.addFile("a.cpp", cpp1);
+
+    FileMetrics cpp2 = analyzeCpp("int g() { if (1) { return 1; } return 0; }\n");
+    cpp2.language = "cpp";
+    engine.addFile("b.cpp", cpp2);
+
+    FileMetrics py1 = analyzePython("def h():\n    return 1\n");
+    py1.language = "python";
+    engine.addFile("c.py", py1);
+
+    const auto pm = engine.compute();
+    ASSERT_EQ(pm.byLanguage.size(), 2u);
+
+    const LanguageAggregate* cppAgg = nullptr;
+    const LanguageAggregate* pyAgg  = nullptr;
+    for (const auto& la : pm.byLanguage) {
+        if (la.language == "cpp")    cppAgg = &la;
+        if (la.language == "python") pyAgg  = &la;
+    }
+    ASSERT_NE(cppAgg, nullptr);
+    ASSERT_NE(pyAgg,  nullptr);
+
+    EXPECT_EQ(cppAgg->fileCount, 2);
+    EXPECT_EQ(pyAgg->fileCount, 1);
+
+    // Every LanguageAggregate is a strict subset of the project total;
+    // the two groups here partition the project exactly.
+    EXPECT_EQ(cppAgg->totalLines + pyAgg->totalLines, pm.totalLines);
+    EXPECT_EQ(cppAgg->functionCount + pyAgg->functionCount, pm.functionCount);
+    EXPECT_EQ(cppAgg->cyclomaticComplexity + pyAgg->cyclomaticComplexity,
+              pm.cyclomaticComplexity);
+}
+
+TEST(MetricsEngineByLanguage, SortedByCodeLinesDescending) {
+    MetricsEngine engine;
+
+    FileMetrics small = analyzePython("def f():\n    pass\n");
+    small.language = "python";
+    engine.addFile("small.py", small);
+
+    FileMetrics big = analyzeCpp(
+        "int a() { return 1; }\n"
+        "int b() { return 2; }\n"
+        "int c() { return 3; }\n"
+        "int d() { return 4; }\n");
+    big.language = "cpp";
+    engine.addFile("big.cpp", big);
+
+    const auto pm = engine.compute();
+    ASSERT_EQ(pm.byLanguage.size(), 2u);
+    EXPECT_EQ(pm.byLanguage[0].language, "cpp");
+    EXPECT_GT(pm.byLanguage[0].codeLines, pm.byLanguage[1].codeLines);
+}
+
+TEST(MetricsEngineByLanguage, EmptyProjectProducesEmptyByLanguage) {
+    MetricsEngine engine;
+    const auto pm = engine.compute();
+    EXPECT_TRUE(pm.byLanguage.empty());
+}
+
+TEST(MetricsEngineByLanguage, UnsetLanguageGroupsUnderUnknownFallbackKey) {
+    // FileMetrics built outside main.cpp's pipeline (e.g. constructed
+    // directly, as in most other unit tests) leaves language empty --
+    // compute() must not silently drop these files from byLanguage.
+    MetricsEngine engine;
+    FileMetrics fm = analyzeCpp("int f() { return 1; }\n");
+    engine.addFile("mystery.cpp", fm);
+
+    const auto pm = engine.compute();
+    ASSERT_EQ(pm.byLanguage.size(), 1u);
+    EXPECT_EQ(pm.byLanguage[0].language, "unknown");
+    EXPECT_EQ(pm.byLanguage[0].fileCount, 1);
+}
