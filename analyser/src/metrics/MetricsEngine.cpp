@@ -1,5 +1,6 @@
 #include "metrics/MetricsEngine.h"
- 
+
+#include "common/UnanalyzedLanguageNames.h"
 #include <algorithm>
 #include <filesystem>
 #include <set>
@@ -113,6 +114,9 @@ void MetricsEngine::addFile(const std::string& filename, FileMetrics metrics) {
     m_files.emplace_back(filename, std::move(metrics));
 }
  
+void MetricsEngine::addUnanalyzedFile(std::string extension, int lineCount) {
+    m_unanalyzedFiles.emplace_back(std::move(extension), lineCount);
+}
 const std::vector<std::pair<std::string, FileMetrics>>&
 MetricsEngine::files() const noexcept {
     return m_files;
@@ -186,6 +190,31 @@ ProjectMetrics MetricsEngine::compute() const {
               [](const LanguageAggregate& a, const LanguageAggregate& b) {
                   if (a.codeLines != b.codeLines) return a.codeLines > b.codeLines;
                   return a.language < b.language;
+              });
+    std::unordered_map<std::string, UnanalyzedLanguageSummary> unanalyzedByExt;
+    std::vector<std::string> unanalyzedOrder; // first-seen order; re-sorted below
+    for (const auto& [extension, lineCount] : m_unanalyzedFiles) {
+        auto it = unanalyzedByExt.find(extension);
+        if (it == unanalyzedByExt.end()) {
+            unanalyzedOrder.push_back(extension);
+            UnanalyzedLanguageSummary summary;
+            summary.extension    = extension;
+            summary.languageName = unanalyzedLanguageName(extension);
+            it = unanalyzedByExt.emplace(extension, std::move(summary)).first;
+        }
+        ++it->second.fileCount;
+        it->second.lineCount += lineCount;
+    }
+
+    pm.unanalyzedLanguages.reserve(unanalyzedOrder.size());
+    for (const auto& extension : unanalyzedOrder) {
+        pm.unanalyzedLanguages.push_back(std::move(unanalyzedByExt.at(extension)));
+    }
+
+    std::sort(pm.unanalyzedLanguages.begin(), pm.unanalyzedLanguages.end(),
+              [](const UnanalyzedLanguageSummary& a, const UnanalyzedLanguageSummary& b) {
+                  if (a.lineCount != b.lineCount) return a.lineCount > b.lineCount;
+                  return a.extension < b.extension;
               });
 
  
