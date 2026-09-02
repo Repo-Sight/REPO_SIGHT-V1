@@ -7,6 +7,19 @@
  
 namespace cma {
  
+// A file discovered during scan() whose extension isn't recognized by
+// any language front-end (the complement of scan()'s own result set).
+// No content is read to produce this -- path and extension only, plus
+// whatever cheap line count the caller chooses to add on top (see
+// main.cpp / MetricsEngine::addUnanalyzedFile()). Extensionless files
+// (Makefile, Dockerfile, LICENSE, ...) are not source-language files in
+// this project's sense and are excluded here, same as they always were
+// from scan()'s result.
+struct UnsupportedFile {
+    std::filesystem::path path;
+    std::string           extension; // includes the leading '.', e.g. ".go"
+};
+
 // Discovers analyzable source files within a directory tree and reads
 // file content.
 //
@@ -16,6 +29,8 @@ namespace cma {
 // recognizes its extension. Language identity is a separate concern
 // (see common/Language.h's detectLanguage()), kept out of this class so
 // FileScanner's contract doesn't grow with every new language front-end.
+// It also doesn't know human-readable display names for languages it
+// can't analyze (see common/UnanalyzedLanguageNames.h) -- same reasoning.
 //
 // Usage:
 //   FileScanner scanner("/path/to/project");
@@ -34,7 +49,16 @@ public:
     // - Sorts results for deterministic output across platforms.
     // - Silently skips permission-denied entries.
     // - Returns an empty vector (never throws) if rootPath is invalid.
-    [[nodiscard]] std::vector<std::filesystem::path> scan() const;
+    // - Never descends into vendor/build/VCS directories (see
+    //   kExcludedDirectories in FileScanner.cpp) -- pruned during the
+    //   walk, not filtered afterward, so a large node_modules/vendor
+    //   tree doesn't cost traversal time either.
+    // - If unsupported is non-null, it is also populated (same single
+    //   walk) with every file whose extension isn't recognized by any
+    //   front-end -- pass nullptr to skip that bookkeeping entirely.
+    [[nodiscard]] std::vector<std::filesystem::path> scan(
+        std::vector<UnsupportedFile>* unsupported = nullptr) const;
+
  
     // Reads the entire content of filePath into a std::string.
     // Returns std::nullopt if the file cannot be opened or an I/O error occurs.
