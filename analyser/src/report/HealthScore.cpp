@@ -67,6 +67,11 @@ HealthScore computeHealthScore(const ProjectMetrics& m) noexcept {
     HealthScore result;
     result.score = overall;
     result.grade = gradeFor(overall);
+     result.breakdown.complexityDensity = s1;
+    result.breakdown.avgFunctionLength = s2;
+    result.breakdown.commentCoverage   = s3;
+    result.breakdown.todoDensity       = s4;
+    result.breakdown.nestingDepth      = s5;
     return result;
 }
  
