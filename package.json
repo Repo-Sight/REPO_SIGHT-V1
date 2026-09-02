@@ -10,7 +10,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "@vercel/analytics": "^1.4.1",
+    "@vercel/speed-insights": "^2.0.0",
     "tar": "^7.5.22"
-  },
-  "devDependencies": {}
+  }
 }
