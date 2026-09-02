@@ -282,7 +282,96 @@ TEST(HealthScore, GradeBandsMatchDocumentedThresholds) {
     EXPECT_NEAR(hs.score, 100.0, 0.5);
     EXPECT_EQ(hs.grade, 'A');
 }
- 
+
+// -- Phase 1: ScoreBreakdown (previously-discarded s1-s5) --
+
+TEST(HealthScoreBreakdown, GoodFixtureAllFiveComponentsClampToMax) {
+    // Same fixture as LowComplexityDensityShortFunctionsGoodComments above:
+    // every ratio here clears its "good" reference, so each component
+    // clamps to exactly 100, not just "high".
+    ProjectMetrics good;
+    good.codeLines = 1000;
+    good.cyclomaticComplexity = 100;
+    good.avgFunctionLength = 10;
+    good.commentLines = 300;
+    good.todoCount = 0;
+    good.maxNestingDepth = 2;
+    const auto hs = computeHealthScore(good);
+    EXPECT_DOUBLE_EQ(hs.breakdown.complexityDensity, 100.0);
+    EXPECT_DOUBLE_EQ(hs.breakdown.avgFunctionLength, 100.0);
+    EXPECT_DOUBLE_EQ(hs.breakdown.commentCoverage,   100.0);
+    EXPECT_DOUBLE_EQ(hs.breakdown.todoDensity,       100.0);
+    EXPECT_DOUBLE_EQ(hs.breakdown.nestingDepth,      100.0);
+}
+
+TEST(HealthScoreBreakdown, BadFixtureAllFiveComponentsClampToMin) {
+    // Same fixture as HighComplexityDensityLongFunctionsNoComments above:
+    // every ratio here is past its "bad" reference, so each component
+    // clamps to exactly 0, not just "low".
+    ProjectMetrics bad;
+    bad.codeLines = 1000;
+    bad.cyclomaticComplexity = 700;
+    bad.avgFunctionLength = 90;
+    bad.commentLines = 0;
+    bad.todoCount = 80;
+    bad.maxNestingDepth = 10;
+    const auto hs = computeHealthScore(bad);
+    EXPECT_DOUBLE_EQ(hs.breakdown.complexityDensity, 0.0);
+    EXPECT_DOUBLE_EQ(hs.breakdown.avgFunctionLength, 0.0);
+    EXPECT_DOUBLE_EQ(hs.breakdown.commentCoverage,   0.0);
+    EXPECT_DOUBLE_EQ(hs.breakdown.todoDensity,       0.0);
+    EXPECT_DOUBLE_EQ(hs.breakdown.nestingDepth,      0.0);
+}
+
+TEST(HealthScoreBreakdown, ComponentsStayWithinZeroToHundredForMidRangeInput) {
+    ProjectMetrics m;
+    m.codeLines = 1000;
+    m.cyclomaticComplexity = 300;
+    m.avgFunctionLength = 40;
+    m.commentLines = 50;
+    m.todoCount = 30;
+    m.maxNestingDepth = 6;
+    const auto hs = computeHealthScore(m);
+    for (double component : {hs.breakdown.complexityDensity, hs.breakdown.avgFunctionLength,
+                              hs.breakdown.commentCoverage, hs.breakdown.todoDensity,
+                              hs.breakdown.nestingDepth}) {
+        EXPECT_GE(component, 0.0);
+        EXPECT_LE(component, 100.0);
+    }
+}
+
+TEST(HealthScoreBreakdown, WeightedRecombinationOfBreakdownMatchesOverallScore) {
+    // The five weights (0.35/0.25/0.20/0.10/0.10) are documented in the
+    // plan and in HealthScore.cpp; this pins that computeHealthScore()'s
+    // internal weighting and the now-surfaced breakdown never drift apart.
+    ProjectMetrics m;
+    m.codeLines = 1000;
+    m.cyclomaticComplexity = 300;
+    m.avgFunctionLength = 40;
+    m.commentLines = 50;
+    m.todoCount = 30;
+    m.maxNestingDepth = 6;
+    const auto hs = computeHealthScore(m);
+    const double recombined =
+        0.35 * hs.breakdown.complexityDensity +
+        0.25 * hs.breakdown.avgFunctionLength +
+        0.20 * hs.breakdown.commentCoverage +
+        0.10 * hs.breakdown.todoDensity +
+        0.10 * hs.breakdown.nestingDepth;
+    EXPECT_NEAR(hs.score, recombined, 1e-9);
+}
+
+TEST(HealthScoreBreakdown, EmptyProjectBreakdownNeverDividesByZero) {
+    ProjectMetrics m;
+    const auto hs = computeHealthScore(m);
+    for (double component : {hs.breakdown.complexityDensity, hs.breakdown.avgFunctionLength,
+                              hs.breakdown.commentCoverage, hs.breakdown.todoDensity,
+                              hs.breakdown.nestingDepth}) {
+        EXPECT_GE(component, 0.0);
+        EXPECT_LE(component, 100.0);
+    }
+}
+  
 TEST(ReportGeneratorBadge, SvgContainsScoreAndIsWellFormedTagBalance) {
     ProjectMetrics m;
     m.codeLines = 500;
