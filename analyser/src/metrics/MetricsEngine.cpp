@@ -133,7 +133,7 @@ ProjectMetrics MetricsEngine::compute() const {
             it = byLang.emplace(langKey, MetricAccumulator{}).first;
          }
         accumulate(it->second, fm);
-        }
+        
     }
  
     ProjectMetrics pm;
