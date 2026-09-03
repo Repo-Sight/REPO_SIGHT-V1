@@ -135,6 +135,27 @@ TEST(FileScanner, PrunesGitVendorAndBuildDirectories) {
     EXPECT_EQ(files.size(), 1u);
     EXPECT_TRUE(unsupported.empty());
 }
+TEST(FileScanner, PrunesDotNetAndOtherToolchainBuildDirectories) {
+    TempDir dir;
+    dir.write("src/main.cpp");
+    dir.write("bin/Debug/App.dll.meta");     // .NET build output
+    dir.write("obj/Debug/App.cs.orig");      // .NET intermediate output
+    dir.write("Pods/SomePod/pod.m");          // CocoaPods
+    dir.write(".pytest_cache/README.md");
+    dir.write(".mypy_cache/3.11/main.data.json");
+    dir.write(".tox/py311/lib/six.py");
+    dir.write(".gradle/caches/build.bin");
+    dir.write("coverage/lcov.info");
+    dir.write(".cache/babel-loader/x.js");
+    dir.write("out/index.js");
+
+    const FileScanner scanner(dir.path());
+    std::vector<UnsupportedFile> unsupported;
+    const auto files = scanner.scan(&unsupported);
+
+    EXPECT_EQ(files.size(), 1u);
+    EXPECT_TRUE(unsupported.empty());
+}
 
 TEST(FileScanner, UnsupportedFilesOutsidePrunedDirsAreStillCollected) {
     TempDir dir;
