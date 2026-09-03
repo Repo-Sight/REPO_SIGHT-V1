@@ -1,6 +1,7 @@
 #include "metrics/MetricsEngine.h"
 
 #include "common/UnanalyzedLanguageNames.h"
+ 
 #include <algorithm>
 #include <filesystem>
 #include <set>
@@ -113,10 +114,11 @@ std::vector<std::string> candidateSuffixes(const std::string& target) {
 void MetricsEngine::addFile(const std::string& filename, FileMetrics metrics) {
     m_files.emplace_back(filename, std::move(metrics));
 }
- 
+
 void MetricsEngine::addUnanalyzedFile(std::string extension, int lineCount) {
     m_unanalyzedFiles.emplace_back(std::move(extension), lineCount);
 }
+ 
 const std::vector<std::pair<std::string, FileMetrics>>&
 MetricsEngine::files() const noexcept {
     return m_files;
@@ -191,6 +193,7 @@ ProjectMetrics MetricsEngine::compute() const {
                   if (a.codeLines != b.codeLines) return a.codeLines > b.codeLines;
                   return a.language < b.language;
               });
+
     std::unordered_map<std::string, UnanalyzedLanguageSummary> unanalyzedByExt;
     std::vector<std::string> unanalyzedOrder; // first-seen order; re-sorted below
     for (const auto& [extension, lineCount] : m_unanalyzedFiles) {
@@ -217,7 +220,6 @@ ProjectMetrics MetricsEngine::compute() const {
                   return a.extension < b.extension;
               });
 
- 
     return pm;
 }
  
