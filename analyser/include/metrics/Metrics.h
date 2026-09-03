@@ -79,7 +79,7 @@ struct ProjectMetrics {
     // front-end), grouped by extension. Populated via
     // MetricsEngine::addUnanalyzedFile(); empty if every discovered file
     // was analyzed. Sorted by lineCount descending, extension as tiebreak.
-    std::vector<U
+    std::vector<UnanalyzedLanguageSummary> unanalyzedLanguages;
 };
  
 } // namespace cma
