@@ -98,13 +98,14 @@ int main(int argc, char* argv[]) {
 
     if (skipped > 0)
         std::cout << "Warning: skipped " << skipped << " unreadable file(s).\n";
+
     // Unanalyzed files: no front-end exists for these, so only a cheap
     // line count is taken -- no tokenize/parse. A read failure here is
     // silently skipped from the report (not counted in `skipped` above,
     // which tracks recognized-but-unreadable files, a different case).
     int unanalyzedReadFailures = 0;
     for (const auto& unsupported : unsupportedFiles) {
-    const auto source = FileScanner::readFile(unsupported.path);
+        const auto source = FileScanner::readFile(unsupported.path);
         if (!source) {
             ++unanalyzedReadFailures;
             continue;
