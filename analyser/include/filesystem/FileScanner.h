@@ -4,9 +4,8 @@
 #include <optional>
 #include <string>
 #include <vector>
- 
-namespace cma {
 
+namespace cma {
 
 // A file discovered during scan() whose extension isn't recognized by
 // any language front-end (the complement of scan()'s own result set).
@@ -39,13 +38,12 @@ struct UnsupportedFile {
 //       auto content = FileScanner::readFile(path);
 //       if (content) { /* pass to the language front-end for path */ }
 //   }
-
 class FileScanner {
 public:
     // rootPath may be a directory (scanned recursively) or a single file.
     // Takes by value and moves: no copy of the path string on construction.
     explicit FileScanner(std::filesystem::path rootPath);
- 
+
     // Walks the directory tree and returns all recognized source file
     // paths (C++, Python, and Java, as of Phase 3).
     // - Sorts results for deterministic output across platforms.
@@ -58,25 +56,21 @@ public:
     // - If unsupported is non-null, it is also populated (same single
     //   walk) with every file whose extension isn't recognized by any
     //   front-end -- pass nullptr to skip that bookkeeping entirely.
-
     [[nodiscard]] std::vector<std::filesystem::path> scan(
         std::vector<UnsupportedFile>* unsupported = nullptr) const;
 
- 
     // Reads the entire content of filePath into a std::string.
     // Returns std::nullopt if the file cannot be opened or an I/O error occurs.
     // static: requires no instance state — pure path → content transformation.
     [[nodiscard]] static std::optional<std::string> readFile(
         const std::filesystem::path& filePath);
- 
+
 private:
     std::filesystem::path m_rootPath;
- 
+
     // Returns true if path has an extension recognized by any language
     // front-end (see the kSupportedExtensions set in FileScanner.cpp).
-
     [[nodiscard]] static bool isSupportedFile(const std::filesystem::path& path);
 };
- 
+
 } // namespace cma
- 
