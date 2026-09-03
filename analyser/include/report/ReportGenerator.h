@@ -126,12 +126,12 @@ private:
 
 static void writeByLanguageJson(const std::vector<LanguageAggregate>& byLanguage,
                                    std::ostream& out);
-   
+
     static void writeUnanalyzedLanguagesJson(
         const std::vector<UnanalyzedLanguageSummary>& unanalyzedLanguages,
         std::ostream& out);
 
-[[nodiscard]] static std::string jsonEscape(const std::string& s);
+    [[nodiscard]] static std::string jsonEscape(const std::string& s);
 
     // --- HTML internals ---
     static void writeHtml(
