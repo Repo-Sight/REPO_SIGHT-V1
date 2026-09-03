@@ -270,6 +270,39 @@ TEST(ReportGeneratorJson, ByLanguageBlockSerializesAggregateFields) {
     EXPECT_NE(json.find("\"language\": \"python\""), std::string::npos);
     EXPECT_NE(json.find("\"fileCount\": 1"), std::string::npos);
 }
+// -- Phase 2: unanalyzedLanguages --
+
+TEST(ReportGeneratorJson, UnanalyzedLanguagesBlockPresentEvenWithEmptyProject) {
+    const auto json = ReportGenerator::toJson(makeEmptyProject(), {});
+    EXPECT_TRUE(isBalanced(json));
+    EXPECT_NE(json.find("\"unanalyzedLanguages\": []"), std::string::npos);
+}
+
+TEST(ReportGeneratorJson, UnanalyzedLanguagesBlockSerializesFields) {
+    ProjectMetrics pm;
+    UnanalyzedLanguageSummary go;
+    go.extension    = ".go";
+    go.languageName = "Go";
+    go.fileCount    = 3;
+    go.lineCount    = 210;
+    pm.unanalyzedLanguages.push_back(go);
+
+    UnanalyzedLanguageSummary rs;
+    rs.extension    = ".rs";
+    rs.languageName = "Rust";
+    rs.fileCount    = 1;
+    rs.lineCount    = 40;
+    pm.unanalyzedLanguages.push_back(rs);
+
+    const auto json = ReportGenerator::toJson(pm, {});
+    EXPECT_TRUE(isBalanced(json));
+    EXPECT_NE(json.find("\"extension\": \".go\""), std::string::npos);
+    EXPECT_NE(json.find("\"languageName\": \"Go\""), std::string::npos);
+    EXPECT_NE(json.find("\"fileCount\": 3"), std::string::npos);
+    EXPECT_NE(json.find("\"lineCount\": 210"), std::string::npos);
+    EXPECT_NE(json.find("\"extension\": \".rs\""), std::string::npos);
+    EXPECT_NE(json.find("\"languageName\": \"Rust\""), std::string::npos);
+}
 
 TEST(ReportGeneratorJson, ScoreBreakdownOnlyPresentWithHotspotsArg) {
     ProjectMetrics pm;
