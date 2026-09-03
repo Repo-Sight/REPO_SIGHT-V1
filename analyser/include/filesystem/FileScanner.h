@@ -1,12 +1,13 @@
 #pragma once
- 
+
 #include <filesystem>
 #include <optional>
 #include <string>
 #include <vector>
  
 namespace cma {
- 
+
+
 // A file discovered during scan() whose extension isn't recognized by
 // any language front-end (the complement of scan()'s own result set).
 // No content is read to produce this -- path and extension only, plus
@@ -38,6 +39,7 @@ struct UnsupportedFile {
 //       auto content = FileScanner::readFile(path);
 //       if (content) { /* pass to the language front-end for path */ }
 //   }
+
 class FileScanner {
 public:
     // rootPath may be a directory (scanned recursively) or a single file.
@@ -56,6 +58,7 @@ public:
     // - If unsupported is non-null, it is also populated (same single
     //   walk) with every file whose extension isn't recognized by any
     //   front-end -- pass nullptr to skip that bookkeeping entirely.
+
     [[nodiscard]] std::vector<std::filesystem::path> scan(
         std::vector<UnsupportedFile>* unsupported = nullptr) const;
 
@@ -71,6 +74,7 @@ private:
  
     // Returns true if path has an extension recognized by any language
     // front-end (see the kSupportedExtensions set in FileScanner.cpp).
+
     [[nodiscard]] static bool isSupportedFile(const std::filesystem::path& path);
 };
  
