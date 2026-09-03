@@ -73,3 +73,4 @@ TEST(MetricsEngineUnanalyzed, DoesNotAffectByLanguageOrFilesData) {
     EXPECT_TRUE(pm.byLanguage.empty());
     EXPECT_TRUE(engine.files().empty());
 }
+ 
