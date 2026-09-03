@@ -17,6 +17,8 @@ add_executable(cma_tests
     unit/test_hotspot_and_health_score.cpp
     unit/test_rule_violations.cpp
     unit/test_html_report.cpp
+    unit/test_file_scanner.cpp
+    unit/test_metrics_engine.cpp
 )
 
 target_link_libraries(cma_tests PRIVATE
