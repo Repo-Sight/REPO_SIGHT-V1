@@ -270,6 +270,7 @@ TEST(ReportGeneratorJson, ByLanguageBlockSerializesAggregateFields) {
     EXPECT_NE(json.find("\"language\": \"python\""), std::string::npos);
     EXPECT_NE(json.find("\"fileCount\": 1"), std::string::npos);
 }
+
 // -- Phase 2: unanalyzedLanguages --
 
 TEST(ReportGeneratorJson, UnanalyzedLanguagesBlockPresentEvenWithEmptyProject) {
