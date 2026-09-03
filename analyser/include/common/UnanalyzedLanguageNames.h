@@ -40,4 +40,4 @@ namespace cma {
     return (it != kNames.end()) ? it->second : extension;
 }
 
-+} // namespace cma
+} // namespace cma
