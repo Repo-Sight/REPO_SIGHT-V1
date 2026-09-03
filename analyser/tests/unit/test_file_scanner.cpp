@@ -30,6 +30,7 @@ public:
         std::error_code ec;
         fs::remove_all(m_path, ec);
     }
+
     TempDir(const TempDir&) = delete;
     TempDir& operator=(const TempDir&) = delete;
 
@@ -135,6 +136,7 @@ TEST(FileScanner, PrunesGitVendorAndBuildDirectories) {
     EXPECT_EQ(files.size(), 1u);
     EXPECT_TRUE(unsupported.empty());
 }
+
 TEST(FileScanner, PrunesDotNetAndOtherToolchainBuildDirectories) {
     TempDir dir;
     dir.write("src/main.cpp");
