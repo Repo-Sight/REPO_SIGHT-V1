@@ -23,9 +23,27 @@ const std::unordered_set<std::string> kSupportedExtensions = {
 // relevant given the analyzer's serverless time budget.
 // Matched by exact directory name at any depth, not by path.
 const std::unordered_set<std::string> kExcludedDirectories = {
-    ".git", "node_modules", "vendor", "venv", ".venv",
-    "__pycache__", "build", "dist", "target", ".next",
-    ".idea", ".vscode"
+   // VCS / editor
+    ".git", ".idea", ".vscode",
+    // JS/TS
+    "node_modules", ".next",
+    // Python
+    "venv", ".venv", "__pycache__", ".pytest_cache", ".mypy_cache",
+    ".tox", ".eggs",
+    // Rust / general vendored deps
+    "vendor", "target",
+    // Java / Kotlin (Gradle)
+    ".gradle",
+    // C# / .NET -- bin/obj are near-universal per-project build output;
+    // relevant now since C# is next in line for real analysis (Phase 2a).
+    // Tradeoff: this would also exclude a hand-rolled top-level bin/ of
+    // CLI scripts in a non-.NET repo -- accepted, since such scripts are
+    // rarely what someone wants complexity/health-scored anyway.
+    "bin", "obj",
+    // iOS / Swift
+    "Pods", ".build",
+    // Generic build output / coverage / caches
+    "build", "dist", "out", "coverage", ".cache"
 };
 
 } // anonymous namespace
