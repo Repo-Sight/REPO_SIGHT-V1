@@ -219,7 +219,8 @@ void ReportGenerator::writeJson(
     out << "]";
     out << ",\n";
     writeByLanguageJson(m.byLanguage, out);
-
+    out << ",\n";
+    writeUnanalyzedLanguagesJson(m.unanalyzedLanguages, out);
     if (hotspots != nullptr) {
         out << ",\n";
         writeHotspotsJson(*hotspots, out);
@@ -308,6 +309,22 @@ void ReportGenerator::writeByLanguageJson(
         out << "    }";
     }
     out << (byLanguage.empty() ? "" : "\n  ");
+    out << "]";
+}
+void ReportGenerator::writeUnanalyzedLanguagesJson(
+    const std::vector<UnanalyzedLanguageSummary>& unanalyzedLanguages, std::ostream& out) {
+    out << "  \"unanalyzedLanguages\": [";
+    for (std::size_t i = 0; i < unanalyzedLanguages.size(); ++i) {
+        const auto& u = unanalyzedLanguages[i];
+        out << (i == 0 ? "\n" : ",\n");
+        out << "    {\n";
+        out << "      \"extension\": \""    << jsonEscape(u.extension)    << "\",\n";
+        out << "      \"languageName\": \"" << jsonEscape(u.languageName) << "\",\n";
+        out << "      \"fileCount\": "      << u.fileCount                << ",\n";
+        out << "      \"lineCount\": "      << u.lineCount                << "\n";
+        out << "    }";
+    }
+    out << (unanalyzedLanguages.empty() ? "" : "\n  ");
     out << "]";
 }
 
