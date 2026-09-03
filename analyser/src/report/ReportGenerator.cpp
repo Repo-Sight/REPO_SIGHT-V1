@@ -221,6 +221,7 @@ void ReportGenerator::writeJson(
     writeByLanguageJson(m.byLanguage, out);
     out << ",\n";
     writeUnanalyzedLanguagesJson(m.unanalyzedLanguages, out);
+
     if (hotspots != nullptr) {
         out << ",\n";
         writeHotspotsJson(*hotspots, out);
@@ -311,6 +312,7 @@ void ReportGenerator::writeByLanguageJson(
     out << (byLanguage.empty() ? "" : "\n  ");
     out << "]";
 }
+
 void ReportGenerator::writeUnanalyzedLanguagesJson(
     const std::vector<UnanalyzedLanguageSummary>& unanalyzedLanguages, std::ostream& out) {
     out << "  \"unanalyzedLanguages\": [";
