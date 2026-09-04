@@ -9,7 +9,8 @@
 #include "parser/JavaParser.h"
 #include "parser/ParseResult.h"
 #include "parser/PythonParser.h"
- 
+#include "parser/TypeScriptParser.h"
+
 #include <string>
 #include <vector>
  
@@ -38,6 +39,10 @@ namespace cma {
             JavaLexer lexer(source);
             return lexer.tokenize();
         }
+      case Language::TypeScript: {
+            TypeScriptLexer lexer(source);
+            return lexer.tokenize();
+        }
     }
     return {}; // unreachable while every Language enumerator has a case
                // above; kept so a future enumerator added without a
@@ -62,6 +67,10 @@ namespace cma {
         }
         case Language::Java: {
             JavaParser parser(tokens, totalLines);
+            return parser.analyze();
+        }
+             case Language::TypeScript: {
+            TypeScriptParser parser(tokens, totalLines);
             return parser.analyze();
         }
     }
