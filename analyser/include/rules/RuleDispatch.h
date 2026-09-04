@@ -6,8 +6,9 @@
 #include "metrics/ViolationReport.h"
 #include "rules/CppRules.h"
 #include "rules/PythonRules.h"
-#include "rules/JavaRules.h"
- 
+#include "rules/JavaRules.h" 
+#include "rules/TypeScriptRules.h"
+
 #include <string>
 #include <vector>
  
