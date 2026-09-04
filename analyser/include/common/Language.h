@@ -16,10 +16,15 @@ namespace cma {
 // Deliberately a plain enum, not a polymorphic tag: dispatch on it is a
 // switch statement (see LanguageDispatch.h), not a virtual call, which
 // preserves the project's existing no-vtable, value-type style.
+//
+// Phase 2a adds TypeScript (first of three: TS -> JS -> C#, per the
+// decided build order). .tsx is mapped to TypeScript, not a separate
+// enumerator -- JSX-in-TS is still TS syntax for analysis purposes.
 enum class Language {
     Cpp,
     Python,
     Java,
+    TypeScript,
 };
  
 // Maps a file extension to the Language that should analyze it, or
@@ -41,6 +46,7 @@ enum class Language {
         {".hxx", Language::Cpp}, {".h++", Language::Cpp},
         {".py",  Language::Python},
         {".java", Language::Java},
+        {".ts",  Language::TypeScript}, {".tsx", Language::TypeScript},
     };
     const auto it = kExtensionMap.find(path.extension().string());
     if (it == kExtensionMap.end()) return std::nullopt;
@@ -55,6 +61,7 @@ enum class Language {
        case Language::Cpp:    return "cpp";
        case Language::Python: return "python";
        case Language::Java:   return "java";
+     case Language::TypeScript: return "typescript";
    }
     return "unknown";
 }
