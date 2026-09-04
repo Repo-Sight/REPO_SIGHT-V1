@@ -21,7 +21,7 @@ struct Violation {
     std::string path;
     int         line = 0;
     std::string ruleId;    // e.g. "cpp-raw-new-delete"
-    std::string language;  // "cpp" | "python" | "java"
+    std::string language;  // "cpp" | "python" | "java" | "typescript"
     std::string message;   // short, plain-English, one line
     std::string severity;  // "info" | "warning" -- CMA never emits "error";
                             // failing a build on style is P0-3's separate,
