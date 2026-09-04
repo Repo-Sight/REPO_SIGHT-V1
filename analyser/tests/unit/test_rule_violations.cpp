@@ -8,9 +8,11 @@
 #include "lexer/CppLexer.h"
 #include "lexer/JavaLexer.h"
 #include "lexer/PythonLexer.h"
+#include "lexer/TypeScriptLexer.h"
 #include "parser/CppParser.h"
 #include "parser/JavaParser.h"
 #include "parser/PythonParser.h"
+#include "parser/TypeScriptParser.h"
 #include "rules/RuleDispatch.h"
  
 #include <gtest/gtest.h>
@@ -50,7 +52,17 @@ std::vector<Violation> runJava(const std::string& src) {
     auto fm = parser.analyze();
     return checkJavaRules("F.java", tokens, fm);
 }
- 
+
+std::vector<Violation> runTs(const std::string& src) {
+    TypeScriptLexer lexer(src);
+    auto tokens = lexer.tokenize();
+    int lc = 1; for (char c : src) if (c == '\n') ++lc;
+    TypeScriptParser parser(tokens, lc);
+    auto fm = parser.analyze();
+    return checkTypeScriptRules("f.ts", tokens, fm);
+}
+
+
 } // namespace
  
 // ---- C++ ----
@@ -285,7 +297,100 @@ TEST(JavaRules, TodoWithTicketNegative) {
     auto v = runJava("// TODO(PROJ-99): fix this\nclass X {}\n");
     EXPECT_FALSE(hasRule(v, "java-todo-without-ticket"));
 }
- 
+
+// ---- TypeScript ----
+
+TEST(TypeScriptRules, EmptyCatchBlockWithBindingPositive) {
+    auto v = runTs("function f() {\n    try { risky(); } catch (e) { }\n}\n");
+    EXPECT_TRUE(hasRule(v, "ts-empty-catch-block"));
+}
+TEST(TypeScriptRules, EmptyCatchBlockNoBindingPositive) {
+    auto v = runTs("function f() {\n    try { risky(); } catch { }\n}\n");
+    EXPECT_TRUE(hasRule(v, "ts-empty-catch-block"));
+}
+TEST(TypeScriptRules, CatchWithBodyNegative) {
+    auto v = runTs("function f() {\n    try { risky(); } catch (e) { handle(e); }\n}\n");
+    EXPECT_FALSE(hasRule(v, "ts-empty-catch-block"));
+}
+
+TEST(TypeScriptRules, ExplicitAnyTypeAnnotationPositive) {
+    auto v = runTs("let x: any = 5;\n");
+    EXPECT_TRUE(hasRule(v, "ts-explicit-any"));
+}
+TEST(TypeScriptRules, ExplicitAnyAssertionPositive) {
+    auto v = runTs("let x = y as any;\n");
+    EXPECT_TRUE(hasRule(v, "ts-explicit-any"));
+}
+TEST(TypeScriptRules, SpecificTypeAnnotationNegative) {
+    auto v = runTs("let x: number = 5;\n");
+    EXPECT_FALSE(hasRule(v, "ts-explicit-any"));
+}
+
+TEST(TypeScriptRules, VarUsagePositive) {
+    auto v = runTs("var x = 1;\n");
+    EXPECT_TRUE(hasRule(v, "ts-var-usage"));
+}
+TEST(TypeScriptRules, LetUsageNegative) {
+    auto v = runTs("let x = 1;\n");
+    EXPECT_FALSE(hasRule(v, "ts-var-usage"));
+}
+
+TEST(TypeScriptRules, LooseEqualityDoubleEqualsPositive) {
+    auto v = runTs("function f(a, b) {\n    if (a == b) { return true; }\n}\n");
+    EXPECT_TRUE(hasRule(v, "ts-loose-equality"));
+}
+TEST(TypeScriptRules, LooseEqualityNotEqualsPositive) {
+    auto v = runTs("function f(a, b) {\n    if (a != b) { return true; }\n}\n");
+    EXPECT_TRUE(hasRule(v, "ts-loose-equality"));
+}
+TEST(TypeScriptRules, StrictEqualityNegative) {
+    auto v = runTs("function f(a, b) {\n    if (a === b) { return true; }\n}\n");
+    EXPECT_FALSE(hasRule(v, "ts-loose-equality"));
+}
+TEST(TypeScriptRules, StrictNotEqualsNegative) {
+    auto v = runTs("function f(a, b) {\n    if (a !== b) { return true; }\n}\n");
+    EXPECT_FALSE(hasRule(v, "ts-loose-equality"));
+}
+TEST(TypeScriptRules, ArrowFunctionNotMisreadAsLooseEquality) {
+    auto v = runTs("const f = (a, b) => {\n    return a === b;\n};\n");
+    EXPECT_FALSE(hasRule(v, "ts-loose-equality"));
+}
+
+TEST(TypeScriptRules, LongFunctionPositive) {
+    std::string body = "function f() {\n";
+    for (int i = 0; i < 105; ++i) body += "g();\n";
+    body += "}\n";
+    auto v = runTs(body);
+    EXPECT_TRUE(hasRule(v, "ts-long-method"));
+}
+TEST(TypeScriptRules, ShortFunctionNegative) {
+    auto v = runTs("function f() { g(); }\n");
+    EXPECT_FALSE(hasRule(v, "ts-long-method"));
+}
+
+TEST(TypeScriptRules, DeepNestingPositive) {
+    std::string body = "function f() {\n";
+    for (int i = 0; i < 7; ++i) body += "if (true) {\n";
+    body += "g();\n";
+    for (int i = 0; i < 7; ++i) body += "}\n";
+    body += "}\n";
+    auto v = runTs(body);
+    EXPECT_TRUE(hasRule(v, "ts-deep-nesting"));
+}
+TEST(TypeScriptRules, ShallowNestingNegative) {
+    auto v = runTs("function f() { if (true) { g(); } }\n");
+    EXPECT_FALSE(hasRule(v, "ts-deep-nesting"));
+}
+
+TEST(TypeScriptRules, TodoWithoutTicketPositive) {
+    auto v = runTs("// TODO fix this\nfunction f() { }\n");
+    EXPECT_TRUE(hasRule(v, "ts-todo-without-ticket"));
+}
+TEST(TypeScriptRules, TodoWithTicketNegative) {
+    auto v = runTs("// TODO(PROJ-99): fix this\nfunction f() { }\n");
+    EXPECT_FALSE(hasRule(v, "ts-todo-without-ticket"));
+}
+
 // ---- RuleDispatch ----
  
 TEST(RuleDispatch, RoutesToCppCatalog) {
@@ -318,6 +423,17 @@ TEST(RuleDispatch, RoutesToJavaCatalog) {
     ASSERT_FALSE(v.empty());
     EXPECT_EQ(v[0].language, "java");
 }
+TEST(RuleDispatch, RoutesToTypeScriptCatalog) {
+    const std::string src = "var x = 1;\n";
+    TypeScriptLexer lexer(src);
+    auto tokens = lexer.tokenize();
+    TypeScriptParser parser(tokens, 1);
+    auto fm = parser.analyze();
+    auto v = checkRules(Language::TypeScript, "f.ts", tokens, fm);
+    ASSERT_FALSE(v.empty());
+    EXPECT_EQ(v[0].language, "typescript");
+}
+  
  
 // ---- End-to-end sanity ----
  
