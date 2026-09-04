@@ -25,6 +25,7 @@ namespace cma {
         case Language::Cpp:    return checkCppRules(path, tokens, fm);
         case Language::Python: return checkPythonRules(path, tokens, fm);
         case Language::Java:   return checkJavaRules(path, tokens, fm);
+        case Language::TypeScript: return checkTypeScriptRules(path, tokens, fm);
     }
     return {};
 }
