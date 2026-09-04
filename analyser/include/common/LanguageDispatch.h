@@ -5,6 +5,7 @@
 #include "lexer/JavaLexer.h"
 #include "lexer/PythonLexer.h"
 #include "lexer/Token.h"
+#include "lexer/TypeScriptLexer.h"
 #include "parser/CppParser.h"
 #include "parser/JavaParser.h"
 #include "parser/ParseResult.h"
