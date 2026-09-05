@@ -28,12 +28,22 @@ namespace cma {
 // so deriving JS from the real TS implementation is less duplicated work
 // than the reverse. .jsx maps to JavaScript, not a separate enumerator,
 // mirroring the .tsx precedent above.
+//
+// CSharp is third and last, completing Phase 2a. Per Section 2.3 of the
+// V2 plan, C# is structurally closer to Java's build-out than to TS/JS's
+// (nominally-typed, class-based, type-before-name declarations) -- see
+// CSharpLexer.h/CSharpParser.h for exactly which pieces mirror Java vs.
+// which real C#-only accommodations (verbatim/interpolated strings,
+// generic-method-name lookahead, nullable-value-type '?', 'where'
+// constraint clauses) were still needed despite that closer starting
+// point.
 enum class Language {
     Cpp,
     Python,
     Java,
     TypeScript,
     JavaScript,
+    CSharp,
 };
  
 // Maps a file extension to the Language that should analyze it, or
@@ -58,6 +68,7 @@ enum class Language {
         {".ts",  Language::TypeScript}, {".tsx", Language::TypeScript},
         {".js",  Language::JavaScript}, {".mjs", Language::JavaScript},
         {".cjs", Language::JavaScript}, {".jsx", Language::JavaScript},
+        {".cs",  Language::CSharp},
     };
     const auto it = kExtensionMap.find(path.extension().string());
     if (it == kExtensionMap.end()) return std::nullopt;
@@ -74,6 +85,7 @@ enum class Language {
        case Language::Java:   return "java";
      case Language::TypeScript: return "typescript";
      case Language::JavaScript: return "javascript";
+     case Language::CSharp:     return "csharp";
    }
     return "unknown";
 }
