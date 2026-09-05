@@ -8,6 +8,7 @@
 #include "rules/PythonRules.h"
 #include "rules/JavaRules.h" 
 #include "rules/TypeScriptRules.h"
+#include "rules/JavaScriptRules.h"
 
 #include <string>
 #include <vector>
@@ -26,9 +27,9 @@ namespace cma {
         case Language::Python: return checkPythonRules(path, tokens, fm);
         case Language::Java:   return checkJavaRules(path, tokens, fm);
         case Language::TypeScript: return checkTypeScriptRules(path, tokens, fm);
+        case Language::JavaScript: return checkJavaScriptRules(path, tokens, fm);
     }
     return {};
 }
  
 } // namespace cma
- 
