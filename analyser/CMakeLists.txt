@@ -19,6 +19,7 @@ add_library(cma_lexer STATIC
     src/lexer/PythonLexer.cpp
     src/lexer/JavaLexer.cpp
     src/lexer/TypeScriptLexer.cpp
+    src/lexer/JavaScriptLexer.cpp
 
 )
 target_include_directories(cma_lexer PUBLIC ${INCLUDE_DIR})
@@ -38,6 +39,7 @@ add_library(cma_parser STATIC
     src/parser/PythonParser.cpp
     src/parser/JavaParser.cpp
     src/parser/TypeScriptParser.cpp
+    src/parser/JavaScriptParser.cpp
 )
 target_include_directories(cma_parser PUBLIC ${INCLUDE_DIR})
 target_link_libraries(cma_parser PUBLIC cma_lexer)
@@ -53,6 +55,7 @@ add_library(cma_rules STATIC
     src/rules/PythonRules.cpp
     src/rules/JavaRules.cpp
     src/rules/TypeScriptRules.cpp
+    src/rules/JavaScriptRules.cpp
     
 )
 target_include_directories(cma_rules PUBLIC ${INCLUDE_DIR})
