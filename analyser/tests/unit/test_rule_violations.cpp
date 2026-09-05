@@ -7,10 +7,12 @@
  
 #include "lexer/CppLexer.h"
 #include "lexer/JavaLexer.h"
+#include "lexer/JavaScriptLexer.h"
 #include "lexer/PythonLexer.h"
 #include "lexer/TypeScriptLexer.h"
 #include "parser/CppParser.h"
 #include "parser/JavaParser.h"
+#include "parser/JavaScriptParser.h"
 #include "parser/PythonParser.h"
 #include "parser/TypeScriptParser.h"
 #include "rules/RuleDispatch.h"
@@ -60,6 +62,15 @@ std::vector<Violation> runTs(const std::string& src) {
     TypeScriptParser parser(tokens, lc);
     auto fm = parser.analyze();
     return checkTypeScriptRules("f.ts", tokens, fm);
+}
+
+std::vector<Violation> runJs(const std::string& src) {
+    JavaScriptLexer lexer(src);
+    auto tokens = lexer.tokenize();
+    int lc = 1; for (char c : src) if (c == '\n') ++lc;
+    JavaScriptParser parser(tokens, lc);
+    auto fm = parser.analyze();
+    return checkJavaScriptRules("f.js", tokens, fm);
 }
 
 
@@ -391,6 +402,88 @@ TEST(TypeScriptRules, TodoWithTicketNegative) {
     EXPECT_FALSE(hasRule(v, "ts-todo-without-ticket"));
 }
 
+// ---- JavaScript ----
+// 6 rules, not 7: no js-explicit-any counterpart (see JavaScriptRules.h --
+// plain JS has no type annotations for such a rule to inspect).
+
+TEST(JavaScriptRules, EmptyCatchBlockWithBindingPositive) {
+    auto v = runJs("function f() {\n    try { risky(); } catch (e) { }\n}\n");
+    EXPECT_TRUE(hasRule(v, "js-empty-catch-block"));
+}
+TEST(JavaScriptRules, EmptyCatchBlockNoBindingPositive) {
+    auto v = runJs("function f() {\n    try { risky(); } catch { }\n}\n");
+    EXPECT_TRUE(hasRule(v, "js-empty-catch-block"));
+}
+TEST(JavaScriptRules, CatchWithBodyNegative) {
+    auto v = runJs("function f() {\n    try { risky(); } catch (e) { handle(e); }\n}\n");
+    EXPECT_FALSE(hasRule(v, "js-empty-catch-block"));
+}
+
+TEST(JavaScriptRules, VarUsagePositive) {
+    auto v = runJs("var x = 1;\n");
+    EXPECT_TRUE(hasRule(v, "js-var-usage"));
+}
+TEST(JavaScriptRules, LetUsageNegative) {
+    auto v = runJs("let x = 1;\n");
+    EXPECT_FALSE(hasRule(v, "js-var-usage"));
+}
+
+TEST(JavaScriptRules, LooseEqualityDoubleEqualsPositive) {
+    auto v = runJs("function f(a, b) {\n    if (a == b) { return true; }\n}\n");
+    EXPECT_TRUE(hasRule(v, "js-loose-equality"));
+}
+TEST(JavaScriptRules, LooseEqualityNotEqualsPositive) {
+    auto v = runJs("function f(a, b) {\n    if (a != b) { return true; }\n}\n");
+    EXPECT_TRUE(hasRule(v, "js-loose-equality"));
+}
+TEST(JavaScriptRules, StrictEqualityNegative) {
+    auto v = runJs("function f(a, b) {\n    if (a === b) { return true; }\n}\n");
+    EXPECT_FALSE(hasRule(v, "js-loose-equality"));
+}
+TEST(JavaScriptRules, StrictNotEqualsNegative) {
+    auto v = runJs("function f(a, b) {\n    if (a !== b) { return true; }\n}\n");
+    EXPECT_FALSE(hasRule(v, "js-loose-equality"));
+}
+TEST(JavaScriptRules, ArrowFunctionNotMisreadAsLooseEquality) {
+    auto v = runJs("const f = (a, b) => {\n    return a === b;\n};\n");
+    EXPECT_FALSE(hasRule(v, "js-loose-equality"));
+}
+
+TEST(JavaScriptRules, LongFunctionPositive) {
+    std::string body = "function f() {\n";
+    for (int i = 0; i < 105; ++i) body += "g();\n";
+    body += "}\n";
+    auto v = runJs(body);
+    EXPECT_TRUE(hasRule(v, "js-long-method"));
+}
+TEST(JavaScriptRules, ShortFunctionNegative) {
+    auto v = runJs("function f() { g(); }\n");
+    EXPECT_FALSE(hasRule(v, "js-long-method"));
+}
+
+TEST(JavaScriptRules, DeepNestingPositive) {
+    std::string body = "function f() {\n";
+    for (int i = 0; i < 7; ++i) body += "if (true) {\n";
+    body += "g();\n";
+    for (int i = 0; i < 7; ++i) body += "}\n";
+    body += "}\n";
+    auto v = runJs(body);
+    EXPECT_TRUE(hasRule(v, "js-deep-nesting"));
+}
+TEST(JavaScriptRules, ShallowNestingNegative) {
+    auto v = runJs("function f() { if (true) { g(); } }\n");
+    EXPECT_FALSE(hasRule(v, "js-deep-nesting"));
+}
+
+TEST(JavaScriptRules, TodoWithoutTicketPositive) {
+    auto v = runJs("// TODO fix this\nfunction f() { }\n");
+    EXPECT_TRUE(hasRule(v, "js-todo-without-ticket"));
+}
+TEST(JavaScriptRules, TodoWithTicketNegative) {
+    auto v = runJs("// TODO(PROJ-99): fix this\nfunction f() { }\n");
+    EXPECT_FALSE(hasRule(v, "js-todo-without-ticket"));
+}
+
 // ---- RuleDispatch ----
  
 TEST(RuleDispatch, RoutesToCppCatalog) {
@@ -432,6 +525,16 @@ TEST(RuleDispatch, RoutesToTypeScriptCatalog) {
     auto v = checkRules(Language::TypeScript, "f.ts", tokens, fm);
     ASSERT_FALSE(v.empty());
     EXPECT_EQ(v[0].language, "typescript");
+}
+TEST(RuleDispatch, RoutesToJavaScriptCatalog) {
+    const std::string src = "var x = 1;\n";
+    JavaScriptLexer lexer(src);
+    auto tokens = lexer.tokenize();
+    JavaScriptParser parser(tokens, 1);
+    auto fm = parser.analyze();
+    auto v = checkRules(Language::JavaScript, "f.js", tokens, fm);
+    ASSERT_FALSE(v.empty());
+    EXPECT_EQ(v[0].language, "javascript");
 }
   
  
