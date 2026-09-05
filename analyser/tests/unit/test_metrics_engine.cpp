@@ -73,4 +73,37 @@ TEST(MetricsEngineUnanalyzed, DoesNotAffectByLanguageOrFilesData) {
     EXPECT_TRUE(pm.byLanguage.empty());
     EXPECT_TRUE(engine.files().empty());
 }
- 
+
+// Phase 2a's final checklist item, now that all three (TS -> JS -> C#)
+// have landed: a mixed-language project groups every language into its
+// own byLanguage entry, C# included alongside the pre-existing ones.
+TEST(MetricsEngineByLanguage, GroupsCSharpAlongsideOtherLanguages) {
+    MetricsEngine engine;
+
+    FileMetrics cpp;
+    cpp.language = "cpp";
+    cpp.totalLines = 10; cpp.codeLines = 8;
+    engine.addFile("a.cpp", cpp);
+
+    FileMetrics cs1;
+    cs1.language = "csharp";
+    cs1.totalLines = 20; cs1.codeLines = 15;
+    engine.addFile("b.cs", cs1);
+
+    FileMetrics cs2;
+    cs2.language = "csharp";
+    cs2.totalLines = 30; cs2.codeLines = 25;
+    engine.addFile("c.cs", cs2);
+
+    const auto pm = engine.compute();
+    ASSERT_EQ(pm.byLanguage.size(), 2u);
+
+    const LanguageAggregate* csharpAgg = nullptr;
+    for (const auto& agg : pm.byLanguage) {
+        if (agg.language == "csharp") csharpAgg = &agg;
+    }
+    ASSERT_NE(csharpAgg, nullptr);
+    EXPECT_EQ(csharpAgg->fileCount, 2);
+    EXPECT_EQ(csharpAgg->totalLines, 50);
+    EXPECT_EQ(csharpAgg->codeLines, 40);
+}
