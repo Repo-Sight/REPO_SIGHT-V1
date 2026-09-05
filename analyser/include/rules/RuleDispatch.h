@@ -9,6 +9,7 @@
 #include "rules/JavaRules.h" 
 #include "rules/TypeScriptRules.h"
 #include "rules/JavaScriptRules.h"
+#include "rules/CSharpRules.h"
 
 #include <string>
 #include <vector>
@@ -28,6 +29,7 @@ namespace cma {
         case Language::Java:   return checkJavaRules(path, tokens, fm);
         case Language::TypeScript: return checkTypeScriptRules(path, tokens, fm);
         case Language::JavaScript: return checkJavaScriptRules(path, tokens, fm);
+        case Language::CSharp:     return checkCSharpRules(path, tokens, fm);
     }
     return {};
 }
