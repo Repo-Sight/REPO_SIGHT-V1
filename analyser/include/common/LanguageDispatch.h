@@ -2,12 +2,14 @@
  
 #include "Language.h"
 #include "lexer/CppLexer.h"
+#include "lexer/CSharpLexer.h"
 #include "lexer/JavaLexer.h"
 #include "lexer/JavaScriptLexer.h"
 #include "lexer/PythonLexer.h"
 #include "lexer/Token.h"
 #include "lexer/TypeScriptLexer.h"
 #include "parser/CppParser.h"
+#include "parser/CSharpParser.h"
 #include "parser/JavaParser.h"
 #include "parser/JavaScriptParser.h"
 #include "parser/ParseResult.h"
@@ -50,6 +52,10 @@ namespace cma {
             JavaScriptLexer lexer(source);
             return lexer.tokenize();
         }
+        case Language::CSharp: {
+            CSharpLexer lexer(source);
+            return lexer.tokenize();
+        }
     }
     return {}; // unreachable while every Language enumerator has a case
                // above; kept so a future enumerator added without a
@@ -82,6 +88,10 @@ namespace cma {
         }
         case Language::JavaScript: {
             JavaScriptParser parser(tokens, totalLines);
+            return parser.analyze();
+        }
+        case Language::CSharp: {
+            CSharpParser parser(tokens, totalLines);
             return parser.analyze();
         }
     }
