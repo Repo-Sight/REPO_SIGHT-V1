@@ -6,11 +6,13 @@
 // -- exact case count/names will differ from your real repo's version.
  
 #include "lexer/CppLexer.h"
+#include "lexer/CSharpLexer.h"
 #include "lexer/JavaLexer.h"
 #include "lexer/JavaScriptLexer.h"
 #include "lexer/PythonLexer.h"
 #include "lexer/TypeScriptLexer.h"
 #include "parser/CppParser.h"
+#include "parser/CSharpParser.h"
 #include "parser/JavaParser.h"
 #include "parser/JavaScriptParser.h"
 #include "parser/PythonParser.h"
@@ -71,6 +73,15 @@ std::vector<Violation> runJs(const std::string& src) {
     JavaScriptParser parser(tokens, lc);
     auto fm = parser.analyze();
     return checkJavaScriptRules("f.js", tokens, fm);
+}
+
+std::vector<Violation> runCs(const std::string& src) {
+    CSharpLexer lexer(src);
+    auto tokens = lexer.tokenize();
+    int lc = 1; for (char c : src) if (c == '\n') ++lc;
+    CSharpParser parser(tokens, lc);
+    auto fm = parser.analyze();
+    return checkCSharpRules("f.cs", tokens, fm);
 }
 
 
@@ -484,6 +495,101 @@ TEST(JavaScriptRules, TodoWithTicketNegative) {
     EXPECT_FALSE(hasRule(v, "js-todo-without-ticket"));
 }
 
+// ---- C# ----
+
+TEST(CSharpRules, EmptyCatchBlockPositive) {
+    auto v = runCs("void M() { try {} catch (Exception e) {} }\n");
+    EXPECT_TRUE(hasRule(v, "csharp-empty-catch-block"));
+}
+TEST(CSharpRules, EmptyCatchBlockBareFormPositive) {
+    auto v = runCs("void M() { try {} catch {} }\n");
+    EXPECT_TRUE(hasRule(v, "csharp-empty-catch-block"));
+}
+TEST(CSharpRules, NonEmptyCatchBlockNegative) {
+    auto v = runCs("void M() { try {} catch (Exception e) { Log(e); } }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-empty-catch-block"));
+}
+
+TEST(CSharpRules, PublicFieldPositive) {
+    auto v = runCs("class C { public int Count; }\n");
+    EXPECT_TRUE(hasRule(v, "csharp-public-field"));
+}
+TEST(CSharpRules, PublicConstIsNotFlagged) {
+    auto v = runCs("class C { public const int Max = 10; }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-public-field"));
+}
+TEST(CSharpRules, PublicStaticReadonlyIsNotFlagged) {
+    auto v = runCs("class C { public static readonly int Max = 10; }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-public-field"));
+}
+TEST(CSharpRules, PublicPropertyIsNotFlagged) {
+    // Properties are C#'s idiomatic encapsulation mechanism -- flagging
+    // them would be actively wrong advice.
+    auto v = runCs("class C { public int Count { get; set; } }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-public-field"));
+}
+TEST(CSharpRules, PublicMethodIsNotFlaggedAsField) {
+    auto v = runCs("class C { public int Count() { return 1; } }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-public-field"));
+}
+TEST(CSharpRules, PrivateFieldNegative) {
+    auto v = runCs("class C { private int count; }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-public-field"));
+}
+
+TEST(CSharpRules, ConsoleWriteLinePositive) {
+    auto v = runCs("void M() { Console.WriteLine(\"hi\"); }\n");
+    EXPECT_TRUE(hasRule(v, "csharp-console-writeline"));
+}
+TEST(CSharpRules, ConsoleWriteNegativeWhenAbsent) {
+    auto v = runCs("void M() { Logger.Info(\"hi\"); }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-console-writeline"));
+}
+
+TEST(CSharpRules, AsyncVoidPositive) {
+    auto v = runCs("async void OnClick() { await Task.Delay(1); }\n");
+    EXPECT_TRUE(hasRule(v, "csharp-async-void"));
+}
+TEST(CSharpRules, AsyncTaskNegative) {
+    auto v = runCs("async Task OnClickAsync() { await Task.Delay(1); }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-async-void"));
+}
+
+TEST(CSharpRules, LongMethodPositive) {
+    std::string body = "void M() {\n";
+    for (int i = 0; i < 105; ++i) body += "N();\n";
+    body += "}\n";
+    auto v = runCs(body);
+    EXPECT_TRUE(hasRule(v, "csharp-long-method"));
+}
+TEST(CSharpRules, ShortMethodNegative) {
+    auto v = runCs("void M() { N(); }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-long-method"));
+}
+
+TEST(CSharpRules, DeepNestingPositive) {
+    std::string body = "void M() {\n";
+    for (int i = 0; i < 7; ++i) body += "if (true) {\n";
+    body += "N();\n";
+    for (int i = 0; i < 7; ++i) body += "}\n";
+    body += "}\n";
+    auto v = runCs(body);
+    EXPECT_TRUE(hasRule(v, "csharp-deep-nesting"));
+}
+TEST(CSharpRules, ShallowNestingNegative) {
+    auto v = runCs("void M() { if (true) { N(); } }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-deep-nesting"));
+}
+
+TEST(CSharpRules, TodoWithoutTicketPositive) {
+    auto v = runCs("// TODO fix this\nvoid M() { }\n");
+    EXPECT_TRUE(hasRule(v, "csharp-todo-without-ticket"));
+}
+TEST(CSharpRules, TodoWithTicketNegative) {
+    auto v = runCs("// TODO(PROJ-99): fix this\nvoid M() { }\n");
+    EXPECT_FALSE(hasRule(v, "csharp-todo-without-ticket"));
+}
+
 // ---- RuleDispatch ----
  
 TEST(RuleDispatch, RoutesToCppCatalog) {
@@ -535,6 +641,16 @@ TEST(RuleDispatch, RoutesToJavaScriptCatalog) {
     auto v = checkRules(Language::JavaScript, "f.js", tokens, fm);
     ASSERT_FALSE(v.empty());
     EXPECT_EQ(v[0].language, "javascript");
+}
+TEST(RuleDispatch, RoutesToCSharpCatalog) {
+    const std::string src = "class C { public int Count; }\n";
+    CSharpLexer lexer(src);
+    auto tokens = lexer.tokenize();
+    CSharpParser parser(tokens, 1);
+    auto fm = parser.analyze();
+    auto v = checkRules(Language::CSharp, "F.cs", tokens, fm);
+    ASSERT_FALSE(v.empty());
+    EXPECT_EQ(v[0].language, "csharp");
 }
   
  
