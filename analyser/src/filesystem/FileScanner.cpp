@@ -16,7 +16,8 @@ const std::unordered_set<std::string> kSupportedExtensions = {
     ".py",
     ".java",
     ".ts", ".tsx",
-    ".js", ".mjs", ".cjs", ".jsx"
+    ".js", ".mjs", ".cjs", ".jsx",
+    ".cs"
 };
 
 // Directories that never contain source code worth analyzing: vendored
