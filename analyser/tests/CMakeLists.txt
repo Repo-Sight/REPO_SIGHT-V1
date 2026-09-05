@@ -12,11 +12,19 @@ add_executable(cma_tests
     unit/test_python_parser.cpp
     unit/test_java_lexer.cpp
     unit/test_java_parser.cpp
+    unit/test_typescript_lexer.cpp
+    unit/test_typescript_parser.cpp
+    unit/test_javascript_lexer.cpp
+    unit/test_javascript_parser.cpp
+    unit/test_csharp_lexer.cpp
+    unit/test_csharp_parser.cpp
     unit/test_report_generator.cpp
     unit/test_dependency_graph.cpp
     unit/test_hotspot_and_health_score.cpp
     unit/test_rule_violations.cpp
     unit/test_html_report.cpp
+    unit/test_file_scanner.cpp
+    unit/test_metrics_engine.cpp
 )
 
 target_link_libraries(cma_tests PRIVATE

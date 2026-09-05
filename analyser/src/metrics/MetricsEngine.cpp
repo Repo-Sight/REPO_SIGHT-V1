@@ -1,4 +1,6 @@
 #include "metrics/MetricsEngine.h"
+
+#include "common/UnanalyzedLanguageNames.h"
  
 #include <algorithm>
 #include <filesystem>
@@ -8,7 +10,72 @@
 namespace cma {
  
 namespace {
- 
+
+// Shared accumulation logic for both the whole-project total and each
+// per-language group in compute() below — same fields ProjectMetrics
+// and LanguageAggregate both carry, kept in one place instead of
+// duplicated per grouping.
+struct MetricAccumulator {
+    int fileCount = 0;
+
+    int totalLines   = 0;
+    int blankLines   = 0;
+    int commentLines = 0;
+    int codeLines    = 0;
+
+    int functionCount = 0;
+    int classCount    = 0;
+    int variableCount = 0;
+    int includeCount  = 0;
+
+    int loopCount            = 0;
+    int conditionCount       = 0;
+    int tryCatchCount        = 0;
+    int cyclomaticComplexity = 0;
+    int maxNestingDepth      = 0;
+
+    int todoCount = 0;
+
+    long        totalFnLength       = 0;
+    int         totalFnCount        = 0;
+    int         longestFunctionLines = 0;
+    std::string longestFunctionName;
+};
+
+void accumulate(MetricAccumulator& acc, const FileMetrics& fm) {
+    ++acc.fileCount;
+    acc.totalLines            += fm.totalLines;
+    acc.blankLines            += fm.blankLines;
+    acc.commentLines          += fm.commentLines;
+    acc.codeLines             += fm.codeLines;
+    acc.functionCount         += fm.functionCount();
+    acc.classCount            += fm.classCount();
+    acc.variableCount         += fm.variableCount;
+    acc.includeCount          += fm.includeCount;
+    acc.loopCount             += fm.loopCount;
+    acc.conditionCount        += fm.conditionCount;
+    acc.tryCatchCount         += fm.tryCatchCount;
+    acc.cyclomaticComplexity  += fm.cyclomaticComplexity;
+    acc.todoCount             += fm.todoCount;
+    acc.maxNestingDepth        = std::max(acc.maxNestingDepth, fm.maxNestingDepth);
+
+    for (const auto& fn : fm.functions) {
+        acc.totalFnLength += fn.lineCount();
+        ++acc.totalFnCount;
+        if (fn.lineCount() > acc.longestFunctionLines) {
+            acc.longestFunctionLines = fn.lineCount();
+            acc.longestFunctionName  = fn.name + "()";
+        }
+    }
+}
+
+double avgFnLength(const MetricAccumulator& acc) {
+    return (acc.totalFnCount > 0)
+        ? static_cast<double>(acc.totalFnLength) / acc.totalFnCount
+        : 0.0;
+}
+  
+
 bool pathEndsWithComponent(const std::string& path, const std::string& candidate) {
     if (candidate.empty() || candidate.size() > path.size()) return false;
     if (path.compare(path.size() - candidate.size(), candidate.size(), candidate) != 0)
@@ -47,6 +114,10 @@ std::vector<std::string> candidateSuffixes(const std::string& target) {
 void MetricsEngine::addFile(const std::string& filename, FileMetrics metrics) {
     m_files.emplace_back(filename, std::move(metrics));
 }
+
+void MetricsEngine::addUnanalyzedFile(std::string extension, int lineCount) {
+    m_unanalyzedFiles.emplace_back(std::move(extension), lineCount);
+}
  
 const std::vector<std::pair<std::string, FileMetrics>>&
 MetricsEngine::files() const noexcept {
@@ -54,42 +125,101 @@ MetricsEngine::files() const noexcept {
 }
  
 ProjectMetrics MetricsEngine::compute() const {
-    ProjectMetrics pm;
-    pm.filesAnalyzed = static_cast<int>(m_files.size());
- 
-    long totalFnLength = 0;
-    int  totalFnCount  = 0;
+  MetricAccumulator overall;
+ std::unordered_map<std::string, MetricAccumulator> byLang;
+ std::vector<std::string> langOrder; // first-seen order; final output is re-sorted below
  
     for (const auto& [filename, fm] : m_files) {
-        pm.totalLines        += fm.totalLines;
-        pm.blankLines        += fm.blankLines;
-        pm.commentLines      += fm.commentLines;
-        pm.codeLines         += fm.codeLines;
-        pm.functionCount     += fm.functionCount();
-        pm.classCount        += fm.classCount();
-        pm.variableCount     += fm.variableCount;
-        pm.includeCount      += fm.includeCount;
-        pm.loopCount         += fm.loopCount;
-        pm.conditionCount    += fm.conditionCount;
-        pm.tryCatchCount     += fm.tryCatchCount;
-        pm.cyclomaticComplexity += fm.cyclomaticComplexity;
-        pm.todoCount         += fm.todoCount;
-        pm.maxNestingDepth    = std::max(pm.maxNestingDepth, fm.maxNestingDepth);
- 
-        for (const auto& fn : fm.functions) {
-            totalFnLength += fn.lineCount();
-            ++totalFnCount;
-            if (fn.lineCount() > pm.longestFunctionLines) {
-                pm.longestFunctionLines = fn.lineCount();
-                pm.longestFunctionName  = fn.name + "()";
-            }
-        }
+  accumulate(overall, fm);
+
+        const std::string langKey = fm.language.empty() ? "unknown" : fm.language;
+        auto it = byLang.find(langKey);
+        if (it == byLang.end()) {
+            langOrder.push_back(langKey);
+            it = byLang.emplace(langKey, MetricAccumulator{}).first;
+         }
+        accumulate(it->second, fm);
+        
     }
  
-    pm.avgFunctionLength = (totalFnCount > 0)
-        ? static_cast<double>(totalFnLength) / totalFnCount
-        : 0.0;
- 
+    ProjectMetrics pm;
+    pm.filesAnalyzed         = overall.fileCount;
+    pm.totalLines            = overall.totalLines;
+    pm.blankLines            = overall.blankLines;
+    pm.commentLines          = overall.commentLines;
+    pm.codeLines             = overall.codeLines;
+    pm.functionCount         = overall.functionCount;
+    pm.classCount            = overall.classCount;
+    pm.variableCount         = overall.variableCount;
+    pm.includeCount          = overall.includeCount;
+    pm.loopCount             = overall.loopCount;
+    pm.conditionCount        = overall.conditionCount;
+    pm.tryCatchCount         = overall.tryCatchCount;
+    pm.cyclomaticComplexity  = overall.cyclomaticComplexity;
+    pm.maxNestingDepth       = overall.maxNestingDepth;
+    pm.todoCount             = overall.todoCount;
+    pm.avgFunctionLength     = avgFnLength(overall);
+    pm.longestFunctionLines  = overall.longestFunctionLines;
+    pm.longestFunctionName   = overall.longestFunctionName;
+
+    pm.byLanguage.reserve(langOrder.size());
+    for (const auto& langKey : langOrder) {
+        const auto& acc = byLang.at(langKey);
+        LanguageAggregate la;
+        la.language             = langKey;
+        la.fileCount            = acc.fileCount;
+        la.totalLines           = acc.totalLines;
+        la.blankLines           = acc.blankLines;
+        la.commentLines         = acc.commentLines;
+        la.codeLines            = acc.codeLines;
+        la.functionCount        = acc.functionCount;
+        la.classCount           = acc.classCount;
+        la.variableCount        = acc.variableCount;
+        la.includeCount         = acc.includeCount;
+        la.loopCount            = acc.loopCount;
+        la.conditionCount       = acc.conditionCount;
+        la.tryCatchCount        = acc.tryCatchCount;
+        la.cyclomaticComplexity = acc.cyclomaticComplexity;
+        la.maxNestingDepth      = acc.maxNestingDepth;
+        la.todoCount            = acc.todoCount;
+        la.avgFunctionLength    = avgFnLength(acc);
+        la.longestFunctionLines = acc.longestFunctionLines;
+        la.longestFunctionName  = acc.longestFunctionName;
+        pm.byLanguage.push_back(std::move(la));
+    }
+
+    std::sort(pm.byLanguage.begin(), pm.byLanguage.end(),
+              [](const LanguageAggregate& a, const LanguageAggregate& b) {
+                  if (a.codeLines != b.codeLines) return a.codeLines > b.codeLines;
+                  return a.language < b.language;
+              });
+
+    std::unordered_map<std::string, UnanalyzedLanguageSummary> unanalyzedByExt;
+    std::vector<std::string> unanalyzedOrder; // first-seen order; re-sorted below
+    for (const auto& [extension, lineCount] : m_unanalyzedFiles) {
+        auto it = unanalyzedByExt.find(extension);
+        if (it == unanalyzedByExt.end()) {
+            unanalyzedOrder.push_back(extension);
+            UnanalyzedLanguageSummary summary;
+            summary.extension    = extension;
+            summary.languageName = unanalyzedLanguageName(extension);
+            it = unanalyzedByExt.emplace(extension, std::move(summary)).first;
+        }
+        ++it->second.fileCount;
+        it->second.lineCount += lineCount;
+    }
+
+    pm.unanalyzedLanguages.reserve(unanalyzedOrder.size());
+    for (const auto& extension : unanalyzedOrder) {
+        pm.unanalyzedLanguages.push_back(std::move(unanalyzedByExt.at(extension)));
+    }
+
+    std::sort(pm.unanalyzedLanguages.begin(), pm.unanalyzedLanguages.end(),
+              [](const UnanalyzedLanguageSummary& a, const UnanalyzedLanguageSummary& b) {
+                  if (a.lineCount != b.lineCount) return a.lineCount > b.lineCount;
+                  return a.extension < b.extension;
+              });
+
     return pm;
 }
  

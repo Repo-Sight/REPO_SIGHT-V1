@@ -161,7 +161,7 @@ void ReportGenerator::writeJson(
     const ViolationReport* violations,
     std::ostream& out) {
     out << "{\n";
-
+    out << "  \"schemaVersion\": 2,\n";
     out << "  \"project\": {\n";
     out << "    \"filesAnalyzed\": "        << m.filesAnalyzed        << ",\n";
     out << "    \"totalLines\": "           << m.totalLines           << ",\n";
@@ -184,7 +184,14 @@ void ReportGenerator::writeJson(
         const auto health = computeHealthScore(m);
         out << "    \"longestFunctionName\": \"" << jsonEscape(m.longestFunctionName) << "\",\n";
         out << "    \"healthScore\": "  << health.score << ",\n";
-        out << "    \"healthGrade\": \"" << health.grade << "\"\n";
+       out << "    \"healthGrade\": \"" << health.grade << "\",\n";
+       out << "    \"scoreBreakdown\": {\n";
+       out << "      \"complexityDensity\": " << health.breakdown.complexityDensity << ",\n";
+        out << "      \"avgFunctionLength\": " << health.breakdown.avgFunctionLength << ",\n";
+        out << "      \"commentCoverage\": "   << health.breakdown.commentCoverage   << ",\n";
+        out << "      \"todoDensity\": "       << health.breakdown.todoDensity       << ",\n";
+        out << "      \"nestingDepth\": "      << health.breakdown.nestingDepth      << "\n";
+        out << "    }\n";
     } else {
         out << "    \"longestFunctionName\": \"" << jsonEscape(m.longestFunctionName) << "\"\n";
     }
@@ -210,6 +217,10 @@ void ReportGenerator::writeJson(
     }
     out << (files.empty() ? "" : "\n  ");
     out << "]";
+    out << ",\n";
+    writeByLanguageJson(m.byLanguage, out);
+    out << ",\n";
+    writeUnanalyzedLanguagesJson(m.unanalyzedLanguages, out);
 
     if (hotspots != nullptr) {
         out << ",\n";
@@ -225,6 +236,7 @@ void ReportGenerator::writeJson(
 }
 
 void ReportGenerator::writeFileMetricsJson(const FileMetrics& fm, std::ostream& out) {
+    out << "      \"language\": \""           << jsonEscape(fm.language) << "\",\n";
     out << "      \"totalLines\": "           << fm.totalLines           << ",\n";
     out << "      \"blankLines\": "           << fm.blankLines           << ",\n";
     out << "      \"commentLines\": "         << fm.commentLines         << ",\n";
@@ -267,6 +279,54 @@ void ReportGenerator::writeFileMetricsJson(const FileMetrics& fm, std::ostream& 
             << "\"kind\": \"" << kindStr << "\"}";
     }
     out << (fm.classes.empty() ? "" : "\n      ");
+    out << "]";
+}
+void ReportGenerator::writeByLanguageJson(
+    const std::vector<LanguageAggregate>& byLanguage, std::ostream& out) {
+    out << "  \"byLanguage\": [";
+    for (std::size_t i = 0; i < byLanguage.size(); ++i) {
+        const auto& la = byLanguage[i];
+        out << (i == 0 ? "\n" : ",\n");
+        out << "    {\n";
+        out << "      \"language\": \""          << jsonEscape(la.language)   << "\",\n";
+        out << "      \"fileCount\": "            << la.fileCount             << ",\n";
+       out << "      \"totalLines\": "           << la.totalLines            << ",\n";
+        out << "      \"blankLines\": "           << la.blankLines            << ",\n";
+        out << "      \"commentLines\": "         << la.commentLines          << ",\n";
+        out << "      \"codeLines\": "            << la.codeLines             << ",\n";
+        out << "      \"functionCount\": "        << la.functionCount         << ",\n";
+        out << "      \"classCount\": "           << la.classCount            << ",\n";
+        out << "      \"variableCount\": "        << la.variableCount         << ",\n";
+        out << "      \"includeCount\": "         << la.includeCount          << ",\n";
+        out << "      \"loopCount\": "             << la.loopCount             << ",\n";
+        out << "      \"conditionCount\": "       << la.conditionCount        << ",\n";
+        out << "      \"tryCatchCount\": "        << la.tryCatchCount         << ",\n";
+        out << "      \"maxNestingDepth\": "      << la.maxNestingDepth       << ",\n";
+        out << "      \"cyclomaticComplexity\": " << la.cyclomaticComplexity  << ",\n";
+        out << "      \"todoCount\": "            << la.todoCount             << ",\n";
+        out << "      \"avgFunctionLength\": "    << la.avgFunctionLength     << ",\n";
+        out << "      \"longestFunctionLines\": " << la.longestFunctionLines  << ",\n";
+        out << "      \"longestFunctionName\": \"" << jsonEscape(la.longestFunctionName) << "\"\n";
+        out << "    }";
+    }
+    out << (byLanguage.empty() ? "" : "\n  ");
+    out << "]";
+}
+
+void ReportGenerator::writeUnanalyzedLanguagesJson(
+    const std::vector<UnanalyzedLanguageSummary>& unanalyzedLanguages, std::ostream& out) {
+    out << "  \"unanalyzedLanguages\": [";
+    for (std::size_t i = 0; i < unanalyzedLanguages.size(); ++i) {
+        const auto& u = unanalyzedLanguages[i];
+        out << (i == 0 ? "\n" : ",\n");
+        out << "    {\n";
+        out << "      \"extension\": \""    << jsonEscape(u.extension)    << "\",\n";
+        out << "      \"languageName\": \"" << jsonEscape(u.languageName) << "\",\n";
+        out << "      \"fileCount\": "      << u.fileCount                << ",\n";
+        out << "      \"lineCount\": "      << u.lineCount                << "\n";
+        out << "    }";
+    }
+    out << (unanalyzedLanguages.empty() ? "" : "\n  ");
     out << "]";
 }
 
