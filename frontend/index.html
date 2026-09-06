@@ -70,17 +70,51 @@
             The audit you skip when you're solo &mdash;
             <span class="hero-underline">done in seconds</span>.
           </h1>
-          <p class="hero-sub">
+                    <p class="hero-sub">
             Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo &mdash;
-            size, structure, complexity, technical debt, and rule violations, across C++, Python, and Java.
+            size, structure, complexity, technical debt, and rule violations, across C++, Python, Java,
+            TypeScript, JavaScript, and C#.
           </p>
+
+          <div class="hero-mode-toggle" role="tablist">
+            <button type="button" class="hero-mode-btn active" id="hero-mode-repo" role="tab" aria-selected="true">Scan a repo</button>
+            <button type="button" class="hero-mode-btn" id="hero-mode-file" role="tab" aria-selected="false">Analyze a file</button>
+          </div>
 
           <form id="new-scan-form" class="hero-form">
             <input type="text" id="new-scan-url" placeholder="https://github.com/owner/repo" autocomplete="off" />
             <button type="submit" class="btn-primary" id="new-scan-submit">Analyze</button>
           </form>
           <p class="new-scan-error hidden" id="new-scan-error"></p>
-          <p class="hero-fineprint">Public repositories only &middot; best for repos that analyze in under a minute &middot; no account needed</p>
+          <p class="hero-fineprint" id="hero-repo-fineprint">Public repositories only &middot; best for repos that analyze in under a minute &middot; no account needed</p>
+
+          <div class="hero-file-panels hidden" id="hero-file-panels">
+            <div class="hero-file-panel">
+              <h3>Paste code</h3>
+              <select id="file-scan-language">
+                <option value="cpp">C++</option>
+                <option value="python">Python</option>
+                <option value="java">Java</option>
+                <option value="typescript">TypeScript</option>
+                <option value="javascript">JavaScript</option>
+                <option value="csharp">C#</option>
+              </select>
+              <textarea id="file-scan-content" placeholder="Paste a single file's source here&hellip;"></textarea>
+              <button type="button" class="btn-primary" id="file-scan-paste-submit">Analyze pasted code</button>
+            </div>
+
+            <div class="hero-file-panel">
+              <h3>Upload a file</h3>
+              <label class="hero-file-drop" id="file-scan-drop" for="file-scan-upload">
+                <span id="file-scan-drop-label">Click to choose a file&hellip;</span>
+              </label>
+              <input type="file" id="file-scan-upload" class="hidden"
+                accept=".cpp,.cc,.cxx,.c++,.h,.hpp,.hxx,.h++,.py,.java,.ts,.tsx,.js,.mjs,.cjs,.jsx,.cs" />
+              <button type="button" class="btn-primary" id="file-scan-upload-submit" disabled>Analyze uploaded file</button>
+            </div>
+          </div>
+          <p class="new-scan-error hidden" id="file-scan-error"></p>
+          <p class="hero-fineprint hidden" id="hero-file-fineprint">Single file, up to 2 MB &middot; C++, Python, Java, TypeScript, JavaScript, C# &middot; no account needed</p>
         </div>
 
         <div class="hero-terminal" aria-hidden="true">
