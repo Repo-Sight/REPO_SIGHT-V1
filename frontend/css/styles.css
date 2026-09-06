@@ -936,10 +936,115 @@ main {
   margin-top: 12px;
 }
 
-.hero-fineprint {
+/* Phase 3: mode toggle (scan a repo / analyze a file) + the two
+   side-by-side "analyze a file" panels. Deliberately reuses existing
+   tokens/components (btn-ghost, bg-raised, border) rather than
+   introducing a new visual system here -- Phase 4 owns the real
+   redesign, this just needs to fit the current theme without clashing. */
+.hero-mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.hero-mode-btn {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.hero-mode-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.hero-mode-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.hero-file-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 640px;
+}
+
+.hero-file-panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hero-file-panel h3 {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.hero-file-panel select,
+.hero-file-panel textarea {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 9px 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.hero-file-panel textarea {
+  font-family: var(--mono);
+  min-height: 110px;
+  resize: vertical;
+}
+
+.hero-file-panel select:focus,
+.hero-file-panel textarea:focus {
+  border-color: var(--accent);
+}
+
+.hero-file-drop {
+  border: 1px dashed var(--border-strong);
+  border-radius: 7px;
+  padding: 18px 10px;
+  text-align: center;
   font-size: 12px;
-  color: var(--text-ghost);
-  margin-top: 12px;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.hero-file-drop:hover,
+.hero-file-drop.has-file {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.hero-file-panel .btn-primary {
+  align-self: flex-start;
+}
+
+@media (max-width: 640px) {
+  .hero-file-panels {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Terminal preview card */
