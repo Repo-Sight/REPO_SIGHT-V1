@@ -51,10 +51,25 @@ class RepoSightDashboard {
             .replace(/'/g, '&#39;');
     }
 
-    formatNumber(num) {
+      formatNumber(num) {
         return Number(num || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
 
+    // Vercel Web Analytics custom events (Section 9 of the v2 plan --
+    // scan_started/scan_completed/scan_failed/file_upload_used). This is a
+    // plain static site with no bundler, so this calls the window.va queue
+    // shim declared in index.html's <head> directly rather than importing
+    // the @vercel/analytics npm package, which cannot run unbundled in the
+    // browser. Defensive: never throws if the shim isn't present.
+    track(name, data) {
+        try {
+            if (typeof window.va === 'function') {
+                window.va('event', data ? { name, data } : { name });
+            }
+        } catch (_) {
+            // Analytics must never break the actual scan flow.
+        }
+    }
     /* -----------------------------------------------------------------
        Static event bindings -- the rerun button and the feedback widget.
        Both live in markup that's present regardless of scan state, so
@@ -215,7 +230,8 @@ class RepoSightDashboard {
                     return;
                 }
 
-                if (status === 'FAILED') {
+                                if (status === 'FAILED') {
+                    this.track('scan_failed', { reason: data.errorMessage || 'unknown' });
                     this.showError(data.errorMessage || 'Analysis failed.');
                     return;
                 }
@@ -227,17 +243,20 @@ class RepoSightDashboard {
                         project: data.project || {},
                         violations: data.violations || [],
                     };
+                    this.track('scan_completed');
                     this.hideLoadingState();
                     this.populateReport();
                     return;
                 }
 
+                this.track('scan_failed', { reason: `unknown_status_${status}` });
                 this.showError(`Unknown scan status: ${status}`);
             } catch (err) {
                 console.error('Polling error:', err);
                 if (at < 3) {
                     setTimeout(() => poll(at + 1), 3000);
                 } else {
+                    this.track('scan_failed', { reason: 'poll_error' });
                     this.showError(`Could not load report: ${err.message}`);
                 }
             }
@@ -275,9 +294,10 @@ class RepoSightDashboard {
             const repoUrl = urlInput.value.trim();
             if (!repoUrl) return;
 
-            errorEl.classList.add('hidden');
+                       errorEl.classList.add('hidden');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Analyzing\u2026';
+            this.track('scan_started', { mode: 'repo' });
 
             try {
                 const res = await fetch('/api/analyze', {
@@ -293,11 +313,177 @@ class RepoSightDashboard {
 
                 window.location.search = `?scan=${encodeURIComponent(data.scanId)}`;
             } catch (err) {
+                this.track('scan_failed', { reason: 'submit_error' });
                 errorEl.textContent = err.message || 'Could not start analysis.';
                 errorEl.classList.remove('hidden');
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Analyze';
             }
+        });
+
+        this.bindFileScanPanels();
+    }
+
+    /* -----------------------------------------------------------------
+       Phase 3: "Analyze a file" hero tab -- mode toggle plus the two
+       side-by-side panels (paste code / upload a file). Both panels
+       collect { filename, content } and hand off to the same submit
+       routine, which POSTs to /api/analyze-file and reuses the exact
+       ?scan=<id> redirect the repo-scan form uses -- pollScan/populateReport
+       don't need to know or care which endpoint produced the scan.
+       ----------------------------------------------------------------- */
+    bindFileScanPanels() {
+        const repoTabBtn = this.$('hero-mode-repo');
+        const fileTabBtn = this.$('hero-mode-file');
+        const repoForm = this.$('new-scan-form');
+        const repoFineprint = this.$('hero-repo-fineprint');
+        const filePanels = this.$('hero-file-panels');
+        const fileFineprint = this.$('hero-file-fineprint');
+        const fileErrorEl = this.$('file-scan-error');
+
+        if (repoTabBtn && fileTabBtn && repoForm && filePanels) {
+            const showRepoMode = () => {
+                repoTabBtn.classList.add('active');
+                repoTabBtn.setAttribute('aria-selected', 'true');
+                fileTabBtn.classList.remove('active');
+                fileTabBtn.setAttribute('aria-selected', 'false');
+                repoForm.classList.remove('hidden');
+                if (repoFineprint) repoFineprint.classList.remove('hidden');
+                filePanels.classList.add('hidden');
+                if (fileFineprint) fileFineprint.classList.add('hidden');
+                if (fileErrorEl) fileErrorEl.classList.add('hidden');
+            };
+            const showFileMode = () => {
+                fileTabBtn.classList.add('active');
+                fileTabBtn.setAttribute('aria-selected', 'true');
+                repoTabBtn.classList.remove('active');
+                repoTabBtn.setAttribute('aria-selected', 'false');
+                filePanels.classList.remove('hidden');
+                if (fileFineprint) fileFineprint.classList.remove('hidden');
+                repoForm.classList.add('hidden');
+                if (repoFineprint) repoFineprint.classList.add('hidden');
+                this.$('new-scan-error')?.classList.add('hidden');
+            };
+            repoTabBtn.addEventListener('click', showRepoMode);
+            fileTabBtn.addEventListener('click', showFileMode);
+        }
+
+        this.bindPasteCodePanel(fileErrorEl);
+        this.bindUploadFilePanel(fileErrorEl);
+    }
+
+    // Shared by both panels: POSTs { filename, content } to
+    // /api/analyze-file, redirects to ?scan=<id> on success, otherwise
+    // shows the message inline in the shared file-scan-error element.
+    async submitFileForAnalysis({ filename, content, mode, buttons, errorEl }) {
+        if (errorEl) errorEl.classList.add('hidden');
+        buttons.forEach(btn => { if (btn) btn.disabled = true; });
+        this.track('scan_started', { mode });
+        if (mode === 'upload') this.track('file_upload_used');
+
+        try {
+            const res = await fetch('/api/analyze-file', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename, content }),
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok || !data.scanId) {
+                throw new Error(data.error || `HTTP ${res.status}`);
+            }
+
+            window.location.search = `?scan=${encodeURIComponent(data.scanId)}`;
+        } catch (err) {
+            this.track('scan_failed', { reason: 'submit_error' });
+            if (errorEl) {
+                errorEl.textContent = err.message || 'Could not analyze this file.';
+                errorEl.classList.remove('hidden');
+            }
+            buttons.forEach(btn => { if (btn) btn.disabled = false; });
+        }
+    }
+
+    bindPasteCodePanel(fileErrorEl) {
+        const languageSelect = this.$('file-scan-language');
+        const contentArea = this.$('file-scan-content');
+        const submitBtn = this.$('file-scan-paste-submit');
+        if (!languageSelect || !contentArea || !submitBtn) return;
+
+        const EXT_BY_LANGUAGE = {
+            cpp: 'cpp',
+            python: 'py',
+            java: 'java',
+            typescript: 'ts',
+            javascript: 'js',
+            csharp: 'cs',
+        };
+
+        submitBtn.addEventListener('click', () => {
+            const content = contentArea.value;
+            if (!content.trim()) {
+                if (fileErrorEl) {
+                    fileErrorEl.textContent = 'Paste some code first.';
+                    fileErrorEl.classList.remove('hidden');
+                }
+                return;
+            }
+            const ext = EXT_BY_LANGUAGE[languageSelect.value] || 'txt';
+            const originalLabel = submitBtn.textContent;
+            submitBtn.textContent = 'Analyzing\u2026';
+            this.submitFileForAnalysis({
+                filename: `pasted.${ext}`,
+                content,
+                mode: 'paste',
+                buttons: [submitBtn],
+                errorEl: fileErrorEl,
+            }).finally(() => { submitBtn.textContent = originalLabel; });
+        });
+    }
+
+    bindUploadFilePanel(fileErrorEl) {
+        const fileInput = this.$('file-scan-upload');
+        const dropLabel = this.$('file-scan-drop-label');
+        const dropZone = this.$('file-scan-drop');
+        const submitBtn = this.$('file-scan-upload-submit');
+        if (!fileInput || !dropLabel || !submitBtn) return;
+
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (file) {
+                dropLabel.textContent = file.name;
+                dropZone?.classList.add('has-file');
+                submitBtn.disabled = false;
+            } else {
+                dropLabel.textContent = 'Click to choose a file\u2026';
+                dropZone?.classList.remove('has-file');
+                submitBtn.disabled = true;
+            }
+        });
+
+        submitBtn.addEventListener('click', () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onerror = () => {
+                if (fileErrorEl) {
+                    fileErrorEl.textContent = 'Could not read that file.';
+                    fileErrorEl.classList.remove('hidden');
+                }
+            };
+            reader.onload = () => {
+                const originalLabel = submitBtn.textContent;
+                submitBtn.textContent = 'Analyzing\u2026';
+                this.submitFileForAnalysis({
+                    filename: file.name,
+                    content: String(reader.result || ''),
+                    mode: 'upload',
+                    buttons: [submitBtn],
+                    errorEl: fileErrorEl,
+                }).finally(() => { submitBtn.textContent = originalLabel; });
+            };
+            reader.readAsText(file);
         });
     }
 
