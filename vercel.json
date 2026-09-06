@@ -7,6 +7,10 @@
       "includeFiles": "backend/bin/**",
       "maxDuration": 60
     },
+    "api/analyze-file.js": {
+      "includeFiles": "backend/bin/**",
+      "maxDuration": 15
+    },
     "api/scans/[scanId].js": {
       "maxDuration": 10
     },
