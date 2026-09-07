@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>How to Improve Python Code Quality | REPO-SIGHT</title>
+  <meta name="description" content="Practical fixes for the Python patterns that most often cause real bugs: bare except, mutable default arguments, mutable class attributes, and wildcard imports, with before/after code." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/improve-python-code-quality.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="How to Improve Python Code Quality | REPO-SIGHT" />
+  <meta property="og:description" content="Practical fixes for the Python patterns that most often cause real bugs: bare except, mutable default arguments, mutable class attributes, and wildcard imports, with before/after code." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/improve-python-code-quality.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="How to Improve Python Code Quality | REPO-SIGHT" />
+  <meta name="twitter:description" content="Practical fixes for the Python patterns that most often cause real bugs: bare except, mutable default arguments, mutable class attributes, and wildcard imports, with before/after code." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>How to improve Python code quality</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>Most Python quality problems aren't exotic &mdash; they're a small, repeatable set of patterns that look harmless when you write them and cause a confusing bug months later. Here are the ones worth fixing first, with real before/after code for each.</p>
+
+    <h2>Bare <code>except:</code> blocks</h2>
+    <p>A bare <code>except:</code> catches everything &mdash; including <code>KeyboardInterrupt</code> and <code>SystemExit</code>, which almost never should be silently swallowed. It also hides the actual error, making the real bug harder to find later.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>try:
+    result = risky_call()
+except:
+    result = None</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>try:
+    result = risky_call()
+except (ValueError, KeyError) as exc:
+    log.warning("risky_call failed: %s", exc)
+    result = None</code></pre>
+      </div>
+    </div>
+
+    <h2>Mutable default arguments</h2>
+    <p>Default argument values are evaluated once, when the function is defined &mdash; not once per call. A mutable default like <code>[]</code> or <code>{}</code> is silently shared and mutated across every call that doesn't pass its own value, producing state that leaks between unrelated calls.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; the list is shared across calls</p>
+        <pre><code>def add_item(item, items=[]):
+    items.append(item)
+    return items</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; a fresh list every call</p>
+        <pre><code>def add_item(item, items=None):
+    if items is None:
+        items = []
+    items.append(item)
+    return items</code></pre>
+      </div>
+    </div>
+
+    <h2>Mutable class attributes</h2>
+    <p>The same sharing problem, one level up: a mutable value assigned at the class level is one single object shared by every instance, not a fresh copy per instance.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; every instance shares one list</p>
+        <pre><code>class Cart:
+    items = []</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; initialized per instance</p>
+        <pre><code>class Cart:
+    def __init__(self):
+        self.items = []</code></pre>
+      </div>
+    </div>
+
+    <h2>Wildcard imports</h2>
+    <p><code>from module import *</code> pollutes the current namespace with everything the module exports, and hides exactly where any given name came from &mdash; both for readers and for tools trying to statically trace where a symbol is defined.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>from utils import *</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>from utils import normalize, slugify</code></pre>
+      </div>
+    </div>
+
+    <h2>How REPO-SIGHT checks for these</h2>
+    <p>All four patterns above are REPO-SIGHT's actual Python rules &mdash; <code>py-bare-except</code>, <code>py-mutable-default-arg</code>, <code>py-mutable-class-attribute</code>, and <code>py-wildcard-import</code>, alongside long-function, deep-nesting, and TODO-without-ticket checks. <a href="/#analyze">Run it on a Python repository</a> to see which of these actually show up in your own code.</p>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

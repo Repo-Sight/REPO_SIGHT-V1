@@ -7,8 +7,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="google-adsense-account" content="ca-pub-9503894064247817">
   <title>Learn — Static Analysis Articles | REPO-SIGHT</title>
-  <meta name="description" content="Short, practical explainers on static code analysis, cyclomatic complexity, and code health scoring." />
+  <meta name="description" content="16 practical, no-fluff explainers on static code analysis, code metrics, and language-specific quality fixes for C++, Python, and Java." />
 <link rel="canonical" href="https://www.repo-sight.com/learn/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Learn — Static Analysis Articles | REPO-SIGHT" />
+  <meta property="og:description" content="16 practical, no-fluff explainers on static code analysis, code metrics, and language-specific quality fixes for C++, Python, and Java." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Learn — Static Analysis Articles | REPO-SIGHT" />
+  <meta name="twitter:description" content="16 practical, no-fluff explainers on static code analysis, code metrics, and language-specific quality fixes for C++, Python, and Java." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
   <meta name="robots" content="index, follow" />
   <link rel="stylesheet" href="../css/styles.css" />
   <!-- Vercel Web Analytics -->
@@ -43,11 +54,35 @@
 
     <p>These are short explainers on the metrics REPO-SIGHT reports and the ideas behind them — written for developers who want the "why," not a textbook.</p>
 
-    <h2>Articles</h2>
+    <h2>Static analysis fundamentals</h2>
     <ul>
       <li><strong><a href="/learn/what-is-static-analysis.html">What is static code analysis?</a></strong> — how reading source without running it catches problems early, and what it can't catch.</li>
+      <li><strong><a href="/learn/static-analysis-vs-dynamic-analysis.html">Static analysis vs. dynamic analysis</a></strong> — two fundamentally different ways to find problems, and why real pipelines use both.</li>
+      <li><strong><a href="/learn/benefits-of-static-code-analysis.html">The benefits of static code analysis</a></strong> — speed, consistency, and a shared vocabulary for describing code health.</li>
+      <li><strong><a href="/learn/static-code-analysis-for-beginners.html">Static code analysis for beginners</a></strong> — the three layers of tooling, and how to read your first report without panicking.</li>
+      <li><strong><a href="/learn/static-analysis-vs-code-review.html">Static analysis vs. code review</a></strong> — what a human catches that a tool can't, and vice versa.</li>
+    </ul>
+
+    <h2>Metrics, explained</h2>
+    <ul>
       <li><strong><a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity, explained</a></strong> — what the number actually counts and how to bring a function back down.</li>
+      <li><strong><a href="/learn/what-is-code-complexity.html">What is code complexity?</a></strong> — cyclomatic complexity, cognitive complexity, and coupling are three different things.</li>
+      <li><strong><a href="/learn/maximum-nesting-depth-explained.html">What is maximum nesting depth?</a></strong> — why deep nesting is one of the fastest ways to make code unreadable.</li>
       <li><strong><a href="/learn/reading-a-code-health-score.html">How to read a code health score</a></strong> — what REPO-SIGHT's A&ndash;F grade weighs and what to fix first.</li>
+      <li><strong><a href="/learn/how-to-measure-code-quality.html">How to measure code quality</a></strong> — quality isn't one number; here's what the common proxy metrics actually capture.</li>
+      <li><strong><a href="/learn/what-is-technical-debt.html">What is technical debt?</a></strong> — the financial metaphor, and why it's a sharper risk for AI-generated code.</li>
+    </ul>
+
+    <h2>Language-specific fixes</h2>
+    <ul>
+      <li><strong><a href="/learn/improve-python-code-quality.html">How to improve Python code quality</a></strong> — bare except, mutable defaults, wildcard imports, with before/after code.</li>
+      <li><strong><a href="/learn/improve-cpp-code-quality.html">How to improve C++ code quality</a></strong> — raw new/delete, catch(...), magic numbers, with before/after code.</li>
+      <li><strong><a href="/learn/improve-java-code-quality.html">How to improve Java code quality</a></strong> — empty catch blocks, public fields, raw types, with before/after code.</li>
+    </ul>
+
+    <h2>For students &amp; job seekers</h2>
+    <ul>
+      <li><strong><a href="/learn/code-quality-checklist-for-students.html">Code quality checklist for students</a></strong> — what to check before a project goes on your resume.</li>
     </ul>
 
     <h2>Try it on your own code</h2>
@@ -73,9 +108,9 @@
       </div>
       <div class="footer-col">
         <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
         <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
         <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
-        <a href="/learn/reading-a-code-health-score.html">Reading a health score</a>
       </div>
       <div class="footer-col">
         <h4>Legal</h4>
@@ -86,7 +121,8 @@
       </div>
       <div class="footer-col">
         <h4>Contact</h4>
-        <a href="mailto:ronak.reposight@gmail.com">ronak.reposight@gmail.com</a>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
       </div>
        <div class="footer-col">
           <h4>Follow</h4>

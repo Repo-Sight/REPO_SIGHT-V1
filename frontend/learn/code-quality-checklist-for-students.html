@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>Code Quality Checklist for Students | REPO-SIGHT</title>
+  <meta name="description" content="A practical pre-submission and portfolio checklist for CS students: what to check before a project goes on your resume or into a job application, and how to check it in minutes." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/code-quality-checklist-for-students.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Code Quality Checklist for Students | REPO-SIGHT" />
+  <meta property="og:description" content="A practical pre-submission and portfolio checklist for CS students: what to check before a project goes on your resume or into a job application, and how to check it in minutes." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/code-quality-checklist-for-students.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Code Quality Checklist for Students | REPO-SIGHT" />
+  <meta name="twitter:description" content="A practical pre-submission and portfolio checklist for CS students: what to check before a project goes on your resume or into a job application, and how to check it in minutes." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>Code quality checklist for students</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>A class project graded on whether it runs is a different bar than a GitHub repo you're linking from your resume. Here's a practical checklist for the second case &mdash; the one a recruiter or a hiring manager might actually open.</p>
+
+    <h2>Before you link a repo on your resume</h2>
+    <ul>
+      <li><strong>Does it have a README?</strong> One paragraph on what the project does and how to run it. An empty or default README is one of the fastest ways to look unfinished.</li>
+      <li><strong>Is there a LICENSE file?</strong> Doesn't need to be complicated &mdash; MIT or Apache 2.0 is fine &mdash; but an unlicensed public repo technically has no clear terms for anyone to reuse it.</li>
+      <li><strong>Are commit messages readable?</strong> A history of &quot;fix&quot;, &quot;fix2&quot;, &quot;asdf&quot; is a minor thing individually and a pattern reviewers notice collectively.</li>
+      <li><strong>Does the longest function fit on one screen?</strong> A 300-line function is a specific, checkable red flag &mdash; not a vague impression, an actual number you can look up.</li>
+      <li><strong>Are there any bare <code>except:</code> blocks or empty <code>catch</code> blocks?</strong> These are exactly the kind of thing an interviewer skimming your code will notice, because they're a known anti-pattern taught in most CS courses.</li>
+      <li><strong>Is there at least one test?</strong> Doesn't need full coverage &mdash; one test file signals you know testing exists as a practice.</li>
+    </ul>
+
+    <h2>Common mistakes that stand out for the wrong reasons</h2>
+    <ul>
+      <li>Hardcoded credentials or API keys committed to the repo &mdash; an instant red flag for any technical reviewer, independent of code quality.</li>
+      <li>A single 1000-line file holding the entire project, with no separation between logic, I/O, and configuration.</li>
+      <li>Copy-pasted boilerplate left in from a tutorial, including the tutorial's own comments and variable names.</li>
+      <li>No <code>.gitignore</code> &mdash; a repo with <code>node_modules/</code> or a virtual environment committed directly signals unfamiliarity with basic tooling.</li>
+    </ul>
+
+    <h2>A five-minute pre-submission routine</h2>
+    <ol style="margin:8px 0 8px 20px; color:var(--text-muted); font-family:var(--sans); line-height:1.65;">
+      <li>Read the README as if you'd never seen the project before. Does it actually explain what to do?</li>
+      <li><a href="/#analyze">Run the repo through REPO-SIGHT</a> &mdash; no signup, no install. Look at the grade and the single longest function it finds.</li>
+      <li>Fix the worst one or two things it flags. You don't need a perfect score &mdash; you need to not have an obvious, fixable outlier sitting in a repo someone's about to open.</li>
+      <li>Re-run it once, confirm the grade moved, and move on. Don't chase a perfect score on a student project &mdash; a clean, honest B is more convincing than a suspiciously perfect A on something that was clearly never really tested.</li>
+    </ol>
+
+    <h2>Why this matters more than it seems</h2>
+    <p>A recruiter or interviewer who opens your linked repo is spending maybe two or three minutes there. They're not going to read every file &mdash; they're forming an impression from the README, the file structure, and whichever function they happen to click into first. A five-minute pass before you submit is genuinely cheap insurance against that impression being the wrong one.</p>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

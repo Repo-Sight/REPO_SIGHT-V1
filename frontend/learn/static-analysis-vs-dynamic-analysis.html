@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>Static Analysis vs Dynamic Analysis | REPO-SIGHT</title>
+  <meta name="description" content="Static analysis reads code without running it; dynamic analysis runs it and watches. What each one catches, what each one misses, and why real pipelines use both." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/static-analysis-vs-dynamic-analysis.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Static Analysis vs Dynamic Analysis | REPO-SIGHT" />
+  <meta property="og:description" content="Static analysis reads code without running it; dynamic analysis runs it and watches. What each one catches, what each one misses, and why real pipelines use both." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/static-analysis-vs-dynamic-analysis.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Static Analysis vs Dynamic Analysis | REPO-SIGHT" />
+  <meta name="twitter:description" content="Static analysis reads code without running it; dynamic analysis runs it and watches. What each one catches, what each one misses, and why real pipelines use both." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>Static analysis vs. dynamic analysis</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>These are the two fundamentally different ways to find problems in a codebase. One reads the code. The other runs it. Most real engineering workflows use both, because each one is blind to exactly the kind of problem the other one is good at catching.</p>
+
+    <h2>What static analysis does</h2>
+    <p>Static analysis examines source code without executing it. A tool tokenizes and parses the text, then checks it against rules and metrics: is this function too long, is this catch block empty, how many independent paths run through this branch. Nothing ever runs &mdash; there's no build step, no test harness, no runtime environment required. That's also why it's fast: REPO-SIGHT can return a full report on a repository in seconds, because it never compiles or executes a single line of the code it's reading.</p>
+
+    <h2>What dynamic analysis does</h2>
+    <p>Dynamic analysis runs the program and observes what actually happens. Unit tests are the most familiar form. So are memory sanitizers (AddressSanitizer, Valgrind), profilers that watch real CPU/memory usage, and fuzzers that throw thousands of malformed inputs at a program to see what makes it crash. Dynamic analysis can only tell you about the paths that were actually exercised during the run &mdash; it has no opinion about code that was never called.</p>
+
+    <h2>What each one misses</h2>
+    <ul>
+      <li><strong>Static analysis can't tell you if the output is correct.</strong> It can tell you a function has 8 branches and no comments. It cannot tell you whether the function computes the right answer &mdash; that requires actually running it against known inputs.</li>
+      <li><strong>Dynamic analysis can't see code it never touches.</strong> A test suite with 60% coverage tells you nothing about the other 40%. A race condition that only appears under specific timing won't show up if the test that would trigger it never ran.</li>
+      <li><strong>Static analysis catches structural rot early; dynamic analysis catches behavioral bugs late.</strong> A cyclomatic complexity of 30 is visible the moment the function is written. The bug it eventually causes might not surface until a specific input hits production months later.</li>
+    </ul>
+
+    <h2>They're complementary, not competing</h2>
+    <p>A healthy pipeline typically runs static analysis first &mdash; fast, cheap, no build required &mdash; as an early gate before code even gets to tests. Dynamic tools (unit tests, integration tests, sanitizers) run afterward, closer to merge or deploy, because they're slower and need a working build. Neither replaces the other: a codebase can have 100% test coverage and still be an unmaintainable tangle of 400-line functions, and a codebase can have a perfect static-analysis grade and still have a logic bug that only a test would catch.</p>
+
+    <h2>Where REPO-SIGHT sits</h2>
+    <p>REPO-SIGHT is a static analysis tool, deliberately. It tokenizes and parses your C++, Python, or Java source and never executes, builds, or installs anything from the repository it's given &mdash; that's both a speed decision (no build step means a scan finishes in seconds) and a security one (no arbitrary code from a random public GitHub repo ever runs). If you want the dynamic side of the picture &mdash; does the code actually work &mdash; that's still on your test suite, not on any static tool, REPO-SIGHT included.</p>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

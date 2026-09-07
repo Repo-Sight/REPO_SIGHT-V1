@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>How to Improve Java Code Quality | REPO-SIGHT</title>
+  <meta name="description" content="Practical fixes for common Java risk patterns: empty catch blocks, public fields breaking encapsulation, printStackTrace in production, and raw generic types, with before/after code." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/improve-java-code-quality.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="How to Improve Java Code Quality | REPO-SIGHT" />
+  <meta property="og:description" content="Practical fixes for common Java risk patterns: empty catch blocks, public fields breaking encapsulation, printStackTrace in production, and raw generic types, with before/after code." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/improve-java-code-quality.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="How to Improve Java Code Quality | REPO-SIGHT" />
+  <meta name="twitter:description" content="Practical fixes for common Java risk patterns: empty catch blocks, public fields breaking encapsulation, printStackTrace in production, and raw generic types, with before/after code." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>How to improve Java code quality</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>Java's quality problems tend to cluster around encapsulation and error handling &mdash; patterns that compile cleanly and pass a quick glance, but cause real maintenance pain later. Here are the four worth fixing first.</p>
+
+    <h2>Empty catch blocks</h2>
+    <p>An empty <code>catch</code> block compiles fine and silently discards the exception, which means a real failure produces no signal anywhere &mdash; no log line, no stack trace, nothing to search for when something downstream breaks.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; failure vanishes silently</p>
+        <pre><code>try {
+    connection.send(payload);
+} catch (IOException e) {
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; failure is visible</p>
+        <pre><code>try {
+    connection.send(payload);
+} catch (IOException e) {
+    logger.error("send failed", e);
+}</code></pre>
+      </div>
+    </div>
+
+    <h2>Public fields</h2>
+    <p>A public field lets any caller mutate it directly, with no chance to validate the new value or react to the change &mdash; the entire point of encapsulation is to prevent exactly this.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; anyone can set a negative balance</p>
+        <pre><code>public class Account {
+    public double balance;
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; validated on the way in</p>
+        <pre><code>public class Account {
+    private double balance;
+
+    public void setBalance(double value) {
+        if (value < 0) throw new IllegalArgumentException();
+        this.balance = value;
+    }
+}</code></pre>
+      </div>
+    </div>
+
+    <h2><code>printStackTrace()</code> in production paths</h2>
+    <p><code>printStackTrace()</code> writes straight to stderr, which is easy to lose entirely in a production environment with real log aggregation &mdash; a proper logger routes the same information somewhere it can actually be searched later.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>catch (Exception e) {
+    e.printStackTrace();
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>catch (Exception e) {
+    logger.error("operation failed", e);
+}</code></pre>
+      </div>
+    </div>
+
+    <h2>Raw generic types</h2>
+    <p>Using a generic type without its type parameter (a &quot;raw type&quot;) throws away the compile-time type checking generics exist to provide, pushing what should be a compile error into a runtime <code>ClassCastException</code> instead.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; no compile-time safety</p>
+        <pre><code>List names = new ArrayList();
+names.add("Ada");</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>List&lt;String&gt; names = new ArrayList&lt;&gt;();
+names.add("Ada");</code></pre>
+      </div>
+    </div>
+
+    <h2>How REPO-SIGHT checks for these</h2>
+    <p>These four are REPO-SIGHT's actual Java rules &mdash; <code>java-empty-catch-block</code>, <code>java-public-field</code>, <code>java-printstacktrace</code>, and <code>java-raw-type-usage</code> &mdash; alongside long-method, deep-nesting, and TODO-without-ticket checks. <a href="/#analyze">Run it on a Java repository</a> to see which of these show up in yours.</p>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

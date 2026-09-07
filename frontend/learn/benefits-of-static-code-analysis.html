@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>Benefits of Static Code Analysis | REPO-SIGHT</title>
+  <meta name="description" content="Why reading code without running it still catches real problems: speed, consistency, no test dependency, and a shared vocabulary for describing code health." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/benefits-of-static-code-analysis.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Benefits of Static Code Analysis | REPO-SIGHT" />
+  <meta property="og:description" content="Why reading code without running it still catches real problems: speed, consistency, no test dependency, and a shared vocabulary for describing code health." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/benefits-of-static-code-analysis.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Benefits of Static Code Analysis | REPO-SIGHT" />
+  <meta name="twitter:description" content="Why reading code without running it still catches real problems: speed, consistency, no test dependency, and a shared vocabulary for describing code health." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>The benefits of static code analysis</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>Static analysis has a specific, narrow job &mdash; read the code, don't run it &mdash; but that narrowness is exactly where its advantages come from.</p>
+
+    <h2>It catches issues before anything runs</h2>
+    <p>A bug caught by reading code is cheaper than the same bug caught in production, and it's cheaper still than one caught after a user reports it. A deeply nested function or an empty catch block is visible the moment it's written &mdash; you don't need to wait for a specific input to trigger it.</p>
+
+    <h2>It doesn't need a test suite to work</h2>
+    <p>Dynamic tools &mdash; tests, profilers, sanitizers &mdash; all require something to execute: a build, a runtime, often a whole test harness. Static analysis works on code that has zero tests, code you just inherited, or a repo you're evaluating before deciding whether to contribute to it. There's nothing to set up.</p>
+
+    <h2>It's consistent in a way manual review isn't</h2>
+    <p>A rule that flags cyclomatic complexity over a threshold fires identically at 9am on a Monday and 6pm on a Friday. A tired human reviewer skimming their sixth pull request of the day is far more likely to miss a bare <code>except:</code> block or a public field breaking encapsulation than a tool that checks for exactly that, every time, without fatigue.</p>
+
+    <h2>The feedback loop is fast</h2>
+    <p>No scheduling a review meeting, no waiting for a teammate's availability. Paste a repository URL and get a report in seconds. For a solo developer or a small team, that speed is the difference between actually acting on the feedback and never getting around to it.</p>
+
+    <h2>It gives you a shared vocabulary, even for a team of one</h2>
+    <p>&quot;This file feels messy&quot; isn't actionable. &quot;This file has a max nesting depth of 9 against a healthy reference of 3, and one function is 340 lines long&quot; is. Turning a vague feeling into a specific number is what makes it possible to prioritize &mdash; and to tell, later, whether it actually got better.</p>
+
+    <h2>What it doesn't replace</h2>
+    <p>Static analysis is not a substitute for tests, a security audit, or a second pair of human eyes on business logic. It cannot tell you whether your code solves the right problem, only whether the code as written is structurally sound. Treat the numbers as a diagnostic, not a verdict &mdash; and pair them with the review and testing your project actually needs.</p>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

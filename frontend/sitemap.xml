@@ -21,6 +21,11 @@
     <priority>0.3</priority>
   </url>
   <url>
+    <loc>https://www.repo-sight.com/contact.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
     <loc>https://www.repo-sight.com/learn/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
@@ -37,6 +42,66 @@
   </url>
   <url>
     <loc>https://www.repo-sight.com/learn/reading-a-code-health-score.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/static-analysis-vs-dynamic-analysis.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/benefits-of-static-code-analysis.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/static-code-analysis-for-beginners.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/static-analysis-vs-code-review.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/what-is-code-complexity.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/maximum-nesting-depth-explained.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/how-to-measure-code-quality.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/what-is-technical-debt.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/improve-python-code-quality.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/improve-cpp-code-quality.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/improve-java-code-quality.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.repo-sight.com/learn/code-quality-checklist-for-students.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>

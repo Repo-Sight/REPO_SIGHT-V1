@@ -1437,3 +1437,100 @@ main {
 .legal-main strong {
   color: var(--text-primary);
 }
+
+.legal-main code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+}
+
+.legal-main pre {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  overflow-x: auto;
+  margin: 12px 0 20px;
+}
+
+.legal-main pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.legal-main .code-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 12px 0 20px;
+}
+
+.legal-main .code-compare > div > p.code-label {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+
+.legal-main .code-compare .label-bad {
+  color: var(--critical-ink);
+}
+
+.legal-main .code-compare .label-good {
+  color: var(--accent-ink);
+}
+
+.legal-main .code-compare pre {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .legal-main .code-compare {
+    grid-template-columns: 1fr;
+  }
+}
+
+.legal-main table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 24px;
+  font-family: var(--sans);
+  font-size: 0.92rem;
+}
+
+.legal-main th,
+.legal-main td {
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.legal-main th {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.legal-main .callout {
+  background: var(--accent-dim);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin: 16px 0 24px;
+}
+
+.legal-main .callout p {
+  margin: 0;
+}
