@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>What Is Technical Debt? | REPO-SIGHT</title>
+  <meta name="description" content="Technical debt is a financial metaphor for the cost of a shortcut: it buys speed now and charges interest later. Why it's a specific new risk for AI-generated code." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/what-is-technical-debt.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="What Is Technical Debt? | REPO-SIGHT" />
+  <meta property="og:description" content="Technical debt is a financial metaphor for the cost of a shortcut: it buys speed now and charges interest later. Why it's a specific new risk for AI-generated code." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/what-is-technical-debt.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="What Is Technical Debt? | REPO-SIGHT" />
+  <meta name="twitter:description" content="Technical debt is a financial metaphor for the cost of a shortcut: it buys speed now and charges interest later. Why it's a specific new risk for AI-generated code." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>What is technical debt?</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>Technical debt is a metaphor, coined by Ward Cunningham in 1992, comparing a rushed piece of code to a financial loan. Taking the shortcut buys you speed today. Like a loan, it accrues interest &mdash; every future change to that code costs a little more than it would have if the shortcut had never been taken, until eventually someone pays down the principal by refactoring it properly.</p>
+
+    <h2>Deliberate debt vs. accidental debt</h2>
+    <p>Martin Fowler's technical debt quadrant splits it two ways: deliberate versus inadvertent, and reckless versus prudent. Prudent-deliberate debt is a team knowingly cutting a corner to hit a real deadline, with a plan to come back to it. Reckless-inadvertent debt is code written without the experience to know a better way existed &mdash; nobody chose to take on debt, it simply accumulated. Both look identical in the codebase months later; the difference is whether it was a decision or a byproduct.</p>
+
+    <h2>What it actually looks like</h2>
+    <p>Rarely a single dramatic decision. Usually a slow accretion: a function that started at cyclomatic complexity 4 gains one more <code>elif</code> for each new edge case a customer reports, until eighteen months later it's sitting at 30 and nobody remembers which branch handles which case anymore. A file that &quot;just gains one more responsibility&quot; each sprint until it's doing five unrelated jobs. Nothing about any single commit looked alarming.</p>
+
+    <h2>Why this is a sharper problem for AI-generated code specifically</h2>
+    <p>An AI coding assistant will add the fifteenth <code>elif</code> branch exactly as willingly as the first, because it has no memory of how the function looked six prompts ago and no instinct that says &quot;this function has grown enough, time to refactor before adding more.&quot; A human developer working alone in the same file for months at least has some felt sense that a function is getting unwieldy. An assistant generating a function fresh in each prompt doesn't accumulate that discomfort &mdash; which means the debt can compound faster and more invisibly than it would in code written by hand.</p>
+
+    <h2>Paying it down without a &quot;quality week&quot; that never happens</h2>
+    <ul>
+      <li><strong>Measure before guessing.</strong> Don't refactor the file that feels worst from memory &mdash; check which one actually has the highest complexity or the deepest nesting.</li>
+      <li><strong>Budget a fixed slice of time, not a special event.</strong> A recurring 10&ndash;15% of each work cycle spent on the worst-scoring file beats waiting for a dedicated &quot;quality sprint&quot; that keeps getting bumped for new features.</li>
+      <li><strong>Fix outliers, not everything.</strong> The file that's 3x the codebase's average complexity is worth your time. The file that's 10% above average usually isn't, yet.</li>
+    </ul>
+
+    <h2>How REPO-SIGHT fits in</h2>
+    <p>REPO-SIGHT doesn't have access to your git history in the current version, so it can't compute a true churn-weighted &quot;hotspot&quot; score the way tools with full commit history can. What it gives you instead is a structural proxy from a single point-in-time scan &mdash; complexity, nesting, and function length per file &mdash; which is usually enough to spot the worst offenders even without historical data.</p>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

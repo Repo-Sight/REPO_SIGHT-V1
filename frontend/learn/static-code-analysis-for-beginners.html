@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>Static Code Analysis for Beginners | REPO-SIGHT</title>
+  <meta name="description" content="A beginner's introduction to static code analysis: the three layers of tooling, why your first report looks alarming, and how to actually use the results." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/static-code-analysis-for-beginners.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Static Code Analysis for Beginners | REPO-SIGHT" />
+  <meta property="og:description" content="A beginner's introduction to static code analysis: the three layers of tooling, why your first report looks alarming, and how to actually use the results." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/static-code-analysis-for-beginners.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Static Code Analysis for Beginners | REPO-SIGHT" />
+  <meta name="twitter:description" content="A beginner's introduction to static code analysis: the three layers of tooling, why your first report looks alarming, and how to actually use the results." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>Static code analysis for beginners</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>If you've ever seen a red squiggly underline in your editor before you even ran your code, you've already used static analysis. This is a plain-language introduction to what it is, how it's organized, and how to read your first real report without panicking.</p>
+
+    <h2>You're already using a primitive version of it</h2>
+    <p>Your editor's linter, the red underline under an unused variable, the warning your compiler prints about an unused import &mdash; all of that is static analysis. It reads your code as text and structure, without running it, and flags things that look wrong. What REPO-SIGHT and similar tools do is the same idea, taken further: instead of one rule at a time in your editor, a whole engine's worth of rules and metrics run across your entire repository at once.</p>
+
+    <h2>The three layers, from shallow to deep</h2>
+    <ul>
+      <li><strong>Style and formatting</strong> &mdash; indentation, line length, naming conventions. Tools like Prettier, Black, or gofmt live here. Not a correctness concern, just consistency.</li>
+      <li><strong>Structural bugs</strong> &mdash; a bare <code>except:</code> block, an empty <code>catch</code>, a mutable default argument. These are patterns known to cause real bugs, independent of style.</li>
+      <li><strong>Metrics and architecture</strong> &mdash; cyclomatic complexity, nesting depth, function length, coupling between files. This is where REPO-SIGHT lives: not &quot;is this line formatted right&quot; but &quot;is this codebase, as a whole, getting harder to work in.&quot;</li>
+    </ul>
+    <p>Beginners usually meet layer one first (their editor yells about formatting) and don't discover layers two and three until much later &mdash; often only once they've inherited someone else's large codebase.</p>
+
+    <h2>Your first report will look alarming. That's normal.</h2>
+    <p>Run a real-world repository through any static analysis tool for the first time and you'll typically see dozens of violations: long functions, missing docstrings, TODOs without a ticket number. This is completely normal for code that's never been scanned before &mdash; it doesn't mean the code is bad, it means nobody's looked at it through this particular lens yet. The mistake beginners make is trying to fix everything at once. Don't.</p>
+
+    <h2>How to actually use it as a beginner</h2>
+    <ol style="margin:8px 0 8px 20px; color:var(--text-muted); font-family:var(--sans); line-height:1.65;">
+      <li>Look at the overall grade or score first, not the violation list.</li>
+      <li>Find the two or three worst outliers &mdash; the single longest function, the deepest nesting, not the 40th minor info-level note.</li>
+      <li>Fix those first. Re-run. Watch the number move.</li>
+      <li>Treat the rest as a backlog, not a checklist you need to clear today.</li>
+    </ol>
+
+    <h2>A five-minute first run</h2>
+    <p>Pick any public GitHub repository &mdash; one of your own class projects is a good start &mdash; and <a href="/#analyze">paste the URL into REPO-SIGHT</a>. No signup, no install. Look at the grade, then look at the single longest function it found. That's usually the most honest five-minute introduction to what static analysis actually feels like in practice.</p>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

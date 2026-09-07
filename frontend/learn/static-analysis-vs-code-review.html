@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>Static Analysis vs Code Review | REPO-SIGHT</title>
+  <meta name="description" content="What a human reviewer catches that a tool can't, what a tool catches that a tired reviewer often misses, and why solo developers don't get to skip either." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/static-analysis-vs-code-review.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Static Analysis vs Code Review | REPO-SIGHT" />
+  <meta property="og:description" content="What a human reviewer catches that a tool can't, what a tool catches that a tired reviewer often misses, and why solo developers don't get to skip either." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/static-analysis-vs-code-review.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Static Analysis vs Code Review | REPO-SIGHT" />
+  <meta name="twitter:description" content="What a human reviewer catches that a tool can't, what a tool catches that a tired reviewer often misses, and why solo developers don't get to skip either." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>Static analysis vs. code review</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>Both are trying to catch problems before they ship. They're good at catching different problems, for a simple reason: one of them understands intent, and the other one doesn't get tired.</p>
+
+    <h2>What a human reviewer catches that a tool can't</h2>
+    <p>Whether the code solves the right problem. Whether the chosen approach makes sense given where the system is heading. Whether an abstraction will hold up under a change that hasn't happened yet. None of this is something a static rule can evaluate &mdash; it requires understanding intent, business context, and the roadmap, not just the text of the diff.</p>
+
+    <h2>What a tool catches that a reviewer often misses</h2>
+    <p>A nesting depth of 9 buried on line 340 of a 400-line diff. A complexity number that's been quietly climbing for six months across a dozen small commits, none of which looked alarming in isolation. An empty <code>catch</code> block that compiles fine and doesn't visually stand out while skimming. Reviewers skim, especially by the sixth pull request of the day &mdash; a rule that checks the same thing every time doesn't.</p>
+
+    <h2>Review fatigue is a real, well-documented effect</h2>
+    <p>The quality of a code review measurably drops as reviewer fatigue sets in &mdash; more lines per minute skimmed, fewer comments left, later pull requests in a review queue get less scrutiny than the first one. A static analysis pass doesn't have a queue and doesn't get tired at 4:45pm.</p>
+
+    <h2>The right order to use them in</h2>
+    <p>Run static analysis before requesting human review, not after. If a tool would have caught the raw <code>new</code>/<code>delete</code> pair or the wildcard import, let it catch that automatically so the human reviewer's limited attention goes to the thing only they can evaluate: does this approach actually make sense. Using a tool to clear the mechanical issues first is what lets human review focus on judgment instead of pattern-matching.</p>
+
+    <h2>Solo developers don't get a code review at all</h2>
+    <p>This is the actual gap REPO-SIGHT is built for. A team has a second pair of eyes by default &mdash; someone else has to approve the pull request. A solo developer, an indie hacker, or a student working alone doesn't. Running a structural analysis pass isn't a replacement for a human reviewer's judgment, but it's the closest thing to a second opinion available when there's no teammate to open a pull request against.</p>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

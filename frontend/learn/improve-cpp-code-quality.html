@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>How to Improve C++ Code Quality | REPO-SIGHT</title>
+  <meta name="description" content="Practical fixes for common C++ risk patterns: raw new/delete, using namespace std in headers, catch(...) swallowing exceptions, and magic numbers, with before/after code." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/improve-cpp-code-quality.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="How to Improve C++ Code Quality | REPO-SIGHT" />
+  <meta property="og:description" content="Practical fixes for common C++ risk patterns: raw new/delete, using namespace std in headers, catch(...) swallowing exceptions, and magic numbers, with before/after code." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/improve-cpp-code-quality.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="How to Improve C++ Code Quality | REPO-SIGHT" />
+  <meta name="twitter:description" content="Practical fixes for common C++ risk patterns: raw new/delete, using namespace std in headers, catch(...) swallowing exceptions, and magic numbers, with before/after code." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>How to improve C++ code quality</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>C++ gives you enough rope to write extremely fast code and enough rope to leak memory doing it. Most of the patterns worth fixing are about ownership and error handling &mdash; here are the ones that matter most, with real before/after code.</p>
+
+    <h2>Raw <code>new</code>/<code>delete</code></h2>
+    <p>Manual <code>new</code>/<code>delete</code> pairs are the single most common source of leaks and double-frees in C++: every path through the function &mdash; including early returns and thrown exceptions &mdash; has to reach the matching <code>delete</code>, and it's easy to miss one.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; leaks if validate() throws</p>
+        <pre><code>Widget* w = new Widget();
+w->validate();
+w->run();
+delete w;</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; freed automatically on every path</p>
+        <pre><code>auto w = std::make_unique&lt;Widget&gt;();
+w->validate();
+w->run();</code></pre>
+      </div>
+    </div>
+
+    <h2><code>using namespace std;</code> in a header</h2>
+    <p>Inside a <code>.cpp</code> file, this is a matter of taste. Inside a header, it pollutes the global namespace of every single translation unit that includes that header, which can cause subtle name collisions in files that never intended to opt into it.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; widget.h</p>
+        <pre><code>#include &lt;string&gt;
+using namespace std;
+
+string describe(int id);</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; widget.h</p>
+        <pre><code>#include &lt;string&gt;
+
+std::string describe(int id);</code></pre>
+      </div>
+    </div>
+
+    <h2>Catch-all <code>catch(...)</code></h2>
+    <p>An empty ellipsis catch block swallows every exception &mdash; including ones the code has no idea how to actually recover from &mdash; and discards the information about what went wrong, which makes the next debugging session much harder.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; silent failure</p>
+        <pre><code>try {
+    process(request);
+} catch (...) {
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; specific, logged</p>
+        <pre><code>try {
+    process(request);
+} catch (const std::exception& e) {
+    log_error(e.what());
+}</code></pre>
+      </div>
+    </div>
+
+    <h2>Magic numbers in conditions</h2>
+    <p>A bare literal in a comparison forces the reader to guess what it means and makes the value harder to find and change consistently later.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>if (retries > 3) {
+    giveUp();
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>constexpr int kMaxRetries = 3;
+if (retries > kMaxRetries) {
+    giveUp();
+}</code></pre>
+      </div>
+    </div>
+
+    <h2>How REPO-SIGHT checks for these</h2>
+    <p>These four are REPO-SIGHT's actual C++ rules &mdash; <code>cpp-raw-new-delete</code>, <code>cpp-using-namespace-std-header</code>, <code>cpp-catch-all-ellipsis</code>, and <code>cpp-magic-number-literal</code> &mdash; alongside long-function, deep-nesting, and TODO-without-ticket checks. <a href="/#analyze">Run it on a C++ repository</a> to see which show up in yours.</p>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
