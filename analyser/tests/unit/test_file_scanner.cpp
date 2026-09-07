@@ -61,6 +61,36 @@ TEST(FileScanner, ScanWithoutOutParamBehavesExactlyAsBefore) {
     EXPECT_EQ(files[0].filename().string(), "main.cpp");
 }
 
+// Phase 3 groundwork: confirms FileScanner already handles a single
+// regular file as the target path (not just a directory), since Phase 3
+// (single-file upload/paste) plans to pass the file straight to the CMA
+// binary without wrapping it in a directory first. This behavior already
+// existed in scan()'s is_regular_file(m_rootPath) branch but had no
+// direct test -- verifying it here rather than assuming from reading code.
+TEST(FileScanner, SingleFileTargetPathReturnsThatFileWhenSupported) {
+    TempDir dir;
+    dir.write("solo.cpp", "int main() { return 0; }\n");
+
+    const FileScanner scanner(dir.path() / "solo.cpp");
+    const auto files = scanner.scan();
+
+    ASSERT_EQ(files.size(), 1u);
+    EXPECT_EQ(files[0].filename().string(), "solo.cpp");
+}
+
+TEST(FileScanner, SingleFileTargetPathWithUnsupportedExtensionReturnsEmptyAndReportsUnsupported) {
+    TempDir dir;
+    dir.write("data.go", "package main\n");
+
+    const FileScanner scanner(dir.path() / "data.go");
+    std::vector<UnsupportedFile> unsupported;
+    const auto files = scanner.scan(&unsupported);
+
+    EXPECT_TRUE(files.empty());
+    ASSERT_EQ(unsupported.size(), 1u);
+    EXPECT_EQ(unsupported[0].extension, ".go");
+}
+
 TEST(FileScanner, UnsupportedOutParamCollectsRejectedFilesWithExtension) {
     TempDir dir;
     dir.write("main.cpp");
