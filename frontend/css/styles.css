@@ -935,6 +935,11 @@ main {
   font-size: 12.5px;
   margin-top: 12px;
 }
+.hero-fineprint {
+  font-size: 12px;
+  color: var(--text-ghost);
+  margin-top: 12px;
+}
 
 /* Phase 3: mode toggle (scan a repo / analyze a file) + the two
    side-by-side "analyze a file" panels. Deliberately reuses existing
