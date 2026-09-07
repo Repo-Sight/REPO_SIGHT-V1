@@ -49,6 +49,80 @@ private:
 
 } // namespace
 
+// Phase 2a's actual closing checklist item: "mixed repo containing
+// C++/Python/Java/TS/JS/C# -> verify per-language breakdown ... is
+// correct for all six languages." The prior test only covered two.
+TEST(MetricsEngineByLanguage, SixLanguageMixedRepoProducesCorrectPerLanguageBreakdown) {
+    MetricsEngine engine;
+
+    struct Seed { const char* path; const char* language; int totalLines; int codeLines; };
+    const Seed seeds[] = {
+        {"a.cpp",  "cpp",        10, 8},
+        {"b.py",   "python",     20, 15},
+        {"c.java", "java",       30, 22},
+        {"d.ts",   "typescript", 40, 33},
+        {"e.js",   "javascript", 50, 41},
+        {"f.cs",   "csharp",     60, 48},
+        {"g.cs",   "csharp",     15, 12},
+    };
+
+    for (const auto& seed : seeds) {
+        FileMetrics fm;
+        fm.language = seed.language;
+        fm.totalLines = seed.totalLines;
+        fm.codeLines = seed.codeLines;
+        engine.addFile(seed.path, fm);
+    }
+
+    const auto pm = engine.compute();
+
+    // 7 files, 6 distinct languages -- csharp has two files grouped together.
+    ASSERT_EQ(pm.byLanguage.size(), 6u);
+    ASSERT_EQ(engine.files().size(), 7u);
+
+    auto findAgg = [&pm](const std::string& lang) -> const LanguageAggregate* {
+        for (const auto& agg : pm.byLanguage) {
+            if (agg.language == lang) return &agg;
+        }
+        return nullptr;
+    };
+
+    const LanguageAggregate* cppAgg = findAgg("cpp");
+    ASSERT_NE(cppAgg, nullptr);
+    EXPECT_EQ(cppAgg->fileCount, 1);
+    EXPECT_EQ(cppAgg->totalLines, 10);
+    EXPECT_EQ(cppAgg->codeLines, 8);
+
+    const LanguageAggregate* pyAgg = findAgg("python");
+    ASSERT_NE(pyAgg, nullptr);
+    EXPECT_EQ(pyAgg->fileCount, 1);
+    EXPECT_EQ(pyAgg->totalLines, 20);
+    EXPECT_EQ(pyAgg->codeLines, 15);
+
+    const LanguageAggregate* javaAgg = findAgg("java");
+    ASSERT_NE(javaAgg, nullptr);
+    EXPECT_EQ(javaAgg->fileCount, 1);
+    EXPECT_EQ(javaAgg->totalLines, 30);
+    EXPECT_EQ(javaAgg->codeLines, 22);
+
+    const LanguageAggregate* tsAgg = findAgg("typescript");
+    ASSERT_NE(tsAgg, nullptr);
+    EXPECT_EQ(tsAgg->fileCount, 1);
+    EXPECT_EQ(tsAgg->totalLines, 40);
+    EXPECT_EQ(tsAgg->codeLines, 33);
+
+    const LanguageAggregate* jsAgg = findAgg("javascript");
+    ASSERT_NE(jsAgg, nullptr);
+    EXPECT_EQ(jsAgg->fileCount, 1);
+    EXPECT_EQ(jsAgg->totalLines, 50);
+    EXPECT_EQ(jsAgg->codeLines, 41);
+
+    const LanguageAggregate* csAgg = findAgg("csharp");
+    ASSERT_NE(csAgg, nullptr);
+    EXPECT_EQ(csAgg->fileCount, 2);
+    EXPECT_EQ(csAgg->totalLines, 75);
+    EXPECT_EQ(csAgg->codeLines, 60);
+}
 TEST(FileScanner, ScanWithoutOutParamBehavesExactlyAsBefore) {
     TempDir dir;
     dir.write("main.cpp");
