@@ -12,6 +12,10 @@
    ========================================================================== */
 
 @import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap");
+/* Phase 4 / Direction B ("Annotated blueprint") -- Inter + Archivo, loaded
+   alongside the landing page's fonts above rather than replacing them.
+   Scoped to body.report-mode only, see the block below. */
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
   --bg: #e7ece6;
@@ -41,6 +45,56 @@
   --display: "Fraunces", ui-serif, Georgia, serif;
   --shadow-xs: 0 1px 2px rgba(21, 32, 27, 0.05);
   --shadow-sm: 0 1px 2px rgba(21, 32, 27, 0.06), 0 4px 10px -4px rgba(21, 32, 27, 0.08);
+}
+
+/* ==========================================================================
+   Report view — "Annotated blueprint" theme (Phase 4, Direction B, locked
+   per REPO-SIGHT-V2-PLAN.md Section 7.2). Scoped to body.report-mode,
+   which dashboard.js sets only when rendering a ?scan= report -- the
+   marketing landing page keeps the original warm paper/forest-green
+   tokens above untouched, per the plan's Section 7.5 scope boundary
+   (this phase covers the post-scan report and its chrome, not the
+   landing page). Cool ink-blue/white, Inter (UI/body) + Archivo
+   (display/headers), corner-bracket cards instead of rounded chrome.
+   Every dashboard component already reads color via these custom
+   properties, so this block alone reskins the whole report -- component
+   CSS below only adds the new tab nav and new tab content.
+   ========================================================================== */
+body.report-mode {
+  --bg: #f7f8fa;
+  --bg-surface: #eef1f6;
+  --bg-raised: #ffffff;
+  --border: #d8dee8;
+  --border-strong: #b9c3d6;
+  --border-subtle: #e4e8f0;
+  --text-primary: #1b2a4a;
+  --text-muted: #51617e;
+  --text-faint: #8492ac;
+  --text-ghost: #b9c3d6;
+  --accent: #3d5a8a;
+  --accent-ink: #1b2a4a;
+  --accent-dim: #e4eaf5;
+  --critical: #b4432e;
+  --critical-ink: #7a2d1e;
+  --critical-dim: #f5e1dc;
+  --warning: #c77d22;
+  --warning-ink: #7e4f15;
+  --warning-dim: #f6e8d4;
+  --info: #3d5a8a;
+  --info-ink: #1b2a4a;
+  --info-dim: #e4eaf5;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --display: "Archivo", "Inter", -apple-system, sans-serif;
+  --shadow-xs: 0 1px 2px rgba(27, 42, 74, 0.06);
+  --shadow-sm: 0 1px 2px rgba(27, 42, 74, 0.07), 0 4px 10px -4px rgba(27, 42, 74, 0.12);
+  /* No grid-paper texture in the report view -- the blueprint motif lives
+     in the ruler tab nav and corner-bracket cards instead. */
+  background-image: none;
+  background-color: var(--bg);
+}
+
+body.report-mode .btn-primary {
+  box-shadow: 0 2px 6px rgba(61, 90, 138, 0.18), 0 10px 20px -10px rgba(61, 90, 138, 0.4);
 }
 
 /* Grid-paper texture, at a low opacity so it stays out of the way of
@@ -691,11 +745,467 @@ main {
 }
 
 /* ==========================================================================
+   Phase 4 — Tab navigation + new tab content
+   Tabs: Overview / By Language / Files / Scoring (v2 plan Section 7.4).
+   The Overview panel below reuses all the CSS above unchanged (health-card,
+   stat-grid, metric-panel-grid, etc.) -- it's already reskinned for free by
+   the body.report-mode token block. Only new tabs get new markup below.
+   ========================================================================== */
+
+.rs-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0 26px;
+  border-bottom: 1px solid var(--border);
+  background-image: repeating-linear-gradient(90deg, var(--border) 0 1px, transparent 1px 24px);
+  background-position: bottom;
+  background-repeat: repeat-x;
+  background-size: 100% 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.rs-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.rs-tab {
+  appearance: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 10px 4px 12px;
+  margin-right: 26px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-faint);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
+.rs-tab:hover {
+  color: var(--text-muted);
+}
+.rs-tab.active {
+  color: var(--accent-ink);
+  border-bottom-color: var(--accent);
+}
+
+.tab-panel {
+  animation: tabIn 0.12s ease;
+}
+@keyframes tabIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Corner-bracket card -- the Direction B signature component (v2 plan
+   Section 7.2): thin border-segment brackets at two opposing corners
+   instead of full rounded chrome, evoking a technical-drawing callout
+   rather than a SaaS dashboard widget. Used by the new By Language and
+   Scoring tabs; the existing Overview stat-card/panel/health-card keep
+   their current (now re-themed) chrome unchanged. */
+.metric-card {
+  position: relative;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 16px 18px;
+}
+.metric-card::before,
+.metric-card::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+.metric-card::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--accent);
+  border-left: 2px solid var(--accent);
+}
+.metric-card::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+}
+.metric-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.metric-card-title {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+}
+.metric-card-sub {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  flex-shrink: 0;
+}
+.metric-card-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+.metric-card-row .metric-item {
+  gap: 3px;
+}
+.metric-card-row .metric-value {
+  font-size: 17px;
+}
+
+.complexity-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: var(--accent-dim);
+  color: var(--accent-ink);
+}
+.complexity-badge.med {
+  background: var(--warning-dim);
+  color: var(--warning-ink);
+}
+.complexity-badge.high {
+  background: var(--critical-dim);
+  color: var(--critical-ink);
+}
+
+/* By Language tab */
+.bylang-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+/* Callouts -- unanalyzed-languages notice (Overview), hotspots-unavailable
+   notice, files-tab empty state pointer. */
+.callout {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-ghost);
+  border-radius: 3px;
+  background: var(--bg-surface);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.callout-warning {
+  border-left-color: var(--warning);
+}
+.callout-title {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+.callout ul {
+  margin: 6px 0 0 16px;
+  padding: 0;
+}
+
+/* Hotspots list (Overview tab) */
+.hotspot-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.hotspot-item {
+  background: var(--bg-raised);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+}
+.hotspot-path {
+  font-family: var(--mono);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hotspot-stats {
+  display: flex;
+  gap: 14px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.hotspot-stats b {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* Files tab */
+.files-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.files-toolbar input[type="search"],
+.files-toolbar select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  font-family: var(--sans);
+}
+.files-toolbar input[type="search"] {
+  flex: 1;
+  min-width: 180px;
+}
+.files-toolbar input[type="search"]:focus,
+.files-toolbar select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.files-count {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.files-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 640px;
+}
+.files-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.files-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  text-align: left;
+  padding: 9px 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.files-table thead th:hover {
+  color: var(--accent-ink);
+}
+.files-table thead th.sorted::after {
+  content: " \25BE";
+  color: var(--accent);
+}
+.files-table thead th.sorted.asc::after {
+  content: " \25B4";
+}
+.files-table tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.files-table tbody tr:hover td {
+  background: var(--accent-dim);
+}
+.files-table .file-path-cell {
+  font-family: var(--mono);
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.files-table .lang-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: var(--info-dim);
+  color: var(--info-ink);
+  text-transform: uppercase;
+}
+.files-empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+.files-show-more {
+  display: block;
+  margin: 14px auto 0;
+}
+
+/* Scoring tab */
+.scoring-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+.scoring-grade-big {
+  font-family: var(--display);
+  font-size: 44px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.scoring-score-big {
+  font-family: var(--mono);
+  font-size: 16px;
+  color: var(--text-faint);
+}
+.score-bar-row {
+  margin-bottom: 18px;
+}
+.score-bar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  gap: 10px;
+}
+.score-bar-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.score-bar-weight {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  flex-shrink: 0;
+}
+.score-bar-track {
+  height: 8px;
+  background: var(--border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.score-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+.score-bar-fill.good {
+  background: var(--accent);
+}
+.score-bar-fill.mid {
+  background: var(--warning);
+}
+.score-bar-fill.bad {
+  background: var(--critical);
+}
+.score-bar-detail {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+.quick-wins-list {
+  list-style: none;
+  counter-reset: qw;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.quick-wins-list li {
+  counter-increment: qw;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 12.5px;
+}
+.quick-wins-list li::before {
+  content: counter(qw);
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-dim);
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.quick-wins-list b {
+  color: var(--text-primary);
+}
+.quick-wins-impact {
+  display: block;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .rs-tabs {
+    margin-bottom: 20px;
+  }
+  .bylang-grid {
+    grid-template-columns: 1fr;
+  }
+  .scoring-hero {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .files-table-wrap {
+    max-height: 480px;
+  }
+}
+
+/* ==========================================================================
    Landing page
-   Marketing homepage shown when the URL has no ?scan= param. Same paper/
-   forest-green tokens as the dashboard (bg #E7ECE6, accent #1F6F5C,
-   Fraunces + IBM Plex) so the jump from homepage into a report never
-   feels like a different product.
+   Marketing homepage shown when the URL has no ?scan= param. Keeps the
+   original paper/forest-green tokens (bg #E7ECE6, accent #1F6F5C,
+   Fraunces + IBM Plex) unaffected by body.report-mode above -- Phase 4's
+   Direction B redesign is scoped to the post-scan report only (v2 plan
+   Section 7.5), so the landing page and the report intentionally look
+   like different visual identities for now. Revisit if/when the landing
+   page itself gets its own redesign pass.
    ========================================================================== */
 
 #landing-page {
