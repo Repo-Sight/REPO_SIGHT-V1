@@ -6,10 +6,61 @@
    new scan" form, which POSTs to /api/analyze and redirects to ?scan=<id>.
    ========================================================================== */
 
-const GRADE_COLOR = { A: '#1f6f5c', B: '#1f6f5c', C: '#b8791f', D: '#b8791f', F: '#a8402a' };
+// Direction B tokens (body.report-mode in styles.css) -- grade colors map
+// 1:1 onto the accent/warning/critical tokens per v2 plan Section 7.2.1,
+// rather than a separate green/amber/red severity palette.
+const GRADE_COLOR = { A: '#3d5a8a', B: '#3d5a8a', C: '#c77d22', D: '#c77d22', F: '#b4432e' };
 const GAUGE_RADIUS = 54;
 const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
 const LONG_FUNCTION_THRESHOLD = 100; // matches cpp/py/java-long-*-function rule
+
+// Mirrors analyser/src/report/HealthScore.cpp exactly (weights + good/bad
+// reference points for each of the five scoreBreakdown components) so the
+// Scoring tab's bars and "your value vs. target" captions stay truthful to
+// the actual formula instead of drifting from it. Do not tune these here --
+// change HealthScore.cpp and update this comment/table together.
+const SCORE_COMPONENTS = [
+    {
+        key: 'complexityDensity', weight: 0.35, goodRef: 0.15, badRef: 0.50, higherIsBetter: false,
+        title: 'Complexity density', unit: 'ratio',
+        valueOf: p => (p.cyclomaticComplexity || 0) / Math.max(1, p.codeLines || 0),
+        format: v => v.toFixed(2),
+        detail: (v, good) => `Your repo: ${v.toFixed(2)} cyclomatic complexity per code line (target: ${good.toFixed(2)} or lower).`,
+        tip: 'Break large functions into smaller ones and reduce branching (if/else, loops) per function.',
+    },
+    {
+        key: 'avgFunctionLength', weight: 0.25, goodRef: 15, badRef: 60, higherIsBetter: false,
+        title: 'Average function length', unit: 'lines',
+        valueOf: p => p.avgFunctionLength || 0,
+        format: v => v.toFixed(1),
+        detail: (v, good) => `Your repo: ${v.toFixed(1)} lines per function on average (target: ${good} or fewer).`,
+        tip: 'Split your longest functions into smaller, single-purpose ones \u2014 see the Files tab to find them.',
+    },
+    {
+        key: 'commentCoverage', weight: 0.20, goodRef: 0.20, badRef: 0.02, higherIsBetter: true,
+        title: 'Comment coverage', unit: 'ratio',
+        valueOf: p => (p.commentLines || 0) / Math.max(1, p.codeLines || 0),
+        format: v => `${(v * 100).toFixed(1)}%`,
+        detail: (v, good) => `Your repo: ${(v * 100).toFixed(1)}% of code lines are comments (target: ${(good * 100).toFixed(0)}% or more).`,
+        tip: 'Add explanatory comments to non-obvious logic, especially in your most complex files.',
+    },
+    {
+        key: 'todoDensity', weight: 0.10, goodRef: 0.01, badRef: 0.05, higherIsBetter: false,
+        title: 'TODO density', unit: 'ratio',
+        valueOf: p => (p.todoCount || 0) / Math.max(1, p.codeLines || 0),
+        format: v => `${(v * 100).toFixed(1)}%`,
+        detail: (v, good) => `Your repo: ${(v * 100).toFixed(1)}% of code lines carry a TODO/FIXME (target: ${(good * 100).toFixed(0)}% or lower).`,
+        tip: 'Resolve or remove outstanding TODO/FIXME markers instead of letting them accumulate.',
+    },
+    {
+        key: 'nestingDepth', weight: 0.10, goodRef: 3, badRef: 8, higherIsBetter: false,
+        title: 'Max nesting depth', unit: 'levels',
+        valueOf: p => p.maxNestingDepth || 0,
+        format: v => `${v}`,
+        detail: (v, good) => `Your repo's deepest nesting: ${v} levels (target: ${good} or shallower).`,
+        tip: 'Flatten deeply nested if/loop blocks \u2014 early returns and guard clauses usually help.',
+    },
+];
 
 class RepoSightDashboard {
     constructor() {
@@ -81,6 +132,37 @@ class RepoSightDashboard {
             rerunBtn.addEventListener('click', () => window.location.reload());
         }
         this.bindFeedbackWidget();
+        this.bindTabs();
+        this.bindFilesToolbar();
+    }
+
+    /* -----------------------------------------------------------------
+       Phase 4: tab navigation (Overview / By Language / Files / Scoring).
+       Markup is present regardless of scan state, so binding happens up
+       front like the other static events -- switching tabs before data
+       has loaded is harmless, the panels are just empty.
+       ----------------------------------------------------------------- */
+    bindTabs() {
+        const tabs = Array.from(document.querySelectorAll('.rs-tab'));
+        if (!tabs.length) return;
+
+        const TAB_TITLES = { overview: 'Overview', bylang: 'By Language', files: 'Files', scoring: 'Scoring' };
+
+        tabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabId = btn.dataset.tab;
+                tabs.forEach(t => {
+                    const active = t === btn;
+                    t.classList.toggle('active', active);
+                    t.setAttribute('aria-selected', active ? 'true' : 'false');
+                });
+                document.querySelectorAll('.tab-panel').forEach(panel => {
+                    panel.classList.toggle('hidden', panel.dataset.tabPanel !== tabId);
+                });
+                this.setText('page-header-title', TAB_TITLES[tabId] || 'Overview');
+                this.track('tab_viewed', { tab: tabId });
+            });
+        });
     }
 
     /* -----------------------------------------------------------------
@@ -183,6 +265,10 @@ class RepoSightDashboard {
         const landing = this.$('landing-page');
         if (landing) landing.classList.add('hidden');
 
+        // Phase 4 / Direction B theme is scoped to the report view only
+        // (v2 plan Section 7.5) -- see body.report-mode in styles.css.
+        document.body.classList.add('report-mode');
+
         const topbar = document.querySelector('.dash-topbar');
         if (topbar) topbar.classList.remove('hidden');
 
@@ -242,6 +328,10 @@ class RepoSightDashboard {
                     this.jsonData = {
                         project: data.project || {},
                         violations: data.violations || [],
+                        files: data.files || [],
+                        byLanguage: data.byLanguage || [],
+                        unanalyzedLanguages: data.unanalyzedLanguages || [],
+                        hotspots: data.hotspots || null,
                     };
                     this.track('scan_completed');
                     this.hideLoadingState();
@@ -537,9 +627,364 @@ class RepoSightDashboard {
         if (!this.jsonData) return;
 
         this.populateOverview(this.jsonData.project || {});
+        this.populateUnanalyzedCallout();
+        this.populateHotspots();
+        this.populateByLanguage();
+        this.populateFilesTab();
+        this.populateScoring();
         this.updateTopbarMeta();
         this.updateStreak();
         this.maybeShowFeedbackAlready();
+    }
+
+    /* -----------------------------------------------------------------
+       Overview tab additions -- unanalyzed-languages callout + hotspots.
+       Both were already in the scan JSON (schemaVersion 2 / Phase 2) but
+       had no UI anywhere until Phase 4 (v2 plan Section 7.4).
+       ----------------------------------------------------------------- */
+    populateUnanalyzedCallout() {
+        const list = this.jsonData.unanalyzedLanguages || [];
+        const callout = this.$('unanalyzed-callout');
+        const body = this.$('unanalyzed-callout-body');
+        if (!callout || !body) return;
+
+        if (!list.length) {
+            callout.classList.add('hidden');
+            return;
+        }
+
+        const totalFiles = list.reduce((sum, u) => sum + (u.fileCount || 0), 0);
+        const totalLines = list.reduce((sum, u) => sum + (u.lineCount || 0), 0);
+        const items = list
+            .slice()
+            .sort((a, b) => (b.lineCount || 0) - (a.lineCount || 0))
+            .map(u => `<li>${this.escapeHtml(u.languageName || u.extension)} \u2014 ${this.formatNumber(u.fileCount)} file(s), ${this.formatNumber(u.lineCount)} lines</li>`)
+            .join('');
+
+        body.innerHTML = `
+            ${this.formatNumber(totalFiles)} file(s) totaling ${this.formatNumber(totalLines)} lines weren't analyzed \u2014 REPO-SIGHT doesn't have a language front-end for these yet:
+            <ul>${items}</ul>
+        `;
+        callout.classList.remove('hidden');
+    }
+
+    populateHotspots() {
+        const hotspots = this.jsonData.hotspots;
+        const listEl = this.$('hotspot-list');
+        const noteEl = this.$('hotspots-unavailable-note');
+        if (!listEl || !noteEl) return;
+
+        if (!hotspots || !hotspots.gitAvailable) {
+            listEl.classList.add('hidden');
+            noteEl.classList.remove('hidden');
+            return;
+        }
+
+        const topFiles = (hotspots.topFiles || [])
+            .slice()
+            .sort((a, b) => (b.hotspotScore || 0) - (a.hotspotScore || 0))
+            .slice(0, 5);
+
+        if (!topFiles.length) {
+            listEl.classList.add('hidden');
+            noteEl.classList.remove('hidden');
+            noteEl.textContent = 'No hotspots to show \u2014 not enough commit history yet for this repository.';
+            return;
+        }
+
+        noteEl.classList.add('hidden');
+        listEl.innerHTML = topFiles
+            .map(fh => `
+                <li class="hotspot-item">
+                    <span class="hotspot-path" title="${this.escapeHtml(fh.path)}">${this.escapeHtml(fh.path)}</span>
+                    <span class="hotspot-stats">
+                        <span>CC <b>${this.formatNumber(fh.cyclomaticComplexity)}</b></span>
+                        <span>Commits <b>${this.formatNumber(fh.commitCount)}</b></span>
+                        <span>+${this.formatNumber(fh.linesAdded)}/-${this.formatNumber(fh.linesDeleted)}</span>
+                    </span>
+                </li>
+            `)
+            .join('');
+        listEl.classList.remove('hidden');
+    }
+
+    /* -----------------------------------------------------------------
+       By Language tab -- one corner-bracket card per language from the
+       scan JSON's byLanguage[] array, sorted by share of project LOC.
+       ----------------------------------------------------------------- */
+    classifyComplexityDensity(density) {
+        // Same thresholds as HealthScore.cpp's kComplexityDensityGood/Bad
+        // (0.15 / 0.50) -- a presentational Low/Med/High bucket, not a
+        // restatement of the full 5-component weighted health score.
+        if (density <= 0.15) return 'low';
+        if (density >= 0.50) return 'high';
+        return 'med';
+    }
+
+    populateByLanguage() {
+        const byLanguage = this.jsonData.byLanguage || [];
+        const grid = this.$('bylang-grid');
+        const empty = this.$('bylang-empty');
+        if (!grid || !empty) return;
+
+        if (!byLanguage.length) {
+            grid.innerHTML = '';
+            empty.classList.remove('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+
+        const projectCodeLines = Math.max(1, this.jsonData.project.codeLines || 0);
+        const sorted = byLanguage.slice().sort((a, b) => (b.codeLines || 0) - (a.codeLines || 0));
+
+        grid.innerHTML = sorted
+            .map(la => {
+                const pct = ((la.codeLines || 0) / projectCodeLines) * 100;
+                const density = (la.cyclomaticComplexity || 0) / Math.max(1, la.codeLines || 0);
+                const bucket = this.classifyComplexityDensity(density);
+                const badgeLabel = bucket === 'low' ? 'Low complexity' : bucket === 'high' ? 'High complexity' : 'Med complexity';
+                const badgeClass = bucket === 'low' ? '' : bucket;
+                return `
+                    <div class="metric-card">
+                        <div class="metric-card-head">
+                            <span class="metric-card-title">${this.escapeHtml(la.language)}</span>
+                            <span class="complexity-badge ${badgeClass}">${badgeLabel}</span>
+                        </div>
+                        <div class="metric-card-sub">${pct.toFixed(1)}% of project \u00b7 ${this.formatNumber(la.fileCount)} file(s)</div>
+                        <div class="metric-card-row">
+                            <div class="metric-item"><span class="metric-value">${this.formatNumber(la.codeLines)}</span><span class="metric-label">Code lines</span></div>
+                            <div class="metric-item"><span class="metric-value">${this.formatNumber(la.functionCount)}</span><span class="metric-label">Functions</span></div>
+                            <div class="metric-item"><span class="metric-value">${this.formatNumber(la.cyclomaticComplexity)}</span><span class="metric-label">Complexity</span></div>
+                            <div class="metric-item"><span class="metric-value">${this.formatNumber(la.classCount)}</span><span class="metric-label">Classes</span></div>
+                            <div class="metric-item"><span class="metric-value">${(la.avgFunctionLength || 0).toFixed(1)}</span><span class="metric-label">Avg fn length</span></div>
+                            <div class="metric-item"><span class="metric-value">${this.formatNumber(la.todoCount)}</span><span class="metric-label">TODOs</span></div>
+                        </div>
+                    </div>
+                `;
+            })
+            .join('');
+    }
+
+    /* -----------------------------------------------------------------
+       Files tab -- sortable/filterable table over the scan JSON's
+       files[] array. Rendering is capped (FILES_RENDER_CAP) with a
+       "show all" escape hatch so a very large repo's file list doesn't
+       lock up the tab; sort/filter always run against the full array.
+       ----------------------------------------------------------------- */
+    violationCountsByPath() {
+        const counts = {};
+        (this.jsonData.violations || []).forEach(v => {
+            counts[v.path] = (counts[v.path] || 0) + 1;
+        });
+        return counts;
+    }
+
+    populateFilesTab() {
+        const files = this.jsonData.files || [];
+        this.filesState = {
+            sortKey: 'cyclomaticComplexity',
+            sortDir: 'desc',
+            search: '',
+            lang: '',
+            renderCap: 300,
+            showAll: false,
+        };
+        this._violationCounts = this.violationCountsByPath();
+
+        const langSelect = this.$('files-lang-filter');
+        if (langSelect) {
+            const languages = Array.from(new Set(files.map(f => f.language).filter(Boolean))).sort();
+            langSelect.innerHTML = '<option value="">All languages</option>' +
+                languages.map(l => `<option value="${this.escapeHtml(l)}">${this.escapeHtml(l)}</option>`).join('');
+        }
+
+        this.renderFilesTable();
+    }
+
+    getFilteredSortedFiles() {
+        const files = this.jsonData.files || [];
+        const state = this.filesState || {};
+        const search = (state.search || '').toLowerCase();
+        const lang = state.lang || '';
+
+        let rows = files.filter(f => {
+            if (lang && f.language !== lang) return false;
+            if (search && !f.path.toLowerCase().includes(search)) return false;
+            return true;
+        });
+
+        rows = rows.map(f => ({ ...f, issues: this._violationCounts[f.path] || 0 }));
+
+        const key = state.sortKey || 'cyclomaticComplexity';
+        const dir = state.sortDir === 'asc' ? 1 : -1;
+        rows.sort((a, b) => {
+            const av = a[key];
+            const bv = b[key];
+            if (typeof av === 'string' || typeof bv === 'string') {
+                return dir * String(av || '').localeCompare(String(bv || ''));
+            }
+            return dir * ((av || 0) - (bv || 0));
+        });
+
+        return rows;
+    }
+
+    renderFilesTable() {
+        const tbody = this.$('files-table-body');
+        const empty = this.$('files-empty');
+        const countLabel = this.$('files-count-label');
+        const showMoreBtn = this.$('files-show-more');
+        if (!tbody || !empty || !countLabel) return;
+
+        const allFiltered = this.getFilteredSortedFiles();
+        const totalFiles = (this.jsonData.files || []).length;
+
+        if (!totalFiles) {
+            tbody.innerHTML = '';
+            empty.classList.remove('hidden');
+            countLabel.textContent = '';
+            if (showMoreBtn) showMoreBtn.classList.add('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+
+        const cap = this.filesState.renderCap;
+        const showAll = this.filesState.showAll;
+        const rows = showAll ? allFiltered : allFiltered.slice(0, cap);
+
+        tbody.innerHTML = rows
+            .map(f => `
+                <tr>
+                    <td class="file-path-cell" title="${this.escapeHtml(f.path)}">${this.escapeHtml(f.path)}</td>
+                    <td><span class="lang-badge">${this.escapeHtml(f.language || '?')}</span></td>
+                    <td>${this.formatNumber(f.codeLines)}</td>
+                    <td>${this.formatNumber(f.cyclomaticComplexity)}</td>
+                    <td>${this.formatNumber(f.maxNestingDepth)}</td>
+                    <td>${this.formatNumber(f.functionCount)}</td>
+                    <td>${this.formatNumber(f.issues)}</td>
+                </tr>
+            `)
+            .join('');
+
+        countLabel.textContent = allFiltered.length === totalFiles
+            ? `${this.formatNumber(totalFiles)} file(s)`
+            : `${this.formatNumber(allFiltered.length)} of ${this.formatNumber(totalFiles)} file(s)`;
+
+        if (showMoreBtn) {
+            const hiddenCount = allFiltered.length - rows.length;
+            if (hiddenCount > 0) {
+                showMoreBtn.textContent = `Show all files (${this.formatNumber(hiddenCount)} more)`;
+                showMoreBtn.classList.remove('hidden');
+            } else {
+                showMoreBtn.classList.add('hidden');
+            }
+        }
+
+        document.querySelectorAll('.files-table thead th[data-sort]').forEach(th => {
+            const isSorted = th.dataset.sort === this.filesState.sortKey;
+            th.classList.toggle('sorted', isSorted);
+            th.classList.toggle('asc', isSorted && this.filesState.sortDir === 'asc');
+        });
+    }
+
+    bindFilesToolbar() {
+        const searchInput = this.$('files-search');
+        const langSelect = this.$('files-lang-filter');
+        const showMoreBtn = this.$('files-show-more');
+        const headers = document.querySelectorAll('.files-table thead th[data-sort]');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                if (!this.filesState) return;
+                this.filesState.search = searchInput.value;
+                this.renderFilesTable();
+            });
+        }
+        if (langSelect) {
+            langSelect.addEventListener('change', () => {
+                if (!this.filesState) return;
+                this.filesState.lang = langSelect.value;
+                this.renderFilesTable();
+            });
+        }
+        if (showMoreBtn) {
+            showMoreBtn.addEventListener('click', () => {
+                if (!this.filesState) return;
+                this.filesState.showAll = true;
+                this.renderFilesTable();
+            });
+        }
+        headers.forEach(th => {
+            th.addEventListener('click', () => {
+                if (!this.filesState) return;
+                const key = th.dataset.sort;
+                if (this.filesState.sortKey === key) {
+                    this.filesState.sortDir = this.filesState.sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.filesState.sortKey = key;
+                    this.filesState.sortDir = 'desc';
+                }
+                this.renderFilesTable();
+            });
+        });
+    }
+
+    /* -----------------------------------------------------------------
+       Scoring tab -- the five weighted components behind the health
+       score (SCORE_COMPONENTS, mirroring HealthScore.cpp exactly), each
+       as a bar with a plain-language "why" and "how to improve", plus a
+       quick-wins list ranked by how many of the 100 points each
+       component is actually costing the project right now.
+       ----------------------------------------------------------------- */
+    populateScoring() {
+        const project = this.jsonData.project || {};
+        const breakdown = project.scoreBreakdown;
+        const barsEl = this.$('score-bars');
+        const quickWinsEl = this.$('quick-wins-list');
+        if (!barsEl || !quickWinsEl) return;
+
+        this.setText('scoring-grade-big', project.healthGrade || '\u2014');
+        this.setText('scoring-score-big', `${Math.round(project.healthScore || 0)} / 100`);
+
+        if (!breakdown) {
+            barsEl.innerHTML = '<p style="color: var(--text-faint); font-size: 12.5px;">Score breakdown isn\u2019t available for this scan.</p>';
+            quickWinsEl.innerHTML = '';
+            return;
+        }
+
+        const scored = SCORE_COMPONENTS.map(c => {
+            const subScore = breakdown[c.key] != null ? breakdown[c.key] : 0;
+            const rawValue = c.valueOf(project);
+            const lostPoints = c.weight * (100 - subScore);
+            return { ...c, subScore, rawValue, lostPoints };
+        });
+
+        barsEl.innerHTML = scored
+            .map(c => {
+                const barClass = c.subScore >= 80 ? 'good' : c.subScore >= 50 ? 'mid' : 'bad';
+                return `
+                    <div class="score-bar-row">
+                        <div class="score-bar-head">
+                            <span class="score-bar-title">${this.escapeHtml(c.title)}</span>
+                            <span class="score-bar-weight">${Math.round(c.subScore)}/100 \u00b7 weight ${(c.weight * 100).toFixed(0)}%</span>
+                        </div>
+                        <div class="score-bar-track"><div class="score-bar-fill ${barClass}" style="width: ${Math.max(2, c.subScore)}%"></div></div>
+                        <div class="score-bar-detail">${c.detail(c.rawValue, c.goodRef)}</div>
+                    </div>
+                `;
+            })
+            .join('');
+
+        const quickWins = scored
+            .filter(c => c.lostPoints > 0.5)
+            .sort((a, b) => b.lostPoints - a.lostPoints)
+            .slice(0, 3);
+
+        quickWinsEl.innerHTML = quickWins.length
+            ? quickWins
+                  .map(c => `<li><span><b>${this.escapeHtml(c.tip)}</b><span class="quick-wins-impact">${c.title} \u2014 costing about ${c.lostPoints.toFixed(1)} of 100 points</span></span></li>`)
+                  .join('')
+            : '<li><span>Nothing stands out \u2014 all five components are already close to their targets.</span></li>';
     }
 
     updateTopbarMeta() {
