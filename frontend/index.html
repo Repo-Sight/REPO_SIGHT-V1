@@ -349,12 +349,33 @@ TODO Comments          : <span class="t-value">9</span>
     <section id="report-content" class="hidden">
       <div class="page-header">
         <div>
-          <h1>Overview</h1>
+          <h1 id="page-header-title">Overview</h1>
           <p id="page-subtitle">— files · — lines analyzed</p>
         </div>
       </div>
 
-      <div class="overview-top">
+      <!-- Phase 4 tab navigation -- Overview / By Language / Files / Scoring
+           (v2 plan Section 7.4). Content stays broad-to-narrow: headline,
+           then which part of the stack, then which file, then why/what to
+           do about it. -->
+      <nav class="rs-tabs" role="tablist" aria-label="Report sections">
+        <button type="button" class="rs-tab active" data-tab="overview" role="tab" aria-selected="true" id="rs-tab-overview">Overview</button>
+        <button type="button" class="rs-tab" data-tab="bylang" role="tab" aria-selected="false" id="rs-tab-bylang">By Language</button>
+        <button type="button" class="rs-tab" data-tab="files" role="tab" aria-selected="false" id="rs-tab-files">Files</button>
+        <button type="button" class="rs-tab" data-tab="scoring" role="tab" aria-selected="false" id="rs-tab-scoring">Scoring</button>
+      </nav>
+
+      <div class="tab-panel" data-tab-panel="overview">
+        <!-- Unanalyzed-languages callout -- only shown if the scan skipped
+             any files REPO-SIGHT doesn't have a front-end for yet. -->
+        <div class="callout callout-warning hidden" id="unanalyzed-callout">
+          <div>
+            <div class="callout-title">Some files weren't analyzed</div>
+            <div id="unanalyzed-callout-body"></div>
+          </div>
+        </div>
+
+        <div class="overview-top">
         <div class="health-card">
           <div class="health-gauge">
             <svg width="140" height="140" viewBox="0 0 140 140">
@@ -458,6 +479,78 @@ TODO Comments          : <span class="t-value">9</span>
             <div class="progress-fill" id="longest-fn-bar" style="width: 0%"></div>
           </div>
           <div class="progress-caption">flagged at 100 lines (long-function rule)</div>
+        </div>
+      </div>
+
+        <!-- Hotspots -- complexity x recent git churn (Section 7.4:
+             Overview shows "top 3-5 hotspots"). Falls back to a plain
+             note when git history isn't available for this scan rather
+             than showing an empty panel. -->
+        <div class="panel" id="hotspots-panel" style="margin-top: 24px">
+          <div class="panel-head">Hotspots — complexity &times; recent churn</div>
+          <div class="panel-body">
+            <ul class="hotspot-list hidden" id="hotspot-list"></ul>
+            <p id="hotspots-unavailable-note" class="hidden" style="color: var(--text-faint); font-size: 12.5px;">
+              Git history isn't available for this scan, so hotspot ranking (complexity &times; recent churn) can't be computed. Complexity metrics elsewhere in this report aren't affected.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- By Language tab (v2 plan Section 7.4: "where does the complexity
+           live?"). One corner-bracket card per language, populated from
+           the scan JSON's byLanguage[] array. -->
+      <div class="tab-panel hidden" data-tab-panel="bylang">
+        <div class="bylang-grid" id="bylang-grid"></div>
+        <p class="files-empty hidden" id="bylang-empty">No per-language breakdown is available for this scan.</p>
+      </div>
+
+      <!-- Files tab (v2 plan Section 7.4: "which specific file do I fix
+           first?"). Sortable/filterable table from the scan JSON's
+           files[] array. -->
+      <div class="tab-panel hidden" data-tab-panel="files">
+        <div class="files-toolbar">
+          <input type="search" id="files-search" placeholder="Filter by file path&hellip;" aria-label="Filter files by path" />
+          <select id="files-lang-filter" aria-label="Filter files by language">
+            <option value="">All languages</option>
+          </select>
+          <span class="files-count" id="files-count-label"></span>
+        </div>
+        <div class="files-table-wrap">
+          <table class="files-table" id="files-table">
+            <thead>
+              <tr>
+                <th data-sort="path">File</th>
+                <th data-sort="language">Language</th>
+                <th data-sort="codeLines">Lines</th>
+                <th data-sort="cyclomaticComplexity">Complexity</th>
+                <th data-sort="maxNestingDepth">Nesting</th>
+                <th data-sort="functionCount">Functions</th>
+                <th data-sort="issues">Issues</th>
+              </tr>
+            </thead>
+            <tbody id="files-table-body"></tbody>
+          </table>
+        </div>
+        <p class="files-empty hidden" id="files-empty">No recognized-language files were found in this scan &mdash; check the Overview tab for files that were skipped.</p>
+        <button type="button" class="btn-ghost files-show-more hidden" id="files-show-more">Show all files</button>
+      </div>
+
+      <!-- Scoring tab (v2 plan Section 7.4: "why did I get this grade, and
+           what do I do about it?"). Surfaces the s1-s5 component scores
+           HealthScore.cpp already computes, plus a quick-wins list ranked
+           by how many points each component is costing the overall score. -->
+      <div class="tab-panel hidden" data-tab-panel="scoring">
+        <div class="scoring-hero">
+          <div class="scoring-grade-big" id="scoring-grade-big">&mdash;</div>
+          <div class="scoring-score-big" id="scoring-score-big">&mdash; / 100</div>
+        </div>
+        <div id="score-bars"></div>
+        <div class="panel" style="margin-top: 24px">
+          <div class="panel-head">Quick wins &mdash; fix these first</div>
+          <div class="panel-body">
+            <ol class="quick-wins-list" id="quick-wins-list"></ol>
+          </div>
         </div>
       </div>
 
