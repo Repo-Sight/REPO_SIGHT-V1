@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>What Is Code Complexity? | REPO-SIGHT</title>
+  <meta name="description" content="Code complexity isn't one number. Cyclomatic complexity, cognitive complexity, and coupling each measure a different kind of difficulty, and REPO-SIGHT's health score blends more than one on purpose." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/what-is-code-complexity.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="What Is Code Complexity? | REPO-SIGHT" />
+  <meta property="og:description" content="Code complexity isn't one number. Cyclomatic complexity, cognitive complexity, and coupling each measure a different kind of difficulty, and REPO-SIGHT's health score blends more than one on purpose." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/what-is-code-complexity.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="What Is Code Complexity? | REPO-SIGHT" />
+  <meta name="twitter:description" content="Code complexity isn't one number. Cyclomatic complexity, cognitive complexity, and coupling each measure a different kind of difficulty, and REPO-SIGHT's health score blends more than one on purpose." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <h1>What is code complexity?</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>&quot;Complexity&quot; gets used as if it's a single measurable thing. It isn't. At least three different, only loosely correlated properties get called complexity, and confusing them leads to fixing the wrong problem.</p>
+
+    <h2>Cyclomatic complexity &mdash; how many paths</h2>
+    <p>Introduced by Thomas McCabe in 1976, this counts the number of independent paths through a function's logic: every <code>if</code>, loop, <code>case</code>, and <code>catch</code> adds one to a baseline of 1. It's a path count, nothing more &mdash; it treats a flat sequence of 10 independent <code>if</code> statements the same as 10 statements nested five levels deep, even though the second is much harder to read.</p>
+
+    <h2>Cognitive complexity &mdash; how hard to hold in your head</h2>
+    <p>A newer metric (introduced by SonarSource in 2016) built specifically to fix that blind spot. It penalizes nesting explicitly: a branch inside a branch inside a loop costs more than the same three branches laid out flat, because that's genuinely closer to how much harder the nested version is for a human to trace mentally. Two functions can have identical cyclomatic complexity and very different cognitive complexity, depending purely on how the branches are arranged.</p>
+
+    <h2>Structural complexity &mdash; how tangled the codebase is</h2>
+    <p>This one isn't about a single function at all. Fan-out (how many other files a file depends on) and fan-in (how many files depend on it) measure coupling: a file with high fan-in is risky to change because everything touches it; a file with high fan-out is fragile because it depends on a lot of moving parts elsewhere. A codebase can have simple, low-complexity individual functions and still be a nightmare to change if the coupling between files is bad.</p>
+
+    <h2>A concrete comparison</h2>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">High complexity, shallow nesting</p>
+        <pre><code>def classify(x):
+    if x == 1: return "a"
+    if x == 2: return "b"
+    if x == 3: return "c"
+    if x == 4: return "d"
+    if x == 5: return "e"
+    return "f"</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-bad">Low complexity, deep nesting</p>
+        <pre><code>def process(items):
+    if items:
+        for i in items:
+            if i.valid:
+                if i.ready:
+                    i.run()</code></pre>
+      </div>
+    </div>
+    <p>The first function has higher cyclomatic complexity (six branches) but is trivial to read. The second has lower cyclomatic complexity (three branches) but is harder to trace because the reader has to track three nested conditions at once. Neither number alone tells the whole story.</p>
+
+    <h2>Why REPO-SIGHT's health score blends more than one number</h2>
+    <p>This is exactly why a single score shouldn't rely on cyclomatic complexity alone. REPO-SIGHT's health score weighs five components together &mdash; complexity density (35%), average function length (25%), comment density (20%), TODO density (10%), and max nesting depth (10%) &mdash; specifically because complexity by itself misses the nesting problem, and nesting by itself misses the sheer-size problem. <a href="/learn/reading-a-code-health-score.html">See the full breakdown of how the grade is calculated.</a></p>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

@@ -13,8 +13,11 @@
   <meta property="og:title" content="About — REPO-SIGHT" />
   <meta property="og:description" content="Who builds REPO-SIGHT, what it does, and why it's free." />
   <meta property="og:url" content="https://www.repo-sight.com/about.html" />
-  <meta property="og:image" content="https://www.repo-sight.com/favicon-32.png" />
-  <meta name="twitter:card" content="summary" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
   <meta name="twitter:title" content="About — REPO-SIGHT" />
   <meta name="twitter:description" content="Who builds REPO-SIGHT, what it does, and why it's free." />
   <meta name="robots" content="index, follow" />
@@ -30,7 +33,7 @@
       <a class="brand" href="/">
         <span class="brand-mark">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
+            <circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
           </svg>
         </span>
         <span class="brand-name">REPO-SIGHT</span>
@@ -46,30 +49,47 @@
 
   <main class="legal-main">
     <h1>About REPO-SIGHT</h1>
-    <p class="legal-updated">Last updated: August 31, 2026</p>
+    <p class="legal-updated">Last updated: September 6, 2026</p>
     <p>REPO-SIGHT is a free static code analysis tool. Paste a public GitHub URL for a C++, Python, or Java repository, and it reports size, structure, complexity, technical debt, and rule violations in seconds — no account, no signup, no paywall.</p>
 
     <h2>What it does</h2>
-    <p>The engine behind REPO-SIGHT is a deterministic, five-stage pipeline — scan, lex, parse, aggregate, report — ... 21 rule checks across the three supported languages, rolled up into a single project health score.</p>
+    <p>The engine behind REPO-SIGHT is a deterministic, five-stage pipeline — scan, lex, parse, aggregate, report. It tokenizes and parses your source with hand-written lexers and parsers (no LLM guessing at code quality), counts functions, classes, loops, branches, and nesting depth, and checks the result against 21 static rules across the three supported languages. Everything rolls up into a single project health score and a plain metrics dashboard — no dependency graph you have to learn to read first.</p>
+
+    <h2>Who it's for</h2>
+    <p>REPO-SIGHT is built for solo developers, students, job seekers, and small teams — the people shipping code fast, often with the help of an AI coding assistant, who don't have a platform team or an engineering manager already running SonarQube on their behalf.</p>
 
     <h2>Why it exists</h2>
-    <p>Most static analysis tools are built for teams ... REPO-SIGHT exists for that second case ...</p>
+    <p>Most static analysis tools are built for teams: they need a build pipeline, a login, a per-seat license, or a dashboard designed for an engineering manager tracking ten other people's commits. REPO-SIGHT exists for the other case — one person who wants an honest read on their own repository, right now, without signing up for anything.</p>
+
+    <h2>Supported languages</h2>
+    <p>C++, Python, and Java today. Each language has its own lexer, parser, and rule set (7 rules per language), tuned to that language's own common pitfalls rather than one generic rule set stretched across all three.</p>
+
+    <h2>What makes it different</h2>
+    <p>REPO-SIGHT isn't an AI code reviewer guessing at what looks wrong in a diff — it's a real parsing engine computing the same metrics a senior engineer would check by hand (cyclomatic complexity, nesting depth, function length, comment density), and it doesn't require an account, a GitHub App install, or a credit card to see the result.</p>
+
+    <h2>Limitations</h2>
+    <ul>
+      <li>Only C++, Python, and Java are analyzed today — files in any other language are skipped, not silently miscounted.</li>
+      <li>Only public GitHub repositories on the main/master branch are supported; private repos and other branches aren't yet.</li>
+      <li>Metrics are heuristic indicators of maintainability, not a security scan, a correctness proof, or a substitute for human code review.</li>
+      <li>Very large repositories can exceed the analysis time budget and time out rather than return a partial report.</li>
+    </ul>
 
     <h2>Who builds it</h2>
-    <p>REPO-SIGHT is built and maintained by Ronak Arora, a solo developer. The project is open source under the Apache 2.0 License, and the source is publicly available on GitHub.</p>
+    <p>REPO-SIGHT is built and maintained by Ronak Arora, a solo developer. The project is open source under the Apache 2.0 License.</p>
 
     <h2>How it's funded</h2>
-    <p>REPO-SIGHT is free to use, with no paid tier. A small amount of advertising, served through Google AdSense, supports hosting and infrastructure costs ...</p>
+    <p>REPO-SIGHT is free to use, with no paid tier. A small amount of advertising, served through Google AdSense, supports hosting and infrastructure costs so the tool can stay free and signup-free.</p>
 
     <h2>Get in touch</h2>
-    <p>Questions, bug reports, or feedback can be sent to ronak.reposight@gmail.com.</p>
+    <p>Questions, bug reports, or feedback can be sent via the <a href="/contact.html">contact page</a> or directly to <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>.</p>
   </main>
 <footer class="site-footer">
     <div class="site-footer-inner">
       <div class="footer-brand">
         <div class="brand">
           <span class="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
           </span>
           <span class="brand-name">REPO-SIGHT</span>
         </div>
@@ -83,9 +103,10 @@
       </div>
       <div class="footer-col">
         <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
         <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
         <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
-        <a href="/learn/reading-a-code-health-score.html">Reading a health score</a>
+   
       </div>
       <div class="footer-col">
         <h4>Legal</h4>
@@ -96,7 +117,8 @@
       </div>
       <div class="footer-col">
         <h4>Contact</h4>
-        <a href="mailto:ronak.reposight@gmail.com">ronak.reposight@gmail.com</a>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
       </div>
       <div class="footer-col">
         <h4>Follow</h4>
@@ -105,7 +127,5 @@
       </div>
     </div>
   </footer>
- </body>
- </html>
 </body>
 </html>
