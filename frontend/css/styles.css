@@ -1198,6 +1198,250 @@ main {
 }
 
 /* ==========================================================================
+   Phase 5 — Auth widget + modals
+   The widget markup appears twice (site-header-inner on the landing page,
+   dash-topbar-inner on the report view) with identical classes -- JS
+   updates both instances via querySelectorAll rather than ids, since ids
+   must be unique. The two modals below are single shared instances; they
+   pick up whichever theme (paper vs. Direction B) is active on body at
+   the moment they're opened, since every color here is a CSS var already
+   defined per-context above.
+   ========================================================================== */
+.auth-widget {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.auth-account {
+  position: relative;
+}
+
+.auth-account-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px 5px 5px;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+.auth-account-btn:hover {
+  border-color: var(--border-strong);
+}
+
+.auth-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.auth-email {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+  padding: 6px;
+  min-width: 150px;
+  z-index: 60;
+}
+.auth-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+.auth-menu-item:hover {
+  background: var(--bg-surface);
+}
+
+.auth-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 20, 30, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+.auth-modal {
+  position: relative;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  padding: 30px 28px 26px;
+  width: 100%;
+  max-width: 380px;
+  font-family: var(--sans);
+}
+.auth-modal h2 {
+  font-family: var(--display);
+  font-size: 19px;
+  margin: 0 0 6px;
+  color: var(--text-primary);
+}
+.auth-modal-sub {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 0 0 20px;
+}
+.auth-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-faint);
+  padding: 4px;
+}
+.auth-modal-close:hover {
+  color: var(--text-primary);
+}
+.auth-github-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+}
+.auth-modal-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.auth-modal-divider::before,
+.auth-modal-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.auth-magic-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.auth-magic-form input[type="email"] {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: var(--sans);
+  color: var(--text-primary);
+  background: var(--bg);
+}
+.auth-magic-form input[type="email"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.auth-magic-form button {
+  width: 100%;
+}
+.auth-modal-status {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--accent-ink);
+  background: var(--accent-dim);
+  border-radius: 6px;
+  padding: 9px 11px;
+}
+.auth-modal-error {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--critical-ink);
+  background: var(--critical-dim);
+  border-radius: 6px;
+  padding: 9px 11px;
+}
+
+.myscans-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12.5px;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 4px;
+}
+.myscans-row:hover {
+  background: var(--bg-surface);
+}
+.myscans-row:last-child {
+  border-bottom: none;
+}
+.myscans-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-family: var(--mono);
+}
+.myscans-row-meta {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.myscans-empty {
+  color: var(--text-faint);
+  font-size: 12.5px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+@media (max-width: 640px) {
+  .auth-email {
+    display: none;
+  }
+}
+
+/* ==========================================================================
    Landing page
    Marketing homepage shown when the URL has no ?scan= param. Keeps the
    original paper/forest-green tokens (bg #E7ECE6, accent #1F6F5C,
