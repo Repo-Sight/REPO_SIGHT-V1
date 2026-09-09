@@ -134,6 +134,7 @@ class RepoSightDashboard {
         this.bindFeedbackWidget();
         this.bindTabs();
         this.bindFilesToolbar();
+        this.bindAuth();
     }
 
     /* -----------------------------------------------------------------
@@ -390,9 +391,10 @@ class RepoSightDashboard {
             this.track('scan_started', { mode: 'repo' });
 
             try {
+                const headers = await this.getAuthHeaders();
                 const res = await fetch('/api/analyze', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     body: JSON.stringify({ repoUrl }),
                 });
                 const data = await res.json().catch(() => ({}));
@@ -472,9 +474,10 @@ class RepoSightDashboard {
         if (mode === 'upload') this.track('file_upload_used');
 
         try {
+            const headers = await this.getAuthHeaders();
             const res = await fetch('/api/analyze-file', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ filename, content }),
             });
             const data = await res.json().catch(() => ({}));
@@ -1077,6 +1080,248 @@ class RepoSightDashboard {
             msg.textContent = `You've analyzed code ${this.analysisStreak} ${this.analysisStreak === 1 ? 'day' : 'days'} in a row!`;
             vis.textContent = '\u{1F525}'.repeat(Math.min(this.analysisStreak, 5));
         }
+    }
+
+    /* -----------------------------------------------------------------
+       Phase 5 -- Auth (GitHub OAuth + email magic link) and per-user
+       scan history.
+
+       window.supabaseClient is created by the module script in
+       index.html's <head>. Module scripts are guaranteed to finish
+       running before DOMContentLoaded fires, and this class is only ever
+       constructed inside a DOMContentLoaded handler, so the client is
+       always available here -- except if the CDN request itself failed
+       (offline, ad-blocker, etc.), which is exactly why every method
+       below checks for it and degrades to "auth just isn't available"
+       rather than throwing. Anonymous scanning must never break because
+       a third-party script didn't load.
+
+       Writes (insert + 5-scan-cap eviction) happen server-side in
+       api/_lib/supabase.js using the service-role key. The frontend only
+       ever reads user_scans, filtered automatically by the "select own
+       scans" RLS policy applied to the signed-in user's own session --
+       there is no path for the browser to write or delete a row.
+       ----------------------------------------------------------------- */
+    bindAuth() {
+        this.authWidgets = Array.from(document.querySelectorAll('.auth-widget'));
+        const supabase = window.supabaseClient;
+        if (!supabase || !this.authWidgets.length) return;
+
+        this.authWidgets.forEach(widget => {
+            widget.querySelector('.auth-signin-btn')?.addEventListener('click', () => this.openAuthModal());
+            widget.querySelector('.auth-account-btn')?.addEventListener('click', () => this.toggleAccountMenu(widget));
+            widget.querySelector('.auth-myscans-btn')?.addEventListener('click', () => {
+                this.closeAccountMenus();
+                this.openMyScansModal();
+            });
+            widget.querySelector('.auth-signout-btn')?.addEventListener('click', () => {
+                this.closeAccountMenus();
+                supabase.auth.signOut();
+            });
+        });
+
+        // Click-outside closes any open account dropdown.
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.auth-account')) this.closeAccountMenus();
+        });
+        // Escape closes whichever modal (if any) is open.
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape') return;
+            this.closeAuthModal();
+            this.closeMyScansModal();
+        });
+
+        this.bindAuthModal();
+        this.bindMyScansModal();
+
+        supabase.auth.onAuthStateChange((_event, session) => this.renderAuthState(session));
+        supabase.auth.getSession()
+            .then(({ data }) => this.renderAuthState(data?.session || null))
+            .catch(() => this.renderAuthState(null));
+    }
+
+    closeAccountMenus() {
+        document.querySelectorAll('.auth-menu').forEach(m => m.classList.add('hidden'));
+    }
+
+    toggleAccountMenu(widget) {
+        const menu = widget.querySelector('.auth-menu');
+        if (!menu) return;
+        const willOpen = menu.classList.contains('hidden');
+        this.closeAccountMenus();
+        if (willOpen) menu.classList.remove('hidden');
+    }
+
+    renderAuthState(session) {
+        const user = session?.user || null;
+        (this.authWidgets || []).forEach(widget => {
+            const signinBtn = widget.querySelector('.auth-signin-btn');
+            const account = widget.querySelector('.auth-account');
+            const emailEl = widget.querySelector('.auth-email');
+            const avatarEl = widget.querySelector('.auth-avatar');
+            if (!signinBtn || !account) return;
+
+            signinBtn.classList.toggle('hidden', !!user);
+            account.classList.toggle('hidden', !user);
+            if (user) {
+                const email = user.email || '';
+                if (emailEl) emailEl.textContent = email;
+                if (avatarEl) avatarEl.textContent = (email.charAt(0) || '?').toUpperCase();
+            }
+        });
+    }
+
+    currentRedirectUrl() {
+        return window.location.origin + window.location.pathname + window.location.search;
+    }
+
+    openAuthModal() {
+        const backdrop = this.$('auth-modal-backdrop');
+        if (!backdrop) return;
+        this.$('auth-modal-status')?.classList.add('hidden');
+        this.$('auth-modal-error')?.classList.add('hidden');
+        backdrop.classList.remove('hidden');
+    }
+
+    closeAuthModal() {
+        this.$('auth-modal-backdrop')?.classList.add('hidden');
+    }
+
+    bindAuthModal() {
+        const supabase = window.supabaseClient;
+        const backdrop = this.$('auth-modal-backdrop');
+        const closeBtn = this.$('auth-modal-close');
+        const githubBtn = this.$('auth-github-btn');
+        const magicForm = this.$('auth-magic-form');
+        const statusEl = this.$('auth-modal-status');
+        const errorEl = this.$('auth-modal-error');
+        if (!backdrop) return;
+
+        closeBtn?.addEventListener('click', () => this.closeAuthModal());
+        backdrop.addEventListener('click', e => {
+            if (e.target === backdrop) this.closeAuthModal();
+        });
+
+        githubBtn?.addEventListener('click', async () => {
+            errorEl?.classList.add('hidden');
+            this.track('auth_signin_attempt', { method: 'github' });
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'github',
+                options: { redirectTo: this.currentRedirectUrl() },
+            });
+            if (error && errorEl) {
+                errorEl.textContent = error.message || 'Could not start GitHub sign-in.';
+                errorEl.classList.remove('hidden');
+            }
+        });
+
+        magicForm?.addEventListener('submit', async e => {
+            e.preventDefault();
+            const emailInput = this.$('auth-magic-email');
+            const submitBtn = this.$('auth-magic-submit');
+            const email = emailInput?.value.trim();
+            if (!email) return;
+
+            errorEl?.classList.add('hidden');
+            statusEl?.classList.add('hidden');
+            if (submitBtn) submitBtn.disabled = true;
+            this.track('auth_signin_attempt', { method: 'magic_link' });
+
+            const { error } = await supabase.auth.signInWithOtp({
+                email,
+                options: { emailRedirectTo: this.currentRedirectUrl() },
+            });
+
+            if (submitBtn) submitBtn.disabled = false;
+            if (error) {
+                if (errorEl) {
+                    errorEl.textContent = error.message || 'Could not send the sign-in link. Please try again in a moment.';
+                    errorEl.classList.remove('hidden');
+                }
+            } else if (statusEl) {
+                statusEl.textContent = `Check ${email} for a sign-in link.`;
+                statusEl.classList.remove('hidden');
+            }
+        });
+    }
+
+    openMyScansModal() {
+        const backdrop = this.$('myscans-modal-backdrop');
+        if (!backdrop) return;
+        backdrop.classList.remove('hidden');
+        this.loadMyScans();
+    }
+
+    closeMyScansModal() {
+        this.$('myscans-modal-backdrop')?.classList.add('hidden');
+    }
+
+    bindMyScansModal() {
+        const backdrop = this.$('myscans-modal-backdrop');
+        const closeBtn = this.$('myscans-modal-close');
+        if (!backdrop) return;
+        closeBtn?.addEventListener('click', () => this.closeMyScansModal());
+        backdrop.addEventListener('click', e => {
+            if (e.target === backdrop) this.closeMyScansModal();
+        });
+    }
+
+    async loadMyScans() {
+        const supabase = window.supabaseClient;
+        const listEl = this.$('myscans-list');
+        const errorEl = this.$('myscans-error');
+        if (!supabase || !listEl) return;
+
+        listEl.innerHTML = '<p class="myscans-empty">Loading\u2026</p>';
+        errorEl?.classList.add('hidden');
+
+        const { data, error } = await supabase
+            .from('user_scans')
+            .select('scan_id, project_name, health_score, health_grade, scanned_at')
+            .order('scanned_at', { ascending: false });
+
+        if (error) {
+            listEl.innerHTML = '';
+            if (errorEl) {
+                errorEl.textContent = 'Could not load your scan history right now.';
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        if (!data || !data.length) {
+            listEl.innerHTML = '<p class="myscans-empty">No scans yet \u2014 run one while signed in and it\u2019ll show up here.</p>';
+            return;
+        }
+
+        listEl.innerHTML = data
+            .map(row => `
+                <a class="myscans-row" href="?scan=${encodeURIComponent(row.scan_id)}">
+                    <span class="myscans-row-name">${this.escapeHtml(row.project_name)}</span>
+                    <span class="myscans-row-meta">
+                        <span>${this.escapeHtml(row.health_grade || '\u2014')}</span>
+                        <span>${new Date(row.scanned_at).toLocaleDateString()}</span>
+                    </span>
+                </a>
+            `)
+            .join('');
+    }
+
+    // Used by both scan-submission fetches (repo + file). Anonymous
+    // requests get back the plain JSON content-type header, unchanged
+    // from Phases 0-4 -- an auth hiccup here must never block a scan.
+    async getAuthHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        const supabase = window.supabaseClient;
+        if (!supabase) return headers;
+        try {
+            const { data } = await supabase.auth.getSession();
+            const token = data?.session?.access_token;
+            if (token) headers.Authorization = `Bearer ${token}`;
+        } catch (_) {
+            // Fall through as anonymous.
+        }
+        return headers;
     }
 }
 
