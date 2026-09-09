@@ -20,27 +20,9 @@ import { promisify } from "node:util";
 import { mkdir, readFile, rm, readdir, stat, writeFile } from "node:fs/promises";
 import { join, basename } from "node:path";
 import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabase, getUserFromRequest, recordUserScan } from "./_lib/supabase.js";
 
 const execFileAsync = promisify(execFile);
-
-// Lazy init -- same pattern as api/analyze.js, so a missing env var
-// surfaces as a JSON error instead of crashing cold start.
-let _supabase;
-function getSupabase() {
-  if (!_supabase) {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error(
-        "Server misconfigured: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY " +
-        "are not set for this environment in Vercel Project Settings."
-      );
-    }
-    _supabase = createClient(url, key);
-  }
-  return _supabase;
-}
 
 const CMA_BINARY = join(process.cwd(), "backend", "bin", "linux-x64-cma");
 
@@ -133,7 +115,7 @@ function sanitizeFilename(rawName) {
   return safe;
 }
 
-async function runPipeline({ filePath, reportPath, scanId, supabase, displayName }) {
+async function runPipeline({ filePath, reportPath, scanId, supabase, displayName, user }) {
   let cmaResult;
   try {
     cmaResult = await execFileAsync(
@@ -171,6 +153,16 @@ async function runPipeline({ filePath, reportPath, scanId, supabase, displayName
     });
 
   if (uploadError) throw uploadError;
+
+  // Phase 5: see api/analyze.js's identical block -- additive only,
+  // never turns a successful scan into an error for the user.
+  if (user) {
+    try {
+      await recordUserScan(supabase, user.id, scanId, payload);
+    } catch (historyErr) {
+      console.error("recordUserScan failed (scan itself still succeeded):", historyErr);
+    }
+  }
 
   return { status: 200, body: { scanId } };
 }
@@ -216,11 +208,12 @@ export default async function handler(req, res) {
 
   try {
     const supabase = getSupabase();
+    const user = await getUserFromRequest(req, supabase);
     await mkdir(workDir, { recursive: true });
     await writeFile(filePath, content, "utf8");
 
     const result = await withDeadline(
-      runPipeline({ filePath, reportPath, scanId, supabase, displayName: filename }),
+      runPipeline({ filePath, reportPath, scanId, supabase, displayName: filename, user }),
       OVERALL_TIMEOUT_MS
     );
     res.status(result.status).json(result.body);
