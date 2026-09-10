@@ -2,6 +2,7 @@
 #include "common/LanguageDispatch.h"
 #include "filesystem/FileScanner.h"
 #include "metrics/DependencyGraph.h"
+#include "metrics/DuplicationReport.h"
 #include "metrics/HotspotReport.h"
 #include "metrics/MetricsEngine.h"
 #include "metrics/ViolationReport.h"
@@ -93,6 +94,13 @@ int main(int argc, char* argv[]) {
                           std::make_move_iterator(fileViolations.begin()),
                           std::make_move_iterator(fileViolations.end()));
 
+        // Phase 6a: feed the same tokens (already produced above for
+        // parsing/rules) into the duplication-detection pass. Normalized
+        // and stored internally by the engine -- `tokens` itself is not
+        // touched here and is discarded normally at the end of this
+        // loop iteration.
+        engine.addFileTokens(filepath.string(), fm.language, tokens);
+
         engine.addFile(filepath.string(), std::move(fm));
     }
 
@@ -157,9 +165,12 @@ int main(int argc, char* argv[]) {
         ViolationReport violationReport;
         violationReport.violations = violations;
 
+        const DuplicationReport duplication = engine.buildDuplicationReport();
+
         if (!cfg->jsonFile.empty()) {
             if (ReportGenerator::saveJsonToFile(report, engine.files(), depGraph,
-                                                hotspots, violationReport, cfg->jsonFile))
+                                                hotspots, violationReport, duplication,
+                                                cfg->jsonFile))
                 std::cout << "JSON report saved to: " << cfg->jsonFile << '\n';
             else
                 std::cerr << "Warning: could not write JSON to: " << cfg->jsonFile << '\n';
@@ -167,7 +178,8 @@ int main(int argc, char* argv[]) {
 
         if (!cfg->htmlFile.empty()) {
             if (ReportGenerator::saveHtmlToFile(report, engine.files(), depGraph,
-                                                hotspots, violationReport, cfg->htmlFile))
+                                                hotspots, violationReport, duplication,
+                                                cfg->htmlFile))
                 std::cout << "HTML report saved to: " << cfg->htmlFile << '\n';
             else
                 std::cerr << "Warning: could not write HTML to: " << cfg->htmlFile << '\n';
