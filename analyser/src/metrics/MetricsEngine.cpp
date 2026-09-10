@@ -1,14 +1,17 @@
 #include "metrics/MetricsEngine.h"
 
 #include "common/UnanalyzedLanguageNames.h"
+#include "lexer/Token.h"
  
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <set>
+#include <tuple>
 #include <unordered_map>
  
 namespace cma {
- 
+
 namespace {
 
 // Shared accumulation logic for both the whole-project total and each
@@ -108,7 +111,168 @@ std::vector<std::string> candidateSuffixes(const std::string& target) {
     }
     return candidates;
 }
- 
+
+// ------------------------------------------------------------
+// Duplication detection (Phase 6a)
+//
+// Token-based, language-scoped clone detection using non-overlapping
+// chunk fingerprinting + bidirectional extension -- the same family of
+// technique used by lightweight copy-paste detectors (e.g. CPD/Simian):
+// hash fixed-size, non-overlapping windows of the normalized token
+// stream; any two windows that hash-collide are a candidate duplicate
+// seed, which is then extended backward and forward token-by-token to
+// find the true boundaries of the match. Chunking (rather than sliding
+// by 1 token) keeps the seed-finding pass O(totalTokens / window)
+// instead of O(totalTokens); the extension pass is bounded by the
+// length of actual matches found, not file size, so the whole pass
+// stays comfortably inside the 55s serverless budget (V2 plan Section
+// 2.4) even for large repos.
+
+// Minimum seed length, in normalized tokens. ~40 tokens is roughly
+// 8-15 lines of typical code across the supported languages -- enough
+// to filter out incidental boilerplate (short getters, single-line
+// guards) that would otherwise flood the report with meaningless noise
+// (project instructions Section 14: reports should be actionable, not
+// exhaustive).
+constexpr std::size_t kDuplicationWindowTokens = 40;
+
+constexpr std::uint64_t kFnvOffsetBasis = 1469598103934665603ULL;
+constexpr std::uint64_t kFnvPrime       = 1099511628211ULL;
+
+// FNV-1a over the window's normalized codes. A unit-separator byte is
+// mixed in between tokens so token boundaries can't collapse into each
+// other (e.g. "a","bc" vs "ab","c" must not hash the same).
+std::uint64_t hashWindow(const std::vector<NormalizedToken>& tokens,
+                          std::size_t start, std::size_t length) {
+    std::uint64_t h = kFnvOffsetBasis;
+    for (std::size_t i = 0; i < length; ++i) {
+        for (unsigned char c : tokens[start + i].code) {
+            h ^= c;
+            h *= kFnvPrime;
+        }
+        h ^= 0x1Fu; // unit separator between tokens
+        h *= kFnvPrime;
+    }
+    return h;
+}
+
+bool sameNormalizedRun(const std::vector<NormalizedToken>& a, std::size_t ai,
+                        const std::vector<NormalizedToken>& b, std::size_t bi,
+                        std::size_t length) {
+    for (std::size_t i = 0; i < length; ++i) {
+        if (a[ai + i].code != b[bi + i].code) return false;
+    }
+    return true;
+}
+
+struct ChunkLocation {
+    std::size_t entryIndex; // index into the language's entries vector
+    std::size_t tokenStart; // token index within that entry
+};
+
+void detectDuplicatesWithinLanguage(
+    const std::vector<const FileTokenStream*>& entries,
+    std::vector<DuplicateMatch>& out) {
+    if (entries.empty()) return;
+
+    std::unordered_map<std::uint64_t, std::vector<ChunkLocation>> seeds;
+
+    for (std::size_t e = 0; e < entries.size(); ++e) {
+        const auto& tokens = entries[e]->tokens;
+        if (tokens.size() < kDuplicationWindowTokens) continue;
+        for (std::size_t start = 0;
+             start + kDuplicationWindowTokens <= tokens.size();
+             start += kDuplicationWindowTokens) {
+            const auto h = hashWindow(tokens, start, kDuplicationWindowTokens);
+            seeds[h].push_back(ChunkLocation{e, start});
+        }
+    }
+
+    // Dedupe on the final (possibly-swapped) match coordinates: multiple
+    // chunk seeds inside one true duplicate block all extend to the
+    // exact same range, so this collapses them to a single reported
+    // match while still keeping distinct matches against a different
+    // partner file/location.
+    std::set<std::tuple<std::string, int, std::string, int>> reported;
+
+    for (auto& seedEntry : seeds) {
+        const auto& locations = seedEntry.second;
+        if (locations.size() < 2) continue;
+
+        for (std::size_t i = 0; i < locations.size(); ++i) {
+            for (std::size_t j = i + 1; j < locations.size(); ++j) {
+                const ChunkLocation& locA = locations[i];
+                const ChunkLocation& locB = locations[j];
+
+                const auto& tokensA = entries[locA.entryIndex]->tokens;
+                const auto& tokensB = entries[locB.entryIndex]->tokens;
+
+                // Confirm the hash match is a real match, not a
+                // collision (FNV-1a over ~40 short tokens is very
+                // unlikely to collide, but verifying is cheap and the
+                // report must never show a false "duplicate").
+                if (!sameNormalizedRun(tokensA, locA.tokenStart,
+                                        tokensB, locB.tokenStart,
+                                        kDuplicationWindowTokens))
+                    continue;
+
+                std::size_t startA = locA.tokenStart;
+                std::size_t startB = locB.tokenStart;
+                std::size_t matchLen = kDuplicationWindowTokens;
+
+                while (startA > 0 && startB > 0 &&
+                       tokensA[startA - 1].code == tokensB[startB - 1].code) {
+                    --startA;
+                    --startB;
+                    ++matchLen;
+                }
+                while (startA + matchLen < tokensA.size() &&
+                       startB + matchLen < tokensB.size() &&
+                       tokensA[startA + matchLen].code == tokensB[startB + matchLen].code) {
+                    ++matchLen;
+                }
+
+                // Same-file matches must not overlap themselves --
+                // that's repetition inside one already-counted span,
+                // not two distinct duplicate locations.
+                if (locA.entryIndex == locB.entryIndex) {
+                    const std::size_t endA = startA + matchLen;
+                    const std::size_t endB = startB + matchLen;
+                    const bool overlap = startA < endB && startB < endA;
+                    if (overlap) continue;
+                }
+
+                DuplicateMatch match;
+                match.pathA      = entries[locA.entryIndex]->path;
+                match.lineStartA = tokensA[startA].line;
+                match.lineEndA   = tokensA[startA + matchLen - 1].line;
+
+                match.pathB      = entries[locB.entryIndex]->path;
+                match.lineStartB = tokensB[startB].line;
+                match.lineEndB   = tokensB[startB + matchLen - 1].line;
+
+                match.tokenCount = static_cast<int>(matchLen);
+
+                // Report pairs in a stable order regardless of which
+                // side the hash bucket found first.
+                if (std::tie(match.pathB, match.lineStartB) <
+                    std::tie(match.pathA, match.lineStartA)) {
+                    std::swap(match.pathA, match.pathB);
+                    std::swap(match.lineStartA, match.lineStartB);
+                    std::swap(match.lineEndA, match.lineEndB);
+                }
+                match.lineCount = match.lineEndA - match.lineStartA + 1;
+
+                const auto key = std::make_tuple(match.pathA, match.lineStartA,
+                                                  match.pathB, match.lineStartB);
+                if (!reported.insert(key).second) continue;
+
+                out.push_back(std::move(match));
+            }
+        }
+    }
+}
+
 } // anonymous namespace
  
 void MetricsEngine::addFile(const std::string& filename, FileMetrics metrics) {
@@ -117,6 +281,40 @@ void MetricsEngine::addFile(const std::string& filename, FileMetrics metrics) {
 
 void MetricsEngine::addUnanalyzedFile(std::string extension, int lineCount) {
     m_unanalyzedFiles.emplace_back(std::move(extension), lineCount);
+}
+
+void MetricsEngine::addFileTokens(const std::string& path, const std::string& language,
+                                   const std::vector<Token>& tokens) {
+    FileTokenStream entry;
+    entry.path = path;
+    entry.language = language;
+    entry.tokens.reserve(tokens.size());
+
+    for (const auto& t : tokens) {
+        switch (t.type) {
+            case TokenType::LINE_COMMENT:
+            case TokenType::BLOCK_COMMENT:
+            case TokenType::NEWLINE:
+            case TokenType::END_OF_FILE:
+            case TokenType::UNKNOWN:
+                continue; // formatting/noise -- not structural signal
+            default:
+                break;
+        }
+
+        NormalizedToken nt;
+        nt.line = t.line;
+        switch (t.type) {
+            case TokenType::IDENTIFIER:     nt.code = "\x01ID";  break;
+            case TokenType::STRING_LITERAL: nt.code = "\x01STR"; break;
+            case TokenType::CHAR_LITERAL:   nt.code = "\x01CHR"; break;
+            case TokenType::NUMBER_LITERAL: nt.code = "\x01NUM"; break;
+            default:                        nt.code = t.value;  break;
+        }
+        entry.tokens.push_back(std::move(nt));
+    }
+
+    m_tokenStreams.push_back(std::move(entry));
 }
  
 const std::vector<std::pair<std::string, FileMetrics>>&
@@ -324,6 +522,79 @@ HotspotReport MetricsEngine::buildHotspotReport(const GitHistory& git) const {
     report.files = std::move(hotspots);
     return report;
 }
+
+DuplicationReport MetricsEngine::buildDuplicationReport() const {
+    DuplicationReport report;
+
+    // Group token streams by language -- duplication across different
+    // languages is not meaningful (disjoint keyword/operator sets across
+    // languages already make cross-language matches vanishingly rare,
+    // and grouping keeps every reported pair actionable: "this Python
+    // block repeats that Python block", never a mixed-language false
+    // positive).
+    std::unordered_map<std::string, std::vector<const FileTokenStream*>> byLanguage;
+    for (const auto& entry : m_tokenStreams) {
+        byLanguage[entry.language].push_back(&entry);
+    }
+
+    std::vector<DuplicateMatch> allMatches;
+    for (const auto& group : byLanguage) {
+        detectDuplicatesWithinLanguage(group.second, allMatches);
+    }
+
+    // Largest/most-valuable-to-fix match first; stable tie-break by path.
+    std::sort(allMatches.begin(), allMatches.end(),
+              [](const DuplicateMatch& a, const DuplicateMatch& b) {
+                  if (a.tokenCount != b.tokenCount) return a.tokenCount > b.tokenCount;
+                  if (a.pathA != b.pathA) return a.pathA < b.pathA;
+                  return a.lineStartA < b.lineStartA;
+              });
+
+    report.matches = std::move(allMatches);
+
+    // Deduplicated line coverage per file, for the headline percentage:
+    // merge overlapping/adjacent [start,end] intervals per path so a
+    // line counted by more than one match is only counted once.
+    std::unordered_map<std::string, std::vector<std::pair<int, int>>> intervalsByPath;
+    for (const auto& m : report.matches) {
+        intervalsByPath[m.pathA].emplace_back(m.lineStartA, m.lineEndA);
+        intervalsByPath[m.pathB].emplace_back(m.lineStartB, m.lineEndB);
+    }
+
+    int duplicateLines = 0;
+    for (auto& pathIntervals : intervalsByPath) {
+        auto& intervals = pathIntervals.second;
+        std::sort(intervals.begin(), intervals.end());
+
+        int mergedStart = -1;
+        int mergedEnd   = -1;
+        for (const auto& interval : intervals) {
+            if (mergedStart == -1) {
+                mergedStart = interval.first;
+                mergedEnd   = interval.second;
+                continue;
+            }
+            if (interval.first <= mergedEnd + 1) {
+                mergedEnd = std::max(mergedEnd, interval.second);
+            } else {
+                duplicateLines += (mergedEnd - mergedStart + 1);
+                mergedStart = interval.first;
+                mergedEnd   = interval.second;
+            }
+        }
+        if (mergedStart != -1) duplicateLines += (mergedEnd - mergedStart + 1);
+    }
+    report.duplicateLineCount = duplicateLines;
+
+    int totalCodeLines = 0;
+    for (const auto& fileEntry : m_files) totalCodeLines += fileEntry.second.codeLines;
+
+    report.duplicatePercentage =
+        (totalCodeLines > 0)
+            ? (static_cast<double>(duplicateLines) / totalCodeLines) * 100.0
+            : 0.0;
+
+    return report;
+}
  
 } // namespace cma
- 
