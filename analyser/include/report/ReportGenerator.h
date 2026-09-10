@@ -1,6 +1,7 @@
 #pragma once
 
 #include "metrics/DependencyGraph.h"
+#include "metrics/DuplicationReport.h"
 #include "metrics/HotspotReport.h"
 #include "metrics/Metrics.h"
 #include "metrics/ViolationReport.h"
@@ -73,6 +74,24 @@ public:
         const ViolationReport& violations,
         const std::string& outputPath);
 
+    // -- Phase 6a (duplication detection) --
+    [[nodiscard]] static std::string toJson(
+        const ProjectMetrics& metrics,
+        const std::vector<std::pair<std::string, FileMetrics>>& files,
+        const DependencyGraph& graph,
+        const HotspotReport& hotspots,
+        const ViolationReport& violations,
+        const DuplicationReport& duplication);
+
+    [[nodiscard]] static bool saveJsonToFile(
+        const ProjectMetrics& metrics,
+        const std::vector<std::pair<std::string, FileMetrics>>& files,
+        const DependencyGraph& graph,
+        const HotspotReport& hotspots,
+        const ViolationReport& violations,
+        const DuplicationReport& duplication,
+        const std::string& outputPath);
+
     // -- Phase 4 Sprint 4 (static HTML report) --
     [[nodiscard]] static std::string toHtml(
         const ProjectMetrics& metrics,
@@ -98,6 +117,24 @@ public:
         const ViolationReport& violations,
         const std::string& outputPath);
 
+    // -- Phase 6a (duplication detection) --
+    [[nodiscard]] static std::string toHtml(
+        const ProjectMetrics& metrics,
+        const std::vector<std::pair<std::string, FileMetrics>>& files,
+        const DependencyGraph& graph,
+        const HotspotReport& hotspots,
+        const ViolationReport& violations,
+        const DuplicationReport& duplication);
+
+    [[nodiscard]] static bool saveHtmlToFile(
+        const ProjectMetrics& metrics,
+        const std::vector<std::pair<std::string, FileMetrics>>& files,
+        const DependencyGraph& graph,
+        const HotspotReport& hotspots,
+        const ViolationReport& violations,
+        const DuplicationReport& duplication,
+        const std::string& outputPath);
+
     [[nodiscard]] static std::string toBadgeSvg(const ProjectMetrics& metrics);
     [[nodiscard]] static bool saveBadgeToFile(const ProjectMetrics& metrics,
                                                const std::string& outputPath);
@@ -113,6 +150,7 @@ private:
         const DependencyGraph* graph,
         const HotspotReport* hotspots,
         const ViolationReport* violations,
+        const DuplicationReport* duplication,
         std::ostream& out);
 
     static void writeDependenciesJson(
@@ -122,6 +160,7 @@ private:
 
     static void writeHotspotsJson(const HotspotReport& hotspots, std::ostream& out);
     static void writeViolationsJson(const ViolationReport& violations, std::ostream& out);
+    static void writeDuplicationJson(const DuplicationReport& duplication, std::ostream& out);
     static void writeFileMetricsJson(const FileMetrics& fm, std::ostream& out);
 
 static void writeByLanguageJson(const std::vector<LanguageAggregate>& byLanguage,
@@ -140,6 +179,7 @@ static void writeByLanguageJson(const std::vector<LanguageAggregate>& byLanguage
         const DependencyGraph* graph,
         const HotspotReport* hotspots,
         const ViolationReport* violations,
+        const DuplicationReport* duplication,
         std::ostream& out);
 
     static void writeHtmlFilesTable(
@@ -157,6 +197,10 @@ static void writeByLanguageJson(const std::vector<LanguageAggregate>& byLanguage
 
     static void writeHtmlViolationsSection(
         const ViolationReport& violations,
+        std::ostream& out);
+
+    static void writeHtmlDuplicationSection(
+        const DuplicationReport& duplication,
         std::ostream& out);
 
     [[nodiscard]] static std::string htmlEscape(const std::string& s);
