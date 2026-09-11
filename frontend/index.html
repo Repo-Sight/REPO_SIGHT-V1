@@ -403,6 +403,7 @@ TODO Comments          : <span class="t-value">9</span>
         <button type="button" class="rs-tab" data-tab="bylang" role="tab" aria-selected="false" id="rs-tab-bylang">By Language</button>
         <button type="button" class="rs-tab" data-tab="files" role="tab" aria-selected="false" id="rs-tab-files">Files</button>
         <button type="button" class="rs-tab" data-tab="scoring" role="tab" aria-selected="false" id="rs-tab-scoring">Scoring</button>
+        <button type="button" class="rs-tab" data-tab="duplication" role="tab" aria-selected="false" id="rs-tab-duplication">Duplication</button>
       </nav>
 
       <div class="tab-panel" data-tab-panel="overview">
@@ -412,6 +413,17 @@ TODO Comments          : <span class="t-value">9</span>
           <div>
             <div class="callout-title">Some files weren't analyzed</div>
             <div id="unanalyzed-callout-body"></div>
+          </div>
+        </div>
+
+        <!-- Duplication callout -- Phase 6a (analyser) data surfaced in the
+             UI for the first time here (Phase 6b). Only shown when the scan
+             actually found duplicate blocks; points at the dedicated
+             Duplication tab rather than listing matches inline. -->
+        <div class="callout callout-warning hidden" id="duplication-callout">
+          <div>
+            <div class="callout-title">Duplicate code detected</div>
+            <div id="duplication-callout-body"></div>
           </div>
         </div>
 
@@ -592,6 +604,46 @@ TODO Comments          : <span class="t-value">9</span>
             <ol class="quick-wins-list" id="quick-wins-list"></ol>
           </div>
         </div>
+      </div>
+
+      <!-- Duplication tab (Phase 6b) -- table over the scan JSON's
+           duplication.matches[] array, which Phase 6a's analyser work
+           already computes and stores but no UI ever surfaced. Reuses the
+           Files tab's metric-card / files-table / files-toolbar chrome
+           as-is, so no new CSS was needed for this tab. -->
+      <div class="tab-panel hidden" data-tab-panel="duplication">
+        <div class="metric-card" style="margin-bottom: 20px;">
+          <div class="metric-card-head">
+            <span class="metric-card-title">Duplication</span>
+            <span class="metric-card-sub" id="duplication-summary-sub"></span>
+          </div>
+          <div class="metric-card-row">
+            <div class="metric-item"><span class="metric-value" id="duplication-pct">&mdash;</span><span class="metric-label">% of code lines</span></div>
+            <div class="metric-item"><span class="metric-value" id="duplication-line-count">&mdash;</span><span class="metric-label">Duplicate lines</span></div>
+            <div class="metric-item"><span class="metric-value" id="duplication-match-count">&mdash;</span><span class="metric-label">Match pairs</span></div>
+          </div>
+        </div>
+
+        <div class="files-toolbar">
+          <input type="search" id="duplication-search" placeholder="Filter by file path&hellip;" aria-label="Filter duplicate matches by path" />
+          <span class="files-count" id="duplication-count-label"></span>
+        </div>
+        <div class="files-table-wrap">
+          <table class="files-table" id="duplication-table">
+            <thead>
+              <tr>
+                <th>File A</th>
+                <th>Lines A</th>
+                <th>File B</th>
+                <th>Lines B</th>
+                <th>Tokens</th>
+              </tr>
+            </thead>
+            <tbody id="duplication-table-body"></tbody>
+          </table>
+        </div>
+        <p class="files-empty hidden" id="duplication-empty">No duplicate blocks detected in this scan.</p>
+        <button type="button" class="btn-ghost files-show-more hidden" id="duplication-show-more">Show all matches</button>
       </div>
 
       <div class="streak-strip">
