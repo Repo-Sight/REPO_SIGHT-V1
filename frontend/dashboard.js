@@ -134,6 +134,7 @@ class RepoSightDashboard {
         this.bindFeedbackWidget();
         this.bindTabs();
         this.bindFilesToolbar();
+        this.bindDuplicationToolbar();
         this.bindAuth();
     }
 
@@ -147,7 +148,7 @@ class RepoSightDashboard {
         const tabs = Array.from(document.querySelectorAll('.rs-tab'));
         if (!tabs.length) return;
 
-        const TAB_TITLES = { overview: 'Overview', bylang: 'By Language', files: 'Files', scoring: 'Scoring' };
+        const TAB_TITLES = { overview: 'Overview', bylang: 'By Language', files: 'Files', scoring: 'Scoring', duplication: 'Duplication' };
 
         tabs.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -631,10 +632,12 @@ class RepoSightDashboard {
 
         this.populateOverview(this.jsonData.project || {});
         this.populateUnanalyzedCallout();
+        this.populateDuplicationCallout();
         this.populateHotspots();
         this.populateByLanguage();
         this.populateFilesTab();
         this.populateScoring();
+        this.populateDuplicationTab();
         this.updateTopbarMeta();
         this.updateStreak();
         this.maybeShowFeedbackAlready();
@@ -667,6 +670,29 @@ class RepoSightDashboard {
         body.innerHTML = `
             ${this.formatNumber(totalFiles)} file(s) totaling ${this.formatNumber(totalLines)} lines weren't analyzed \u2014 REPO-SIGHT doesn't have a language front-end for these yet:
             <ul>${items}</ul>
+        `;
+        callout.classList.remove('hidden');
+    }
+
+    // Duplication data has existed in the scan JSON since Phase 6a (analyser
+    // side); this callout is the first place it's surfaced anywhere in the
+    // UI (Phase 6b). Silent when there's nothing to report -- 0% duplication
+    // isn't worth a callout, it's the expected/good case.
+    populateDuplicationCallout() {
+        const dup = this.jsonData.duplication;
+        const callout = this.$('duplication-callout');
+        const body = this.$('duplication-callout-body');
+        if (!callout || !body) return;
+
+        if (!dup || !dup.matches || !dup.matches.length) {
+            callout.classList.add('hidden');
+            return;
+        }
+
+        const pct = dup.duplicatePercentage || 0;
+        body.innerHTML = `
+            ${pct.toFixed(1)}% of code lines (${this.formatNumber(dup.duplicateLineCount)} lines) appear in more than one place across
+            ${this.formatNumber(dup.matches.length)} matched block(s). See the Duplication tab for details.
         `;
         callout.classList.remove('hidden');
     }
@@ -930,6 +956,117 @@ class RepoSightDashboard {
                 this.renderFilesTable();
             });
         });
+    }
+
+    /* -----------------------------------------------------------------
+       Duplication tab (Phase 6b) -- table over the scan JSON's
+       duplication.matches[] array (Phase 6a analyser output). Reuses the
+       Files tab's table/toolbar/empty-state CSS classes as-is -- no new
+       CSS needed. Sorted by tokenCount descending (biggest duplicate
+       blocks first); no interactive column sort like Files has, since
+       match lists are typically far shorter and a fixed "worst first"
+       order is the actionable default.
+       ----------------------------------------------------------------- */
+    populateDuplicationTab() {
+        const dup = this.jsonData.duplication;
+        this.duplicationState = { search: '', renderCap: 300, showAll: false };
+
+        const pctEl = this.$('duplication-pct');
+        const lineCountEl = this.$('duplication-line-count');
+        const matchCountEl = this.$('duplication-match-count');
+        const subEl = this.$('duplication-summary-sub');
+        const matches = (dup && dup.matches) || [];
+
+        if (pctEl) pctEl.textContent = dup ? `${(dup.duplicatePercentage || 0).toFixed(1)}%` : '\u2014';
+        if (lineCountEl) lineCountEl.textContent = dup ? this.formatNumber(dup.duplicateLineCount) : '\u2014';
+        if (matchCountEl) matchCountEl.textContent = this.formatNumber(matches.length);
+        if (subEl) subEl.textContent = dup ? 'across the whole project' : 'not available for this scan';
+
+        this.renderDuplicationTable();
+    }
+
+    getFilteredSortedDuplicationMatches() {
+        const matches = (this.jsonData.duplication && this.jsonData.duplication.matches) || [];
+        const search = ((this.duplicationState || {}).search || '').toLowerCase();
+
+        let rows = matches;
+        if (search) {
+            rows = rows.filter(m =>
+                m.pathA.toLowerCase().includes(search) || m.pathB.toLowerCase().includes(search)
+            );
+        }
+
+        return rows.slice().sort((a, b) => (b.tokenCount || 0) - (a.tokenCount || 0));
+    }
+
+    renderDuplicationTable() {
+        const tbody = this.$('duplication-table-body');
+        const empty = this.$('duplication-empty');
+        const countLabel = this.$('duplication-count-label');
+        const showMoreBtn = this.$('duplication-show-more');
+        if (!tbody || !empty || !countLabel) return;
+
+        const totalMatches = ((this.jsonData.duplication && this.jsonData.duplication.matches) || []).length;
+        const allFiltered = this.getFilteredSortedDuplicationMatches();
+
+        if (!totalMatches) {
+            tbody.innerHTML = '';
+            empty.classList.remove('hidden');
+            empty.textContent = 'No duplicate blocks detected in this scan.';
+            countLabel.textContent = '';
+            if (showMoreBtn) showMoreBtn.classList.add('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+
+        const state = this.duplicationState || {};
+        const rows = state.showAll ? allFiltered : allFiltered.slice(0, state.renderCap || 300);
+
+        tbody.innerHTML = rows
+            .map(m => `
+                <tr>
+                    <td class="file-path-cell" title="${this.escapeHtml(m.pathA)}">${this.escapeHtml(m.pathA)}</td>
+                    <td>${this.formatNumber(m.lineStartA)}-${this.formatNumber(m.lineEndA)}</td>
+                    <td class="file-path-cell" title="${this.escapeHtml(m.pathB)}">${this.escapeHtml(m.pathB)}</td>
+                    <td>${this.formatNumber(m.lineStartB)}-${this.formatNumber(m.lineEndB)}</td>
+                    <td>${this.formatNumber(m.tokenCount)}</td>
+                </tr>
+            `)
+            .join('');
+
+        countLabel.textContent = allFiltered.length === totalMatches
+            ? `${this.formatNumber(totalMatches)} match(es)`
+            : `${this.formatNumber(allFiltered.length)} of ${this.formatNumber(totalMatches)} match(es)`;
+
+        if (showMoreBtn) {
+            const hiddenCount = allFiltered.length - rows.length;
+            if (hiddenCount > 0) {
+                showMoreBtn.textContent = `Show all matches (${this.formatNumber(hiddenCount)} more)`;
+                showMoreBtn.classList.remove('hidden');
+            } else {
+                showMoreBtn.classList.add('hidden');
+            }
+        }
+    }
+
+    bindDuplicationToolbar() {
+        const searchInput = this.$('duplication-search');
+        const showMoreBtn = this.$('duplication-show-more');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                if (!this.duplicationState) return;
+                this.duplicationState.search = searchInput.value;
+                this.renderDuplicationTable();
+            });
+        }
+        if (showMoreBtn) {
+            showMoreBtn.addEventListener('click', () => {
+                if (!this.duplicationState) return;
+                this.duplicationState.showAll = true;
+                this.renderDuplicationTable();
+            });
+        }
     }
 
     /* -----------------------------------------------------------------
