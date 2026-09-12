@@ -404,6 +404,7 @@ TODO Comments          : <span class="t-value">9</span>
         <button type="button" class="rs-tab" data-tab="files" role="tab" aria-selected="false" id="rs-tab-files">Files</button>
         <button type="button" class="rs-tab" data-tab="scoring" role="tab" aria-selected="false" id="rs-tab-scoring">Scoring</button>
         <button type="button" class="rs-tab" data-tab="duplication" role="tab" aria-selected="false" id="rs-tab-duplication">Duplication</button>
+        <button type="button" class="rs-tab" data-tab="security" role="tab" aria-selected="false" id="rs-tab-security">Security</button>
       </nav>
 
       <div class="tab-panel" data-tab-panel="overview">
@@ -424,6 +425,18 @@ TODO Comments          : <span class="t-value">9</span>
           <div>
             <div class="callout-title">Duplicate code detected</div>
             <div id="duplication-callout-body"></div>
+          </div>
+        </div>
+
+        <!-- Security callout -- Phase 6c. Only shown when the scan actually
+             found security-hotspot violations (category="security" on the
+             existing violations[] array); points at the dedicated Security
+             tab rather than listing findings inline. Purely informational,
+             same as Duplication -- does not affect HealthScore. -->
+        <div class="callout callout-warning hidden" id="security-callout">
+          <div>
+            <div class="callout-title">Security findings detected</div>
+            <div id="security-callout-body"></div>
           </div>
         </div>
 
@@ -644,6 +657,46 @@ TODO Comments          : <span class="t-value">9</span>
         </div>
         <p class="files-empty hidden" id="duplication-empty">No duplicate blocks detected in this scan.</p>
         <button type="button" class="btn-ghost files-show-more hidden" id="duplication-show-more">Show all matches</button>
+      </div>
+
+      <!-- Security tab -- Phase 6c. Reuses the Files/Duplication tabs' own
+           metric-card / files-table / files-toolbar chrome as-is, so no new
+           CSS was needed for this tab either. Sourced from the existing
+           violations[] array, filtered client-side to category="security" --
+           there is no separate top-level JSON key for this. -->
+      <div class="tab-panel hidden" data-tab-panel="security">
+        <div class="metric-card" style="margin-bottom: 20px;">
+          <div class="metric-card-head">
+            <span class="metric-card-title">Security</span>
+            <span class="metric-card-sub" id="security-summary-sub"></span>
+          </div>
+          <div class="metric-card-row">
+            <div class="metric-item"><span class="metric-value" id="security-finding-count">&mdash;</span><span class="metric-label">Findings</span></div>
+            <div class="metric-item"><span class="metric-value" id="security-file-count">&mdash;</span><span class="metric-label">Files affected</span></div>
+            <div class="metric-item"><span class="metric-value" id="security-warning-count">&mdash;</span><span class="metric-label">Needs review</span></div>
+          </div>
+        </div>
+
+        <div class="files-toolbar">
+          <input type="search" id="security-search" placeholder="Filter by file path or rule&hellip;" aria-label="Filter security findings by path or rule" />
+          <span class="files-count" id="security-count-label"></span>
+        </div>
+        <div class="files-table-wrap">
+          <table class="files-table" id="security-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Line</th>
+                <th>Rule</th>
+                <th>Severity</th>
+                <th>Finding</th>
+              </tr>
+            </thead>
+            <tbody id="security-table-body"></tbody>
+          </table>
+        </div>
+        <p class="files-empty hidden" id="security-empty">No security findings detected in this scan.</p>
+        <button type="button" class="btn-ghost files-show-more hidden" id="security-show-more">Show all findings</button>
       </div>
 
       <div class="streak-strip">
