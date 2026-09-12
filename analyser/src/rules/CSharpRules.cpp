@@ -1,5 +1,6 @@
 #include "rules/CSharpRules.h"
 
+#include <array>
 #include <cctype>
 
 namespace cma {
@@ -38,12 +39,50 @@ Violation makeViolation(const std::string& path, int line, const std::string& ru
     return v;
 }
 
+// Phase 6c: identical to makeViolation() but stamps category="security" so
+// the frontend's Security tab can filter these out of the general
+// style/best-practice violations list without a new report type.
+Violation makeSecurityViolation(const std::string& path, int line, const std::string& ruleId,
+                                  std::string message, const std::string& severity) {
+    Violation v = makeViolation(path, line, ruleId, std::move(message), severity);
+    v.category = "security";
+    return v;
+}
+
+// Phase 6c heuristic: does this identifier look like it names a credential?
+// Lowercased substring match -- intentionally simple (flags for human
+// review, isn't a proof of anything leaking).
+bool isSuspiciousSecretName(const std::string& name) {
+    std::string lower;
+    lower.reserve(name.size());
+    for (char c : name) lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    static const std::array<const char*, 8> needles = {
+        "password", "passwd", "secret", "apikey", "api_key",
+        "accesskey", "access_key", "authtoken"
+    };
+    for (const char* needle : needles) {
+        if (lower.find(needle) != std::string::npos) return true;
+    }
+    return false;
+}
+
+// Phase 6c heuristic: a STRING_LITERAL token's value includes its
+// surrounding quote characters -- strip them before judging whether the
+// literal is long enough to plausibly be a real secret rather than a
+// placeholder/empty string.
+bool isPlausibleSecretLiteral(const std::string& raw) {
+    if (raw.size() < 2) return false;
+    const std::string stripped = raw.substr(1, raw.size() - 2);
+    return stripped.size() >= 6;
+}
+
 } // anonymous namespace
 
 std::vector<Violation> checkCSharpRules(const std::string& path, const std::vector<Token>& tokens,
                                          const FileMetrics& fm) {
     std::vector<Violation> out;
     const std::size_t n = tokens.size();
+    bool flaggedCertCallback = false;
 
     for (std::size_t i = 0; i < n; ++i) {
         const Token& tok = tokens[i];
@@ -149,6 +188,91 @@ std::vector<Violation> checkCSharpRules(const std::string& path, const std::vect
             out.push_back(makeViolation(path, tok.line, "csharp-async-void",
                 "'async void " + name + "' can't be awaited -- an exception it throws can crash the "
                 "process instead of being observable by the caller -- prefer 'async Task'", "warning"));
+        }
+
+        // csharp-sec-process-start: Process.Start(...) launches an OS process.
+        if (tok.type == TokenType::IDENTIFIER && tok.value == "Process" &&
+            i + 3 < n &&
+            tokens[i + 1].type == TokenType::OPERATOR && tokens[i + 1].value == "." &&
+            tokens[i + 2].type == TokenType::IDENTIFIER && tokens[i + 2].value == "Start" &&
+            tokens[i + 3].type == TokenType::OPEN_PAREN) {
+            out.push_back(makeSecurityViolation(path, tok.line, "csharp-sec-process-start",
+                "Process.Start(...) launches an OS process -- review that no argument is built "
+                "from untrusted input", "warning"));
+        }
+
+        // csharp-sec-weak-hash: MD5.Create()/SHA1.Create() are broken for
+        // collision resistance -- fine for checksums, not for passwords.
+        if (tok.type == TokenType::IDENTIFIER &&
+            (tok.value == "MD5" || tok.value == "SHA1") &&
+            i + 3 < n &&
+            tokens[i + 1].type == TokenType::OPERATOR && tokens[i + 1].value == "." &&
+            tokens[i + 2].type == TokenType::IDENTIFIER && tokens[i + 2].value == "Create" &&
+            tokens[i + 3].type == TokenType::OPEN_PAREN) {
+            out.push_back(makeSecurityViolation(path, tok.line, "csharp-sec-weak-hash",
+                tok.value + ".Create() is a broken/weak hash -- avoid it for passwords or "
+                "integrity checks that need collision resistance", "info"));
+        }
+
+        // csharp-sec-weak-cipher: DES/TripleDES -- DES's 56-bit key is
+        // brute-forceable today, and TripleDES is deprecated by NIST.
+        if (tok.type == TokenType::IDENTIFIER &&
+            (tok.value == "DES" || tok.value == "TripleDES") &&
+            i + 3 < n &&
+            tokens[i + 1].type == TokenType::OPERATOR && tokens[i + 1].value == "." &&
+            tokens[i + 2].type == TokenType::IDENTIFIER && tokens[i + 2].value == "Create" &&
+            tokens[i + 3].type == TokenType::OPEN_PAREN) {
+            out.push_back(makeSecurityViolation(path, tok.line, "csharp-sec-weak-cipher",
+                tok.value + ".Create() uses a broken/deprecated cipher -- prefer AES", "warning"));
+        }
+
+        // csharp-sec-sql-string-concat: 'new SqlCommand(...)' with a '+'
+        // inside the call is a classic SQL-injection shape -- review for
+        // parameterized queries instead.
+        if (tok.type == TokenType::KEYWORD && tok.value == "new" &&
+            i + 2 < n &&
+            tokens[i + 1].type == TokenType::IDENTIFIER && tokens[i + 1].value == "SqlCommand" &&
+            tokens[i + 2].type == TokenType::OPEN_PAREN) {
+            std::size_t j = i + 3;
+            int depth = 1;
+            bool sawConcat = false;
+            while (j < n && depth > 0) {
+                if (tokens[j].type == TokenType::OPEN_PAREN) ++depth;
+                else if (tokens[j].type == TokenType::CLOSE_PAREN) { --depth; if (depth == 0) break; }
+                else if (tokens[j].type == TokenType::OPERATOR && tokens[j].value == "+") sawConcat = true;
+                ++j;
+            }
+            if (sawConcat) {
+                out.push_back(makeSecurityViolation(path, tok.line, "csharp-sec-sql-string-concat",
+                    "'new SqlCommand(...)' builds its query with string concatenation -- review "
+                    "for SQL injection, prefer parameterized queries (SqlParameter)", "warning"));
+            }
+        }
+
+        // csharp-sec-cert-validation-disabled: a custom
+        // ServerCertificateValidationCallback can silently disable TLS
+        // certificate validation -- flagged once per file for human review.
+        if (!flaggedCertCallback &&
+            tok.type == TokenType::IDENTIFIER && tok.value == "ServerCertificateValidationCallback") {
+            flaggedCertCallback = true;
+            out.push_back(makeSecurityViolation(path, tok.line, "csharp-sec-cert-validation-disabled",
+                "Custom ServerCertificateValidationCallback found -- review that it doesn't "
+                "unconditionally return true and silently disable TLS certificate validation",
+                "info"));
+        }
+
+        // csharp-sec-hardcoded-secret: NAME = "literal" where NAME looks
+        // like a credential. Heuristic only -- flags for review, not a
+        // proven leak.
+        if (tok.type == TokenType::IDENTIFIER && isSuspiciousSecretName(tok.value) &&
+            i + 2 < n &&
+            tokens[i + 1].type == TokenType::OPERATOR && tokens[i + 1].value == "=" &&
+            tokens[i + 2].type == TokenType::STRING_LITERAL &&
+            isPlausibleSecretLiteral(tokens[i + 2].value)) {
+            out.push_back(makeSecurityViolation(path, tok.line, "csharp-sec-hardcoded-secret",
+                "'" + tok.value + "' is assigned a string literal that looks like a credential "
+                "-- review whether this should come from a secret store or environment "
+                "variable instead", "warning"));
         }
     }
 
