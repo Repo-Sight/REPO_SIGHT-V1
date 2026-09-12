@@ -14,27 +14,9 @@ import { pipeline as streamPipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabase, getUserFromRequest, recordUserScan } from "./_lib/supabase.js";
 
 const execFileAsync = promisify(execFile);
-
-// Lazy init -- if the env vars are missing/wrong, this throws INSIDE the
-// handler's try/catch instead of crashing the whole module at cold start.
-let _supabase;
-function getSupabase() {
-  if (!_supabase) {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error(
-        "Server misconfigured: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY " +
-        "are not set for this environment in Vercel Project Settings."
-      );
-    }
-    _supabase = createClient(url, key);
-  }
-  return _supabase;
-}
 
 const CMA_BINARY = join(process.cwd(), "backend", "bin", "linux-x64-cma");
 
@@ -128,7 +110,7 @@ async function downloadAndExtract(owner, repo, srcDir) {
   return null;
 }
 
-async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase }) {
+async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user }) {
   const branch = await downloadAndExtract(parsed.owner, parsed.repo, srcDir);
 
   if (!branch) {
@@ -183,6 +165,19 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase }) {
 
   if (uploadError) throw uploadError;
 
+  // Phase 5: additive only -- anonymous scans (user === null) behave
+  // exactly as they did in Phases 0-4. A failure here is logged and
+  // swallowed rather than failing a scan that already succeeded and is
+  // already durably stored; losing one history-list entry isn't worth
+  // turning a working scan into an error for the user.
+  if (user) {
+    try {
+      await recordUserScan(supabase, user.id, scanId, payload);
+    } catch (historyErr) {
+      console.error("recordUserScan failed (scan itself still succeeded):", historyErr);
+    }
+  }
+
   return { status: 200, body: { scanId } };
 }
 
@@ -213,10 +208,11 @@ export default async function handler(req, res) {
 
   try {
     const supabase = getSupabase();
+    const user = await getUserFromRequest(req, supabase);
     await mkdir(srcDir, { recursive: true });
 
     const result = await withDeadline(
-      runPipeline({ parsed, srcDir, reportPath, scanId, supabase }),
+      runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user }),
       OVERALL_TIMEOUT_MS
     );
     res.status(result.status).json(result.body);

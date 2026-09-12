@@ -21,11 +21,21 @@ struct Violation {
     std::string path;
     int         line = 0;
     std::string ruleId;    // e.g. "cpp-raw-new-delete"
-    std::string language;  // "cpp" | "python" | "java"
+    std::string language;  // "cpp" | "python" | "java" | "typescript" |
+                            // "javascript" | "csharp"
     std::string message;   // short, plain-English, one line
     std::string severity;  // "info" | "warning" -- CMA never emits "error";
                             // failing a build on style is P0-3's separate,
                             // unbuilt job (quality gates / exit codes).
+
+    // Phase 6c: "style" (default) | "security". Defaulted so every
+    // pre-existing rule call site (all ~41 of them, across all six
+    // languages) needs zero changes -- only the new security-hotspot
+    // rules added in Phase 6c explicitly set this to "security". Purely
+    // additive: HealthScore.cpp never reads violations at all, so
+    // security findings stay informational by construction, same as the
+    // pre-existing style violations.
+    std::string category = "style";
 };
  
 struct ViolationReport {
@@ -33,4 +43,3 @@ struct ViolationReport {
 };
  
 } // namespace cma
- 
