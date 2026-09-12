@@ -1,920 +1,280 @@
-#include "report/ReportGenerator.h"
+#include "rules/JavaScriptRules.h"
 
-#include <fstream>
-#include <iomanip>
-#include <sstream>
+#include <algorithm>
+#include <array>
+#include <cctype>
 
 namespace cma {
 
 namespace {
-    constexpr char kSeparator[] = "==================================";
 
-    constexpr char kHtmlCss[] =
-        "body{font-family:sans-serif;margin:2rem;color:#333;}"
-        "h2{border-bottom:2px solid #ddd;padding-bottom:.4rem;margin-top:1.5rem;}"
-        "h3{margin:.5rem 0;}"
-        "table{border-collapse:collapse;width:100%;margin:.5rem 0 1rem;}"
-        "th,td{border:1px solid #ccc;padding:.3rem .7rem;text-align:left;"
-               "word-break:break-all;}"
-        "thead{background:#f5f5f5;}"
-        "section{margin-bottom:1.5rem;}"
-        ".muted{color:#888;font-style:italic;}"
-        ".badge{margin:.5rem 0;}";
-} // namespace
+constexpr int kLongFunctionThreshold = 100;
+constexpr int kDeepNestingThreshold  = 6;
 
-// ============================================================
-// Text report
-// ============================================================
-
-void ReportGenerator::printSummary(const ProjectMetrics& metrics, std::ostream& out) {
-    writeReport(metrics, out);
-}
-
-bool ReportGenerator::saveToFile(const ProjectMetrics& metrics,
-                                  const std::string& outputPath) {
-    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) return false;
-    writeReport(metrics, file);
-    return file.good();
-}
-
-void ReportGenerator::writeReport(const ProjectMetrics& m, std::ostream& out) {
-    out << kSeparator << '\n';
-    out << "CODE METRICS REPORT\n";
-    out << kSeparator << '\n';
-    out << "Files Analyzed : " << m.filesAnalyzed << '\n';
-    out << "Total Lines : "    << m.totalLines     << '\n';
-    out << "Blank Lines : "    << m.blankLines     << '\n';
-    out << "Comments : "       << m.commentLines   << '\n';
-    out << "Functions : "      << m.functionCount  << '\n';
-    out << "Classes : "        << m.classCount     << '\n';
-    out << "Variables : "      << m.variableCount  << '\n';
-    out << "Loops : "          << m.loopCount      << '\n';
-    out << "Conditions : "     << m.conditionCount << '\n';
-    out << "Maximum Nesting : " << m.maxNestingDepth << '\n';
-    out << "Cyclomatic Complexity : " << m.cyclomaticComplexity << '\n';
-    out << "Average Function Length : "
-        << std::fixed << std::setprecision(1) << m.avgFunctionLength << '\n';
-    if (m.longestFunctionLines > 0) {
-        out << "Longest Function : " << m.longestFunctionName  << '\n';
-        out << "Length : "           << m.longestFunctionLines << " lines\n";
-    } else {
-        out << "Longest Function : (none)\n";
-    }
-    out << "TODO Comments : " << m.todoCount << '\n';
-    out << kSeparator << '\n';
-}
-
-// ============================================================
-// JSON
-// ============================================================
-
-std::string ReportGenerator::toJson(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files) {
-    std::ostringstream out;
-    writeJson(metrics, files, nullptr, nullptr, nullptr, nullptr, out);
-    return out.str();
-}
-
-bool ReportGenerator::saveJsonToFile(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const std::string& outputPath) {
-    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) return false;
-    writeJson(metrics, files, nullptr, nullptr, nullptr, nullptr, file);
-    return file.good();
-}
-
-std::string ReportGenerator::toJson(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph) {
-    std::ostringstream out;
-    writeJson(metrics, files, &graph, nullptr, nullptr, nullptr, out);
-    return out.str();
-}
-
-bool ReportGenerator::saveJsonToFile(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const std::string& outputPath) {
-    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) return false;
-    writeJson(metrics, files, &graph, nullptr, nullptr, nullptr, file);
-    return file.good();
-}
-
-std::string ReportGenerator::toJson(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const HotspotReport& hotspots) {
-    std::ostringstream out;
-    writeJson(metrics, files, &graph, &hotspots, nullptr, nullptr, out);
-    return out.str();
-}
-
-bool ReportGenerator::saveJsonToFile(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const HotspotReport& hotspots,
-    const std::string& outputPath) {
-    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) return false;
-    writeJson(metrics, files, &graph, &hotspots, nullptr, nullptr, file);
-    return file.good();
-}
-
-std::string ReportGenerator::toJson(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const HotspotReport& hotspots,
-    const ViolationReport& violations) {
-    std::ostringstream out;
-    writeJson(metrics, files, &graph, &hotspots, &violations, nullptr, out);
-    return out.str();
-}
-
-bool ReportGenerator::saveJsonToFile(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const HotspotReport& hotspots,
-    const ViolationReport& violations,
-    const std::string& outputPath) {
-    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) return false;
-    writeJson(metrics, files, &graph, &hotspots, &violations, nullptr, file);
-    return file.good();
-}
-
-std::string ReportGenerator::toJson(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const HotspotReport& hotspots,
-    const ViolationReport& violations,
-    const DuplicationReport& duplication) {
-    std::ostringstream out;
-    writeJson(metrics, files, &graph, &hotspots, &violations, &duplication, out);
-    return out.str();
-}
-
-bool ReportGenerator::saveJsonToFile(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const HotspotReport& hotspots,
-    const ViolationReport& violations,
-    const DuplicationReport& duplication,
-    const std::string& outputPath) {
-    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) return false;
-    writeJson(metrics, files, &graph, &hotspots, &violations, &duplication, file);
-    return file.good();
-}
-
-void ReportGenerator::writeJson(
-    const ProjectMetrics& m,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph* graph,
-    const HotspotReport* hotspots,
-    const ViolationReport* violations,
-    const DuplicationReport* duplication,
-    std::ostream& out) {
-    out << "{\n";
-    out << "  \"schemaVersion\": 2,\n";
-    out << "  \"project\": {\n";
-    out << "    \"filesAnalyzed\": "        << m.filesAnalyzed        << ",\n";
-    out << "    \"totalLines\": "           << m.totalLines           << ",\n";
-    out << "    \"blankLines\": "           << m.blankLines           << ",\n";
-    out << "    \"commentLines\": "         << m.commentLines         << ",\n";
-    out << "    \"codeLines\": "            << m.codeLines            << ",\n";
-    out << "    \"functionCount\": "        << m.functionCount        << ",\n";
-    out << "    \"classCount\": "           << m.classCount           << ",\n";
-    out << "    \"variableCount\": "        << m.variableCount        << ",\n";
-    out << "    \"includeCount\": "         << m.includeCount         << ",\n";
-    out << "    \"loopCount\": "            << m.loopCount            << ",\n";
-    out << "    \"conditionCount\": "       << m.conditionCount       << ",\n";
-    out << "    \"tryCatchCount\": "        << m.tryCatchCount        << ",\n";
-    out << "    \"maxNestingDepth\": "      << m.maxNestingDepth      << ",\n";
-    out << "    \"cyclomaticComplexity\": " << m.cyclomaticComplexity << ",\n";
-    out << "    \"todoCount\": "            << m.todoCount            << ",\n";
-    out << "    \"avgFunctionLength\": "    << m.avgFunctionLength    << ",\n";
-    out << "    \"longestFunctionLines\": " << m.longestFunctionLines << ",\n";
-    if (hotspots != nullptr) {
-        const auto health = computeHealthScore(m);
-        out << "    \"longestFunctionName\": \"" << jsonEscape(m.longestFunctionName) << "\",\n";
-        out << "    \"healthScore\": "  << health.score << ",\n";
-       out << "    \"healthGrade\": \"" << health.grade << "\",\n";
-       out << "    \"scoreBreakdown\": {\n";
-       out << "      \"complexityDensity\": " << health.breakdown.complexityDensity << ",\n";
-        out << "      \"avgFunctionLength\": " << health.breakdown.avgFunctionLength << ",\n";
-        out << "      \"commentCoverage\": "   << health.breakdown.commentCoverage   << ",\n";
-        out << "      \"todoDensity\": "       << health.breakdown.todoDensity       << ",\n";
-        out << "      \"nestingDepth\": "      << health.breakdown.nestingDepth      << "\n";
-        out << "    }\n";
-    } else {
-        out << "    \"longestFunctionName\": \"" << jsonEscape(m.longestFunctionName) << "\"\n";
-    }
-    out << "  },\n";
-
-    std::unordered_map<std::string, const FileCoupling*> couplingByPath;
-    if (graph != nullptr) {
-        couplingByPath.reserve(graph->files.size());
-        for (const auto& fc : graph->files) couplingByPath[fc.path] = &fc;
-    }
-
-    out << "  \"files\": [";
-    for (std::size_t i = 0; i < files.size(); ++i) {
-        out << (i == 0 ? "\n" : ",\n");
-        out << "    {\n";
-        out << "      \"path\": \"" << jsonEscape(files[i].first) << "\",\n";
-        writeFileMetricsJson(files[i].second, out);
-        if (graph != nullptr) {
-            out << ",\n";
-            writeDependenciesJson(couplingByPath, files[i].first, out);
-        }
-        out << "\n    }";
-    }
-    out << (files.empty() ? "" : "\n  ");
-    out << "]";
-    out << ",\n";
-    writeByLanguageJson(m.byLanguage, out);
-    out << ",\n";
-    writeUnanalyzedLanguagesJson(m.unanalyzedLanguages, out);
-
-    if (hotspots != nullptr) {
-        out << ",\n";
-        writeHotspotsJson(*hotspots, out);
-    }
-
-    if (violations != nullptr) {
-        out << ",\n";
-        writeViolationsJson(*violations, out);
-    }
-
-    if (duplication != nullptr) {
-        out << ",\n";
-        writeDuplicationJson(*duplication, out);
-    }
-
-    out << "\n}\n";
-}
-
-void ReportGenerator::writeFileMetricsJson(const FileMetrics& fm, std::ostream& out) {
-    out << "      \"language\": \""           << jsonEscape(fm.language) << "\",\n";
-    out << "      \"totalLines\": "           << fm.totalLines           << ",\n";
-    out << "      \"blankLines\": "           << fm.blankLines           << ",\n";
-    out << "      \"commentLines\": "         << fm.commentLines         << ",\n";
-    out << "      \"codeLines\": "            << fm.codeLines            << ",\n";
-    out << "      \"functionCount\": "        << (fm.functions.size())   << ",\n";
-    out << "      \"classCount\": "           << (fm.classes.size())     << ",\n";
-    out << "      \"variableCount\": "        << fm.variableCount        << ",\n";
-    out << "      \"includeCount\": "         << fm.includeCount         << ",\n";
-    out << "      \"loopCount\": "            << fm.loopCount            << ",\n";
-    out << "      \"conditionCount\": "       << fm.conditionCount       << ",\n";
-    out << "      \"tryCatchCount\": "        << fm.tryCatchCount        << ",\n";
-    out << "      \"maxNestingDepth\": "      << fm.maxNestingDepth      << ",\n";
-    out << "      \"cyclomaticComplexity\": " << fm.cyclomaticComplexity << ",\n";
-    out << "      \"todoCount\": "            << fm.todoCount            << ",\n";
-    out << "      \"functions\": [";
-    for (std::size_t i = 0; i < fm.functions.size(); ++i) {
-        const auto& fn = fm.functions[i];
-        out << (i == 0 ? "\n" : ",\n");
-        out << "        {\"name\": \"" << jsonEscape(fn.name) << "\", "
-            << "\"startLine\": " << fn.startLine << ", "
-            << "\"endLine\": "   << fn.endLine   << ", "
-            << "\"lineCount\": " << fn.lineCount() << "}";
-    }
-    out << (fm.functions.empty() ? "" : "\n      ");
-    out << "],\n";
-
-    out << "      \"classes\": [";
-    for (std::size_t i = 0; i < fm.classes.size(); ++i) {
-        const auto& ci = fm.classes[i];
-        const char* kindStr = "class";
-        switch (ci.kind) {
-            case ClassInfo::Kind::CLASS:     kindStr = "class";     break;
-            case ClassInfo::Kind::STRUCT:    kindStr = "struct";    break;
-            case ClassInfo::Kind::ENUM:      kindStr = "enum";      break;
-            case ClassInfo::Kind::NAMESPACE: kindStr = "namespace"; break;
-        }
-        out << (i == 0 ? "\n" : ",\n");
-        out << "        {\"name\": \"" << jsonEscape(ci.name) << "\", "
-            << "\"line\": " << ci.line << ", "
-            << "\"kind\": \"" << kindStr << "\"}";
-    }
-    out << (fm.classes.empty() ? "" : "\n      ");
-    out << "]";
-}
-void ReportGenerator::writeByLanguageJson(
-    const std::vector<LanguageAggregate>& byLanguage, std::ostream& out) {
-    out << "  \"byLanguage\": [";
-    for (std::size_t i = 0; i < byLanguage.size(); ++i) {
-        const auto& la = byLanguage[i];
-        out << (i == 0 ? "\n" : ",\n");
-        out << "    {\n";
-        out << "      \"language\": \""          << jsonEscape(la.language)   << "\",\n";
-        out << "      \"fileCount\": "            << la.fileCount             << ",\n";
-       out << "      \"totalLines\": "           << la.totalLines            << ",\n";
-        out << "      \"blankLines\": "           << la.blankLines            << ",\n";
-        out << "      \"commentLines\": "         << la.commentLines          << ",\n";
-        out << "      \"codeLines\": "            << la.codeLines             << ",\n";
-        out << "      \"functionCount\": "        << la.functionCount         << ",\n";
-        out << "      \"classCount\": "           << la.classCount            << ",\n";
-        out << "      \"variableCount\": "        << la.variableCount         << ",\n";
-        out << "      \"includeCount\": "         << la.includeCount          << ",\n";
-        out << "      \"loopCount\": "             << la.loopCount             << ",\n";
-        out << "      \"conditionCount\": "       << la.conditionCount        << ",\n";
-        out << "      \"tryCatchCount\": "        << la.tryCatchCount         << ",\n";
-        out << "      \"maxNestingDepth\": "      << la.maxNestingDepth       << ",\n";
-        out << "      \"cyclomaticComplexity\": " << la.cyclomaticComplexity  << ",\n";
-        out << "      \"todoCount\": "            << la.todoCount             << ",\n";
-        out << "      \"avgFunctionLength\": "    << la.avgFunctionLength     << ",\n";
-        out << "      \"longestFunctionLines\": " << la.longestFunctionLines  << ",\n";
-        out << "      \"longestFunctionName\": \"" << jsonEscape(la.longestFunctionName) << "\"\n";
-        out << "    }";
-    }
-    out << (byLanguage.empty() ? "" : "\n  ");
-    out << "]";
-}
-
-void ReportGenerator::writeUnanalyzedLanguagesJson(
-    const std::vector<UnanalyzedLanguageSummary>& unanalyzedLanguages, std::ostream& out) {
-    out << "  \"unanalyzedLanguages\": [";
-    for (std::size_t i = 0; i < unanalyzedLanguages.size(); ++i) {
-        const auto& u = unanalyzedLanguages[i];
-        out << (i == 0 ? "\n" : ",\n");
-        out << "    {\n";
-        out << "      \"extension\": \""    << jsonEscape(u.extension)    << "\",\n";
-        out << "      \"languageName\": \"" << jsonEscape(u.languageName) << "\",\n";
-        out << "      \"fileCount\": "      << u.fileCount                << ",\n";
-        out << "      \"lineCount\": "      << u.lineCount                << "\n";
-        out << "    }";
-    }
-    out << (unanalyzedLanguages.empty() ? "" : "\n  ");
-    out << "]";
-}
-
-void ReportGenerator::writeDependenciesJson(
-    const std::unordered_map<std::string, const FileCoupling*>& couplingByPath,
-    const std::string& path,
-    std::ostream& out) {
-    static const FileCoupling kEmpty{};
-    const auto it = couplingByPath.find(path);
-    const FileCoupling& fc = (it != couplingByPath.end()) ? *it->second : kEmpty;
-
-    out << "      \"dependencies\": {\n";
-    out << "        \"fanOut\": " << fc.fanOut << ",\n";
-    out << "        \"fanIn\": "  << fc.fanIn  << ",\n";
-
-    out << "        \"dependsOn\": [";
-    for (std::size_t i = 0; i < fc.dependsOn.size(); ++i)
-        out << (i == 0 ? "" : ", ") << "\"" << jsonEscape(fc.dependsOn[i]) << "\"";
-    out << "],\n";
-
-    out << "        \"dependedOnBy\": [";
-    for (std::size_t i = 0; i < fc.dependedOnBy.size(); ++i)
-        out << (i == 0 ? "" : ", ") << "\"" << jsonEscape(fc.dependedOnBy[i]) << "\"";
-    out << "]\n";
-
-    out << "      }";
-}
-
-void ReportGenerator::writeHotspotsJson(const HotspotReport& hotspots, std::ostream& out) {
-    out << "  \"hotspots\": {\n";
-    out << "    \"gitAvailable\": " << (hotspots.gitAvailable ? "true" : "false") << ",\n";
-    out << "    \"topFiles\": [";
-    for (std::size_t i = 0; i < hotspots.files.size(); ++i) {
-        const auto& fh = hotspots.files[i];
-        out << (i == 0 ? "\n" : ",\n");
-        out << "      {\n";
-        out << "        \"path\": \""             << jsonEscape(fh.path)       << "\",\n";
-        out << "        \"cyclomaticComplexity\": " << fh.cyclomaticComplexity << ",\n";
-        out << "        \"commitCount\": "         << fh.commitCount           << ",\n";
-        out << "        \"linesAdded\": "          << fh.linesAdded            << ",\n";
-        out << "        \"linesDeleted\": "        << fh.linesDeleted          << ",\n";
-        out << "        \"hotspotScore\": "        << fh.hotspotScore          << "\n";
-        out << "      }";
-    }
-    out << (hotspots.files.empty() ? "" : "\n    ");
-    out << "]\n";
-    out << "  }";
-}
-
-void ReportGenerator::writeViolationsJson(const ViolationReport& violations, std::ostream& out) {
-    out << "  \"violations\": [";
-    for (std::size_t i = 0; i < violations.violations.size(); ++i) {
-        const auto& v = violations.violations[i];
-        out << (i == 0 ? "\n" : ",\n");
-        out << "    {\n";
-        out << "      \"path\": \""     << jsonEscape(v.path)     << "\",\n";
-        out << "      \"line\": "       << v.line                  << ",\n";
-        out << "      \"ruleId\": \""   << jsonEscape(v.ruleId)   << "\",\n";
-        out << "      \"language\": \"" << jsonEscape(v.language) << "\",\n";
-        out << "      \"message\": \""  << jsonEscape(v.message)  << "\",\n";
-        out << "      \"severity\": \"" << jsonEscape(v.severity) << "\",\n";
-        out << "      \"category\": \"" << jsonEscape(v.category) << "\"\n";
-        out << "    }";
-    }
-    out << (violations.violations.empty() ? "" : "\n  ");
-    out << "]";
-}
-
-void ReportGenerator::writeDuplicationJson(
-    const DuplicationReport& duplication, std::ostream& out) {
-    out << "  \"duplication\": {\n";
-    out << "    \"duplicateLineCount\": " << duplication.duplicateLineCount << ",\n";
-    out << "    \"duplicatePercentage\": " << duplication.duplicatePercentage << ",\n";
-    out << "    \"matches\": [";
-    for (std::size_t i = 0; i < duplication.matches.size(); ++i) {
-        const auto& dm = duplication.matches[i];
-        out << (i == 0 ? "\n" : ",\n");
-        out << "      {\n";
-        out << "        \"pathA\": \""    << jsonEscape(dm.pathA) << "\",\n";
-        out << "        \"lineStartA\": " << dm.lineStartA         << ",\n";
-        out << "        \"lineEndA\": "   << dm.lineEndA           << ",\n";
-        out << "        \"pathB\": \""    << jsonEscape(dm.pathB) << "\",\n";
-        out << "        \"lineStartB\": " << dm.lineStartB         << ",\n";
-        out << "        \"lineEndB\": "   << dm.lineEndB           << ",\n";
-        out << "        \"tokenCount\": " << dm.tokenCount         << ",\n";
-        out << "        \"lineCount\": "  << dm.lineCount          << "\n";
-        out << "      }";
-    }
-    out << (duplication.matches.empty() ? "" : "\n    ");
-    out << "]\n";
-    out << "  }";
-}
-
-std::string ReportGenerator::jsonEscape(const std::string& s) {
-    std::string out;
-    out.reserve(s.size() + 8);
-    for (unsigned char c : s) {
-        switch (c) {
-            case '"':  out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\b': out += "\\b";  break;
-            case '\f': out += "\\f";  break;
-            case '\n': out += "\\n";  break;
-            case '\r': out += "\\r";  break;
-            case '\t': out += "\\t";  break;
-            default:
-                if (c < 0x20) {
-                    static const char* kHex = "0123456789abcdef";
-                    out += "\\u00";
-                    out += kHex[(c >> 4) & 0xF];
-                    out += kHex[c & 0xF];
-                } else {
-                    out += static_cast<char>(c);
-                }
+bool hasTicketReference(const std::string& text) {
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == '#' && i + 1 < text.size() &&
+            std::isdigit(static_cast<unsigned char>(text[i + 1]))) {
+            return true;
         }
     }
-    return out;
-}
-
-// ============================================================
-// SVG Badge
-// ============================================================
-
-namespace {
-
-const char* colorForGrade(char grade) {
-    switch (grade) {
-        case 'A': return "#4c1";
-        case 'B': return "#97ca00";
-        case 'C': return "#dfb317";
-        case 'D': return "#fe7d37";
-        default:  return "#e05d44";
-    }
-}
-
-std::string xmlEscape(const std::string& s) {
-    std::string out;
-    out.reserve(s.size());
-    for (char c : s) {
-        switch (c) {
-            case '&':  out += "&amp;";  break;
-            case '<':  out += "&lt;";   break;
-            case '>':  out += "&gt;";   break;
-            case '"':  out += "&quot;"; break;
-            default:   out += c;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (std::isupper(static_cast<unsigned char>(text[i]))) {
+            std::size_t j = i;
+            while (j < text.size() && std::isupper(static_cast<unsigned char>(text[j]))) ++j;
+            if (j < text.size() && text[j] == '-' && j + 1 < text.size() &&
+                std::isdigit(static_cast<unsigned char>(text[j + 1]))) {
+                return true;
+            }
+            i = j;
         }
     }
-    return out;
+    return false;
+}
+
+Violation makeViolation(const std::string& path, int line, const std::string& ruleId,
+                         std::string message, const std::string& severity) {
+    Violation v;
+    v.path = path; v.line = line; v.ruleId = ruleId; v.language = "javascript";
+    v.message = std::move(message); v.severity = severity;
+    return v;
+}
+
+// Phase 6c: identical to makeViolation() but stamps category="security" so
+// the frontend's Security tab can filter these out of the general
+// style/best-practice violations list without a new report type.
+Violation makeSecurityViolation(const std::string& path, int line, const std::string& ruleId,
+                                  std::string message, const std::string& severity) {
+    Violation v = makeViolation(path, line, ruleId, std::move(message), severity);
+    v.category = "security";
+    return v;
+}
+
+std::string toLowerCopy(const std::string& s) {
+    std::string lower = s;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return lower;
+}
+
+// Phase 6c heuristic: does this identifier look like it names a credential?
+// Lowercased substring match -- intentionally simple (flags for human
+// review, isn't a proof of anything leaking).
+bool isSuspiciousSecretName(const std::string& name) {
+    const std::string lower = toLowerCopy(name);
+    static const std::array<const char*, 8> needles = {
+        "password", "passwd", "secret", "apikey", "api_key",
+        "accesskey", "access_key", "authtoken"
+    };
+    for (const char* needle : needles) {
+        if (lower.find(needle) != std::string::npos) return true;
+    }
+    return false;
+}
+
+// Phase 6c heuristic: a STRING_LITERAL token's value includes its
+// surrounding quote characters -- strip them before judging whether the
+// literal is long enough to plausibly be a real secret rather than a
+// placeholder/empty string.
+bool isPlausibleSecretLiteral(const std::string& raw) {
+    if (raw.size() < 2) return false;
+    const std::string stripped = raw.substr(1, raw.size() - 2);
+    return stripped.size() >= 6;
 }
 
 } // anonymous namespace
 
-std::string ReportGenerator::toBadgeSvg(const ProjectMetrics& metrics) {
-    const auto health = computeHealthScore(metrics);
+std::vector<Violation> checkJavaScriptRules(const std::string& path, const std::vector<Token>& tokens,
+                                             const FileMetrics& fm) {
+    std::vector<Violation> out;
+    const std::size_t n = tokens.size();
 
-    std::ostringstream scoreText;
-    scoreText << static_cast<int>(health.score + 0.5) << "/100 (" << health.grade << ")";
+    for (std::size_t i = 0; i < n; ++i) {
+        const Token& tok = tokens[i];
 
-    const std::string label      = "code health";
-    const std::string value      = scoreText.str();
-    const std::string labelEsc   = xmlEscape(label);
-    const std::string valueEsc   = xmlEscape(value);
-    const char*        color     = colorForGrade(health.grade);
+        // js-empty-catch-block: catch ( ... ) { [NEWLINE]* } or the
+        // optional-catch-binding form catch { [NEWLINE]* }.
+        if (tok.type == TokenType::KEYWORD && tok.value == "catch") {
+            if (i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN) {
+                std::size_t j = i + 2;
+                int depth = 1;
+                while (j < n && depth > 0) {
+                    if (tokens[j].type == TokenType::OPEN_PAREN) ++depth;
+                    else if (tokens[j].type == TokenType::CLOSE_PAREN) { --depth; if (depth == 0) break; }
+                    ++j;
+                }
+                if (j + 1 < n && tokens[j + 1].type == TokenType::OPEN_BRACE) {
+                    std::size_t k = j + 2;
+                    while (k < n && tokens[k].type == TokenType::NEWLINE) ++k;
+                    if (k < n && tokens[k].type == TokenType::CLOSE_BRACE) {
+                        out.push_back(makeViolation(path, tok.line, "js-empty-catch-block",
+                            "Empty catch block silently swallows the error", "warning"));
+                    }
+                }
+            } else if (i + 1 < n && tokens[i + 1].type == TokenType::OPEN_BRACE) {
+                std::size_t k = i + 2;
+                while (k < n && tokens[k].type == TokenType::NEWLINE) ++k;
+                if (k < n && tokens[k].type == TokenType::CLOSE_BRACE) {
+                    out.push_back(makeViolation(path, tok.line, "js-empty-catch-block",
+                        "Empty catch block silently swallows the error", "warning"));
+                }
+            }
+        }
 
-    const int charWidth   = 7;
-    const int labelPad    = 10;
-    const int valuePad    = 10;
-    const int labelWidth  = static_cast<int>(label.size()) * charWidth + labelPad * 2;
-    const int valueWidth  = static_cast<int>(value.size()) * charWidth + valuePad * 2;
-    const int totalWidth  = labelWidth + valueWidth;
-    const int labelCenter = labelWidth / 2;
-    const int valueCenter = labelWidth + valueWidth / 2;
+        // js-var-usage: legacy function-scoped 'var'.
+        if (tok.type == TokenType::KEYWORD && tok.value == "var") {
+            out.push_back(makeViolation(path, tok.line, "js-var-usage",
+                "'var' is function-scoped and hoisted -- prefer 'let' or 'const'", "info"));
+        }
 
-    std::ostringstream svg;
-    svg << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << totalWidth
-        << "\" height=\"20\" role=\"img\" aria-label=\"" << labelEsc << ": " << valueEsc << "\">\n";
-    svg << "<linearGradient id=\"s\" x2=\"0\" y2=\"100%\">\n"
-        << "<stop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/>\n"
-        << "<stop offset=\"1\" stop-opacity=\".1\"/>\n"
-        << "</linearGradient>\n";
-    svg << "<clipPath id=\"r\"><rect width=\"" << totalWidth
-        << "\" height=\"20\" rx=\"3\" fill=\"#fff\"/></clipPath>\n";
-    svg << "<g clip-path=\"url(#r)\">\n";
-    svg << "<rect width=\"" << labelWidth << "\" height=\"20\" fill=\"#555\"/>\n";
-    svg << "<rect x=\"" << labelWidth << "\" width=\"" << valueWidth
-        << "\" height=\"20\" fill=\"" << color << "\"/>\n";
-    svg << "<rect width=\"" << totalWidth << "\" height=\"20\" fill=\"url(#s)\"/>\n";
-    svg << "</g>\n";
-    svg << "<g fill=\"#fff\" text-anchor=\"middle\" "
-           "font-family=\"Verdana,Geneva,DejaVu Sans,sans-serif\" font-size=\"11\">\n";
-    svg << "<text x=\"" << labelCenter << "\" y=\"14\">" << labelEsc << "</text>\n";
-    svg << "<text x=\"" << valueCenter << "\" y=\"14\">" << valueEsc << "</text>\n";
-    svg << "</g>\n";
-    svg << "</svg>\n";
+        // js-loose-equality: '==' / '!=' that are NOT the strict '===' /
+        // '!==' forms. Each '=' or '!' is a separate single-char OPERATOR
+        // token (see JavaScriptLexer::lexSymbol), so this walks the run
+        // length of consecutive '=' tokens to tell '==' (2) apart from
+        // '===' (3), and separately checks the '=' run right after a
+        // leading '!' to tell '!=' (1) apart from '!==' (2).
+        if (tok.type == TokenType::OPERATOR && tok.value == "=" &&
+            (i == 0 || !(tokens[i - 1].type == TokenType::OPERATOR &&
+                         (tokens[i - 1].value == "=" || tokens[i - 1].value == "!")))) {
+            std::size_t j = i;
+            int runLen = 0;
+            while (j < n && tokens[j].type == TokenType::OPERATOR && tokens[j].value == "=") {
+                ++runLen; ++j;
+            }
+            if (runLen == 2) {
+                out.push_back(makeViolation(path, tok.line, "js-loose-equality",
+                    "'==' performs type coercion -- prefer '===' for predictable comparisons", "info"));
+            }
+        }
+        if (tok.type == TokenType::OPERATOR && tok.value == "!" &&
+            i + 1 < n && tokens[i + 1].type == TokenType::OPERATOR && tokens[i + 1].value == "=") {
+            std::size_t j = i + 1;
+            int eqRun = 0;
+            while (j < n && tokens[j].type == TokenType::OPERATOR && tokens[j].value == "=") {
+                ++eqRun; ++j;
+            }
+            if (eqRun == 1) {
+                out.push_back(makeViolation(path, tok.line, "js-loose-equality",
+                    "'!=' performs type coercion -- prefer '!==' for predictable comparisons", "info"));
+            }
+        }
 
-    return svg.str();
-}
+        // js-sec-eval: eval(...) executes a string as code.
+        if (tok.type == TokenType::IDENTIFIER && tok.value == "eval" &&
+            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN) {
+            out.push_back(makeSecurityViolation(path, tok.line, "js-sec-eval",
+                "'eval(...)' executes a string as code -- review that no part of it is built "
+                "from untrusted input", "warning"));
+        }
 
-bool ReportGenerator::saveBadgeToFile(const ProjectMetrics& metrics,
-                                       const std::string& outputPath) {
-    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) return false;
-    file << toBadgeSvg(metrics);
-    return file.good();
-}
+        // js-sec-child-process-exec: exec(...)/execSync(...) shell out to
+        // the OS (typically via Node's child_process module).
+        if (tok.type == TokenType::IDENTIFIER &&
+            (tok.value == "exec" || tok.value == "execSync") &&
+            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN) {
+            out.push_back(makeSecurityViolation(path, tok.line, "js-sec-child-process-exec",
+                "'" + tok.value + "(...)' runs a shell command -- review that no part of it is "
+                "built from untrusted input", "warning"));
+        }
 
-// ============================================================
-// HTML report (Phase 4 Sprint 4)
-// ============================================================
+        // js-sec-inner-html: assigning to .innerHTML with unescaped content
+        // is a classic DOM-based XSS vector.
+        if (tok.type == TokenType::OPERATOR && tok.value == "." &&
+            i + 2 < n &&
+            tokens[i + 1].type == TokenType::IDENTIFIER && tokens[i + 1].value == "innerHTML" &&
+            tokens[i + 2].type == TokenType::OPERATOR && tokens[i + 2].value == "=" &&
+            !(i + 3 < n && tokens[i + 3].type == TokenType::OPERATOR && tokens[i + 3].value == "=")) {
+            out.push_back(makeSecurityViolation(path, tokens[i + 1].line, "js-sec-inner-html",
+                "Assigning to '.innerHTML' inserts raw HTML into the page -- review that the "
+                "value is sanitized/escaped, or use textContent for plain text", "warning"));
+        }
 
-std::string ReportGenerator::toHtml(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files) {
-    std::ostringstream out;
-    writeHtml(metrics, files, nullptr, nullptr, nullptr, nullptr, out);
-    return out.str();
-}
+        // js-sec-weak-hash: crypto.createHash('md5'/'sha1') is broken for
+        // collision resistance -- fine for checksums, not for passwords.
+        if (tok.type == TokenType::IDENTIFIER && tok.value == "createHash" &&
+            i + 2 < n &&
+            tokens[i + 1].type == TokenType::OPEN_PAREN &&
+            tokens[i + 2].type == TokenType::STRING_LITERAL) {
+            const std::string algo = toLowerCopy(tokens[i + 2].value);
+            if (algo.find("md5") != std::string::npos || algo.find("sha1") != std::string::npos) {
+                out.push_back(makeSecurityViolation(path, tok.line, "js-sec-weak-hash",
+                    "createHash(" + tokens[i + 2].value + ") is a broken/weak hash -- avoid it "
+                    "for passwords or integrity checks that need collision resistance", "info"));
+            }
+        }
 
-bool ReportGenerator::saveHtmlToFile(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const std::string& outputPath) {
-    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) return false;
-    writeHtml(metrics, files, nullptr, nullptr, nullptr, nullptr, file);
-    return file.good();
-}
+        // js-sec-disabled-tls: 'rejectUnauthorized: false' disables TLS
+        // certificate validation for the request/socket it configures.
+        if (tok.type == TokenType::IDENTIFIER && tok.value == "rejectUnauthorized" &&
+            i + 2 < n &&
+            tokens[i + 1].type == TokenType::OPERATOR && tokens[i + 1].value == ":" &&
+            tokens[i + 2].type == TokenType::KEYWORD && tokens[i + 2].value == "false") {
+            out.push_back(makeSecurityViolation(path, tok.line, "js-sec-disabled-tls",
+                "'rejectUnauthorized: false' disables TLS certificate validation -- review "
+                "whether this can reach production", "warning"));
+        }
 
-std::string ReportGenerator::toHtml(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const HotspotReport& hotspots,
-    const ViolationReport& violations) {
-    std::ostringstream out;
-    writeHtml(metrics, files, &graph, &hotspots, &violations, nullptr, out);
-    return out.str();
-}
+        // js-sec-sql-string-concat: query(...) with a '+' inside the call is
+        // a classic SQL-injection shape -- review for a parameterized query.
+        if (tok.type == TokenType::IDENTIFIER && tok.value == "query" &&
+            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN) {
+            std::size_t j = i + 2;
+            int depth = 1;
+            bool sawConcat = false;
+            while (j < n && depth > 0) {
+                if (tokens[j].type == TokenType::OPEN_PAREN) ++depth;
+                else if (tokens[j].type == TokenType::CLOSE_PAREN) { --depth; if (depth == 0) break; }
+                else if (tokens[j].type == TokenType::OPERATOR && tokens[j].value == "+") sawConcat = true;
+                ++j;
+            }
+            if (sawConcat) {
+                out.push_back(makeSecurityViolation(path, tok.line, "js-sec-sql-string-concat",
+                    "'query(...)' builds its statement with string concatenation -- review for "
+                    "SQL injection, prefer parameterized/tagged queries", "warning"));
+            }
+        }
 
-bool ReportGenerator::saveHtmlToFile(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const HotspotReport& hotspots,
-    const ViolationReport& violations,
-    const std::string& outputPath) {
-    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) return false;
-    writeHtml(metrics, files, &graph, &hotspots, &violations, nullptr, file);
-    return file.good();
-}
-
-std::string ReportGenerator::toHtml(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const HotspotReport& hotspots,
-    const ViolationReport& violations,
-    const DuplicationReport& duplication) {
-    std::ostringstream out;
-    writeHtml(metrics, files, &graph, &hotspots, &violations, &duplication, out);
-    return out.str();
-}
-
-bool ReportGenerator::saveHtmlToFile(
-    const ProjectMetrics& metrics,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    const HotspotReport& hotspots,
-    const ViolationReport& violations,
-    const DuplicationReport& duplication,
-    const std::string& outputPath) {
-    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) return false;
-    writeHtml(metrics, files, &graph, &hotspots, &violations, &duplication, file);
-    return file.good();
-}
-
-std::string ReportGenerator::htmlEscape(const std::string& s) {
-    std::string out;
-    out.reserve(s.size() + 8);
-    for (unsigned char c : s) {
-        switch (c) {
-            case '&':  out += "&amp;";  break;
-            case '<':  out += "&lt;";   break;
-            case '>':  out += "&gt;";   break;
-            case '"':  out += "&quot;"; break;
-            default:   out += static_cast<char>(c);
+        // js-sec-hardcoded-secret: NAME = "literal" where NAME looks like a
+        // credential. Heuristic only -- flags for review, not a proven leak.
+        if (tok.type == TokenType::IDENTIFIER && isSuspiciousSecretName(tok.value) &&
+            i + 2 < n &&
+            tokens[i + 1].type == TokenType::OPERATOR && tokens[i + 1].value == "=" &&
+            tokens[i + 2].type == TokenType::STRING_LITERAL &&
+            isPlausibleSecretLiteral(tokens[i + 2].value)) {
+            out.push_back(makeSecurityViolation(path, tok.line, "js-sec-hardcoded-secret",
+                "'" + tok.value + "' is assigned a string literal that looks like a credential "
+                "-- review whether this should come from a secret store or environment "
+                "variable instead", "warning"));
         }
     }
+
+    // js-long-method
+    for (const auto& fn : fm.functions) {
+        if (fn.lineCount() > kLongFunctionThreshold) {
+            out.push_back(makeViolation(path, fn.startLine, "js-long-method",
+                "Function '" + fn.name + "' is " + std::to_string(fn.lineCount()) +
+                " lines -- consider splitting it", "info"));
+        }
+    }
+
+    // js-deep-nesting
+    if (fm.maxNestingDepth > kDeepNestingThreshold) {
+        out.push_back(makeViolation(path, 0, "js-deep-nesting",
+            "File reaches nesting depth " + std::to_string(fm.maxNestingDepth) +
+            " -- consider extracting helper functions", "info"));
+    }
+
+    // js-todo-without-ticket
+    for (const auto& tok : tokens) {
+        if (tok.type != TokenType::LINE_COMMENT && tok.type != TokenType::BLOCK_COMMENT) continue;
+        const bool hasTodo = tok.value.find("TODO") != std::string::npos ||
+                              tok.value.find("FIXME") != std::string::npos;
+        if (!hasTodo || hasTicketReference(tok.value)) continue;
+        out.push_back(makeViolation(path, tok.line, "js-todo-without-ticket",
+            "TODO/FIXME without a ticket reference (#123 or PROJ-123)", "info"));
+    }
+
     return out;
-}
-
-void ReportGenerator::writeHtml(
-    const ProjectMetrics& m,
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph* graph,
-    const HotspotReport* hotspots,
-    const ViolationReport* violations,
-    const DuplicationReport* duplication,
-    std::ostream& out) {
-
-    out << "<!DOCTYPE html>\n"
-        << "<html lang=\"en\">\n"
-        << "<head>\n"
-        << "<meta charset=\"UTF-8\">\n"
-        << "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
-        << "<title>Code Metrics Report</title>\n"
-        << "<style>" << kHtmlCss << "</style>\n"
-        << "</head>\n"
-        << "<body>\n"
-        << "<div class=\"container\">\n";
-
-    // --- Summary section ---
-    out << "<section id=\"summary\">\n"
-        << "<h2>Code Metrics Report</h2>\n"
-        << "<table>\n"
-        << "<thead>\n"
-        << "<tr><th>Metric</th><th>Value</th></tr>\n"
-        << "</thead>\n"
-        << "<tbody>\n";
-
-    auto row = [&](const char* label, auto value) {
-        out << "<tr><td>" << label << "</td><td>" << value << "</td></tr>\n";
-    };
-    row("Files Analyzed",        m.filesAnalyzed);
-    row("Total Lines",           m.totalLines);
-    row("Blank Lines",           m.blankLines);
-    row("Comment Lines",         m.commentLines);
-    row("Code Lines",            m.codeLines);
-    row("Functions",             m.functionCount);
-    row("Classes",               m.classCount);
-    row("Loops",                 m.loopCount);
-    row("Conditions",            m.conditionCount);
-    row("Max Nesting Depth",     m.maxNestingDepth);
-    row("Cyclomatic Complexity", m.cyclomaticComplexity);
-    row("TODO Comments",         m.todoCount);
-
-    out << "</tbody>\n"
-        << "</table>\n";
-
-    if (hotspots != nullptr) {
-        out << "<h3>Code Health</h3>\n"
-            << "<div class=\"badge\">"
-            << toBadgeSvg(m)
-            << "</div>\n";
-    }
-
-    out << "</section>\n";
-
-    // --- Per-file breakdown section ---
-    out << "<section id=\"files\">\n"
-        << "<h2>Per-File Breakdown</h2>\n";
-    writeHtmlFilesTable(files, out);
-    out << "</section>\n";
-
-    // --- Extended sections (5-arg only) ---
-    if (graph != nullptr)
-        writeHtmlDependenciesSection(files, *graph, out);
-    if (hotspots != nullptr)
-        writeHtmlHotspotsSection(*hotspots, out);
-    if (violations != nullptr)
-        writeHtmlViolationsSection(*violations, out);
-    if (duplication != nullptr)
-        writeHtmlDuplicationSection(*duplication, out);
-
-    out << "</div>\n"
-        << "</body>\n"
-        << "</html>\n";
-}
-
-void ReportGenerator::writeHtmlFilesTable(
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    std::ostream& out) {
-    out << "<table>\n"
-        << "<thead>\n"
-        << "<tr>"
-        << "<th>File</th><th>Lines</th><th>Functions</th>"
-        << "<th>Classes</th><th>Complexity</th><th>TODOs</th>"
-        << "</tr>\n"
-        << "</thead>\n"
-        << "<tbody>\n";
-
-    for (const auto& [path, fm] : files) {
-        out << "<tr>"
-            << "<td>" << htmlEscape(path)        << "</td>"
-            << "<td>" << fm.totalLines           << "</td>"
-            << "<td>" << fm.functions.size()     << "</td>"
-            << "<td>" << fm.classes.size()       << "</td>"
-            << "<td>" << fm.cyclomaticComplexity << "</td>"
-            << "<td>" << fm.todoCount            << "</td>"
-            << "</tr>\n";
-    }
-
-    out << "</tbody>\n"
-        << "</table>\n";
-}
-
-void ReportGenerator::writeHtmlDependenciesSection(
-    const std::vector<std::pair<std::string, FileMetrics>>& files,
-    const DependencyGraph& graph,
-    std::ostream& out) {
-
-    std::unordered_map<std::string, const FileCoupling*> couplingByPath;
-    couplingByPath.reserve(graph.files.size());
-    for (const auto& fc : graph.files)
-        couplingByPath[fc.path] = &fc;
-
-    out << "<section id=\"dependencies\">\n"
-        << "<h2>Dependencies</h2>\n"
-        << "<table>\n"
-        << "<thead>\n"
-        << "<tr>"
-        << "<th>File</th><th>Fan-Out</th><th>Fan-In</th>"
-        << "<th>Depends On</th><th>Depended On By</th>"
-        << "</tr>\n"
-        << "</thead>\n"
-        << "<tbody>\n";
-
-    static const FileCoupling kEmpty{};
-    for (const auto& [path, fm] : files) {
-        const auto it = couplingByPath.find(path);
-        const FileCoupling& fc = (it != couplingByPath.end()) ? *it->second : kEmpty;
-
-        std::string dependsOn;
-        for (std::size_t i = 0; i < fc.dependsOn.size(); ++i) {
-            if (i > 0) dependsOn += ", ";
-            dependsOn += htmlEscape(fc.dependsOn[i]);
-        }
-        std::string dependedOnBy;
-        for (std::size_t i = 0; i < fc.dependedOnBy.size(); ++i) {
-            if (i > 0) dependedOnBy += ", ";
-            dependedOnBy += htmlEscape(fc.dependedOnBy[i]);
-        }
-
-        out << "<tr>"
-            << "<td>" << htmlEscape(path) << "</td>"
-            << "<td>" << fc.fanOut        << "</td>"
-            << "<td>" << fc.fanIn         << "</td>"
-            << "<td>" << dependsOn        << "</td>"
-            << "<td>" << dependedOnBy     << "</td>"
-            << "</tr>\n";
-    }
-
-    out << "</tbody>\n"
-        << "</table>\n"
-        << "</section>\n";
-}
-
-void ReportGenerator::writeHtmlHotspotsSection(
-    const HotspotReport& hotspots,
-    std::ostream& out) {
-    out << "<section id=\"hotspots\">\n"
-        << "<h2>Hotspots</h2>\n";
-
-    if (!hotspots.gitAvailable) {
-        out << "<p class=\"muted\">Git history not available</p>\n";
-    } else {
-        out << "<table>\n"
-            << "<thead>\n"
-            << "<tr>"
-            << "<th>File</th><th>Cyclomatic Complexity</th><th>Commits</th>"
-            << "<th>Lines Added</th><th>Lines Deleted</th><th>Hotspot Score</th>"
-            << "</tr>\n"
-            << "</thead>\n"
-            << "<tbody>\n";
-
-        for (const auto& fh : hotspots.files) {
-            out << "<tr>"
-                << "<td>" << htmlEscape(fh.path)    << "</td>"
-                << "<td>" << fh.cyclomaticComplexity << "</td>"
-                << "<td>" << fh.commitCount          << "</td>"
-                << "<td>" << fh.linesAdded           << "</td>"
-                << "<td>" << fh.linesDeleted         << "</td>"
-                << "<td>" << fh.hotspotScore         << "</td>"
-                << "</tr>\n";
-        }
-
-        out << "</tbody>\n"
-            << "</table>\n";
-    }
-
-    out << "</section>\n";
-}
-
-void ReportGenerator::writeHtmlViolationsSection(
-    const ViolationReport& violations,
-    std::ostream& out) {
-    out << "<section id=\"violations\">\n"
-        << "<h2>Rule Violations</h2>\n";
-
-    if (violations.violations.empty()) {
-        out << "<p class=\"muted\">No violations detected</p>\n";
-    } else {
-        out << "<table>\n"
-            << "<thead>\n"
-            << "<tr>"
-            << "<th>File</th><th>Line</th><th>Rule</th>"
-            << "<th>Language</th><th>Severity</th><th>Message</th>"
-            << "</tr>\n"
-            << "</thead>\n"
-            << "<tbody>\n";
-
-        for (const auto& v : violations.violations) {
-            out << "<tr>"
-                << "<td>" << htmlEscape(v.path)    << "</td>"
-                << "<td>" << v.line                 << "</td>"
-                << "<td>" << htmlEscape(v.ruleId)  << "</td>"
-                << "<td>" << htmlEscape(v.language) << "</td>"
-                << "<td>" << htmlEscape(v.severity) << "</td>"
-                << "<td>" << htmlEscape(v.message)  << "</td>"
-                << "</tr>\n";
-        }
-
-        out << "</tbody>\n"
-            << "</table>\n";
-    }
-
-    out << "</section>\n";
-}
-
-void ReportGenerator::writeHtmlDuplicationSection(
-    const DuplicationReport& duplication,
-    std::ostream& out) {
-    out << "<section id=\"duplication\">\n"
-        << "<h2>Duplication</h2>\n";
-
-    if (duplication.matches.empty()) {
-        out << "<p class=\"muted\">No duplicate blocks detected</p>\n";
-    } else {
-        out << "<p>" << duplication.duplicatePercentage
-            << "% of code lines duplicated (" << duplication.duplicateLineCount
-            << " lines)</p>\n";
-        out << "<table>\n"
-            << "<thead>\n"
-            << "<tr>"
-            << "<th>File A</th><th>Lines</th><th>File B</th><th>Lines</th><th>Tokens</th>"
-            << "</tr>\n"
-            << "</thead>\n"
-            << "<tbody>\n";
-
-        for (const auto& dm : duplication.matches) {
-            out << "<tr>"
-                << "<td>" << htmlEscape(dm.pathA) << "</td>"
-                << "<td>" << dm.lineStartA << "-" << dm.lineEndA << "</td>"
-                << "<td>" << htmlEscape(dm.pathB) << "</td>"
-                << "<td>" << dm.lineStartB << "-" << dm.lineEndB << "</td>"
-                << "<td>" << dm.tokenCount << "</td>"
-                << "</tr>\n";
-        }
-
-        out << "</tbody>\n"
-            << "</table>\n";
-    }
-
-    out << "</section>\n";
 }
 
 } // namespace cma
