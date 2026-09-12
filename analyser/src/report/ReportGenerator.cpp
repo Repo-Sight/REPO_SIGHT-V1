@@ -419,7 +419,8 @@ void ReportGenerator::writeViolationsJson(const ViolationReport& violations, std
         out << "      \"ruleId\": \""   << jsonEscape(v.ruleId)   << "\",\n";
         out << "      \"language\": \"" << jsonEscape(v.language) << "\",\n";
         out << "      \"message\": \""  << jsonEscape(v.message)  << "\",\n";
-        out << "      \"severity\": \"" << jsonEscape(v.severity) << "\"\n";
+        out << "      \"severity\": \"" << jsonEscape(v.severity) << "\",\n";
+        out << "      \"category\": \"" << jsonEscape(v.category) << "\"\n";
         out << "    }";
     }
     out << (violations.violations.empty() ? "" : "\n  ");
