@@ -135,6 +135,7 @@ class RepoSightDashboard {
         this.bindTabs();
         this.bindFilesToolbar();
         this.bindDuplicationToolbar();
+        this.bindSecurityToolbar();
         this.bindAuth();
     }
 
@@ -148,7 +149,7 @@ class RepoSightDashboard {
         const tabs = Array.from(document.querySelectorAll('.rs-tab'));
         if (!tabs.length) return;
 
-        const TAB_TITLES = { overview: 'Overview', bylang: 'By Language', files: 'Files', scoring: 'Scoring', duplication: 'Duplication' };
+        const TAB_TITLES = { overview: 'Overview', bylang: 'By Language', files: 'Files', scoring: 'Scoring', duplication: 'Duplication', security: 'Security' };
 
         tabs.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -633,11 +634,13 @@ class RepoSightDashboard {
         this.populateOverview(this.jsonData.project || {});
         this.populateUnanalyzedCallout();
         this.populateDuplicationCallout();
+        this.populateSecurityCallout();
         this.populateHotspots();
         this.populateByLanguage();
         this.populateFilesTab();
         this.populateScoring();
         this.populateDuplicationTab();
+        this.populateSecurityTab();
         this.updateTopbarMeta();
         this.updateStreak();
         this.maybeShowFeedbackAlready();
@@ -693,6 +696,30 @@ class RepoSightDashboard {
         body.innerHTML = `
             ${pct.toFixed(1)}% of code lines (${this.formatNumber(dup.duplicateLineCount)} lines) appear in more than one place across
             ${this.formatNumber(dup.matches.length)} matched block(s). See the Duplication tab for details.
+        `;
+        callout.classList.remove('hidden');
+    }
+
+    // Phase 6c: security-hotspot findings are just violations[] entries
+    // with category="security" -- no new top-level JSON key, so this
+    // filters the existing array rather than reading a dedicated field.
+    // Silent when there's nothing to report, same policy as Duplication.
+    populateSecurityCallout() {
+        const findings = (this.jsonData.violations || []).filter(v => v.category === 'security');
+        const callout = this.$('security-callout');
+        const body = this.$('security-callout-body');
+        if (!callout || !body) return;
+
+        if (!findings.length) {
+            callout.classList.add('hidden');
+            return;
+        }
+
+        const fileCount = new Set(findings.map(v => v.path)).size;
+        const warningCount = findings.filter(v => v.severity === 'warning').length;
+        body.innerHTML = `
+            ${this.formatNumber(findings.length)} security finding(s) across ${this.formatNumber(fileCount)} file(s)
+            (${this.formatNumber(warningCount)} flagged for review). See the Security tab for details.
         `;
         callout.classList.remove('hidden');
     }
@@ -1065,6 +1092,127 @@ class RepoSightDashboard {
                 if (!this.duplicationState) return;
                 this.duplicationState.showAll = true;
                 this.renderDuplicationTable();
+            });
+        }
+    }
+
+    /* -----------------------------------------------------------------
+       Security tab (Phase 6c) -- table over violations[] filtered to
+       category="security" (Phase 6c analyser output; same array the
+       Files tab's per-file issue counts already draw from). Reuses the
+       Duplication tab's table/toolbar/empty-state CSS classes as-is --
+       no new CSS needed. Sorted "warning" findings first (most actionable),
+       then by file path; no interactive column sort, same rationale as
+       Duplication -- finding lists are typically short and a fixed
+       worst-first order is the actionable default. Purely informational:
+       does not affect HealthScore, matching Q5's decision for this phase.
+       ----------------------------------------------------------------- */
+    populateSecurityTab() {
+        const findings = (this.jsonData.violations || []).filter(v => v.category === 'security');
+        this.securityState = { search: '', renderCap: 300, showAll: false };
+
+        const findingCountEl = this.$('security-finding-count');
+        const fileCountEl = this.$('security-file-count');
+        const warningCountEl = this.$('security-warning-count');
+        const subEl = this.$('security-summary-sub');
+
+        const fileCount = new Set(findings.map(v => v.path)).size;
+        const warningCount = findings.filter(v => v.severity === 'warning').length;
+
+        if (findingCountEl) findingCountEl.textContent = this.formatNumber(findings.length);
+        if (fileCountEl) fileCountEl.textContent = this.formatNumber(fileCount);
+        if (warningCountEl) warningCountEl.textContent = this.formatNumber(warningCount);
+        if (subEl) subEl.textContent = 'across the whole project';
+
+        this.renderSecurityTable();
+    }
+
+    getFilteredSortedSecurityFindings() {
+        const findings = (this.jsonData.violations || []).filter(v => v.category === 'security');
+        const search = ((this.securityState || {}).search || '').toLowerCase();
+
+        let rows = findings;
+        if (search) {
+            rows = rows.filter(v =>
+                (v.path || '').toLowerCase().includes(search) ||
+                (v.ruleId || '').toLowerCase().includes(search) ||
+                (v.message || '').toLowerCase().includes(search)
+            );
+        }
+
+        const severityRank = s => (s === 'warning' ? 0 : 1);
+        return rows.slice().sort((a, b) => {
+            const bySeverity = severityRank(a.severity) - severityRank(b.severity);
+            return bySeverity !== 0 ? bySeverity : (a.path || '').localeCompare(b.path || '');
+        });
+    }
+
+    renderSecurityTable() {
+        const tbody = this.$('security-table-body');
+        const empty = this.$('security-empty');
+        const countLabel = this.$('security-count-label');
+        const showMoreBtn = this.$('security-show-more');
+        if (!tbody || !empty || !countLabel) return;
+
+        const totalFindings = (this.jsonData.violations || []).filter(v => v.category === 'security').length;
+        const allFiltered = this.getFilteredSortedSecurityFindings();
+
+        if (!totalFindings) {
+            tbody.innerHTML = '';
+            empty.classList.remove('hidden');
+            empty.textContent = 'No security findings detected in this scan.';
+            countLabel.textContent = '';
+            if (showMoreBtn) showMoreBtn.classList.add('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+
+        const state = this.securityState || {};
+        const rows = state.showAll ? allFiltered : allFiltered.slice(0, state.renderCap || 300);
+
+        tbody.innerHTML = rows
+            .map(v => `
+                <tr>
+                    <td class="file-path-cell" title="${this.escapeHtml(v.path)}">${this.escapeHtml(v.path)}</td>
+                    <td>${this.formatNumber(v.line)}</td>
+                    <td>${this.escapeHtml(v.ruleId)}</td>
+                    <td>${this.escapeHtml(v.severity)}</td>
+                    <td>${this.escapeHtml(v.message)}</td>
+                </tr>
+            `)
+            .join('');
+
+        countLabel.textContent = allFiltered.length === totalFindings
+            ? `${this.formatNumber(totalFindings)} finding(s)`
+            : `${this.formatNumber(allFiltered.length)} of ${this.formatNumber(totalFindings)} finding(s)`;
+
+        if (showMoreBtn) {
+            const hiddenCount = allFiltered.length - rows.length;
+            if (hiddenCount > 0) {
+                showMoreBtn.textContent = `Show all findings (${this.formatNumber(hiddenCount)} more)`;
+                showMoreBtn.classList.remove('hidden');
+            } else {
+                showMoreBtn.classList.add('hidden');
+            }
+        }
+    }
+
+    bindSecurityToolbar() {
+        const searchInput = this.$('security-search');
+        const showMoreBtn = this.$('security-show-more');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                if (!this.securityState) return;
+                this.securityState.search = searchInput.value;
+                this.renderSecurityTable();
+            });
+        }
+        if (showMoreBtn) {
+            showMoreBtn.addEventListener('click', () => {
+                if (!this.securityState) return;
+                this.securityState.showAll = true;
+                this.renderSecurityTable();
             });
         }
     }
