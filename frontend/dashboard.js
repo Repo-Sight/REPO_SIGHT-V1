@@ -14,6 +14,25 @@ const GAUGE_RADIUS = 54;
 const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
 const LONG_FUNCTION_THRESHOLD = 100; // matches cpp/py/java-long-*-function rule
 
+// Rough-plan ask: "add humour related to engineers to keep users engaged."
+// Scoped deliberately to the scan-wait screen only -- one real tip mixed
+// with dry engineer humor, rotated while the user is stuck waiting. The
+// actual report tabs (Overview/By Language/Files/Scoring/etc.) stay
+// serious on purpose -- that's the part a freelancer might hand straight
+// to a client, so it doesn't get jokes. This does.
+const LOADING_TIPS = [
+    'Tip: analysis runs against the repository\u2019s default branch (main or master).',
+    'Counting cyclomatic complexity, one nested if at a time.',
+    'Politely not judging your variable names. Yet.',
+    'Grep couldn\u2019t do this. Grep never could.',
+    'Checking if that TODO from 2019 is still there.',
+    'Somewhere, a linter is nodding in approval. Or not.',
+    'Comparing your code to the docs. The docs are losing.',
+    'This is the part where we pretend to read every line.',
+    'Still faster than waiting for CI.',
+    'No, we can\u2019t see your commit messages. We wish we could judge those too.',
+];
+
 // Mirrors analyser/src/report/HealthScore.cpp exactly (weights + good/bad
 // reference points for each of the five scoreBreakdown components) so the
 // Scoring tab's bars and "your value vs. target" captions stay truthful to
@@ -623,7 +642,28 @@ class RepoSightDashboard {
         if (reportContent) reportContent.classList.add('hidden');
         this.setText('loading-message', 'Starting analysis\u2026');
         this.setText('loading-progress', '');
-        this.setText('loading-tip', 'Tip: analysis runs against the repository\u2019s default branch (main or master).');
+        this.startLoadingTips();
+    }
+
+    // Rotates LOADING_TIPS every ~2.8s while the scan-wait screen is up.
+    // Always clears any previous interval first -- showLoadingState() can
+    // fire more than once per page life (rerun button), and a stray
+    // duplicate interval would double up the rotation speed silently.
+    startLoadingTips() {
+        this.stopLoadingTips();
+        let i = 0;
+        this.setText('loading-tip', LOADING_TIPS[0]);
+        this._loadingTipInterval = setInterval(() => {
+            i = (i + 1) % LOADING_TIPS.length;
+            this.setText('loading-tip', LOADING_TIPS[i]);
+        }, 2800);
+    }
+
+    stopLoadingTips() {
+        if (this._loadingTipInterval) {
+            clearInterval(this._loadingTipInterval);
+            this._loadingTipInterval = null;
+        }
     }
 
     updateLoadingProgress(pct) {
@@ -634,6 +674,7 @@ class RepoSightDashboard {
     hideLoadingState() {
         const loadingState = this.$('loading-state');
         const reportContent = this.$('report-content');
+        this.stopLoadingTips();
         if (loadingState) loadingState.classList.add('hidden');
         if (reportContent) reportContent.classList.remove('hidden');
     }
@@ -644,6 +685,7 @@ class RepoSightDashboard {
     showError(message) {
         const loadingState = this.$('loading-state');
         const reportContent = this.$('report-content');
+        this.stopLoadingTips();
         if (reportContent) reportContent.classList.add('hidden');
         if (loadingState) {
             loadingState.classList.remove('hidden');
@@ -1597,12 +1639,24 @@ class RepoSightDashboard {
         this.updateStreakDisplay();
     }
 
+    // Milestone flavor for the streak strip -- plain count through day 2
+    // (nothing to riff on yet), escalating dry commentary past that. Same
+    // scoping logic as LOADING_TIPS: this is UI chrome around the tool,
+    // not report content, so it's the safe place for humor.
+    streakFlavorText(n) {
+        if (n < 3) return `You've analyzed code ${n} ${n === 1 ? 'day' : 'days'} in a row!`;
+        if (n < 7) return `${n} days in a row. Suspicious levels of diligence.`;
+        if (n < 14) return `${n} days straight. At this point it's a personality trait.`;
+        if (n < 30) return `${n} days. Your code doesn't know what hit it.`;
+        return `${n} days in a row. Genuinely, are you okay?`;
+    }
+
     updateStreakDisplay() {
         const msg = this.$('streak-message');
         const vis = this.$('streak-visual');
         if (!msg || !vis) return;
         if (this.analysisStreak > 0) {
-            msg.textContent = `You've analyzed code ${this.analysisStreak} ${this.analysisStreak === 1 ? 'day' : 'days'} in a row!`;
+            msg.textContent = this.streakFlavorText(this.analysisStreak);
             vis.textContent = '\u{1F525}'.repeat(Math.min(this.analysisStreak, 5));
         }
     }
