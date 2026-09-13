@@ -15,6 +15,12 @@ import { Readable } from "node:stream";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { getSupabase, getUserFromRequest, recordUserScan } from "./_lib/supabase.js";
+import {
+  parseLcov,
+  mergeCoverageIntoReport,
+  CoverageTooLargeError,
+  CoverageParseError,
+} from "./_lib/coverage.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -110,7 +116,7 @@ async function downloadAndExtract(owner, repo, srcDir) {
   return null;
 }
 
-async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user }) {
+async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport }) {
   const branch = await downloadAndExtract(parsed.owner, parsed.repo, srcDir);
 
   if (!branch) {
@@ -147,6 +153,20 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user 
   void cmaResult;
 
   const report = JSON.parse(await readFile(reportPath, "utf8"));
+
+  // Phase 6d: optional user-uploaded LCOV report, merged into the CMA
+  // output before storage. REPO-SIGHT never runs the repo's own test
+  // suite (no secure sandbox exists in this stack -- see coverage.js's
+  // header comment) -- the user supplies coverage from their own
+  // local/CI test run instead. Parse/merge errors are surfaced as 400s;
+  // they never fail a scan that otherwise succeeded on its own terms, so
+  // a bad coverage paste can't take down an otherwise-good analysis.
+  if (typeof coverageReport === "string" && coverageReport.length > 0) {
+    const lcovEntries = parseLcov(coverageReport); // throws Coverage{TooLarge,Parse}Error
+    mergeCoverageIntoReport(report, lcovEntries, { srcDirPrefix: srcDir });
+  } else {
+    report.coverageSummary = { available: false };
+  }
 
   const payload = {
     status: "COMPLETED",
@@ -211,8 +231,10 @@ export default async function handler(req, res) {
     const user = await getUserFromRequest(req, supabase);
     await mkdir(srcDir, { recursive: true });
 
+    const coverageReport = req.body?.coverageReport;
+
     const result = await withDeadline(
-      runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user }),
+      runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport }),
       OVERALL_TIMEOUT_MS
     );
     res.status(result.status).json(result.body);
@@ -224,15 +246,17 @@ export default async function handler(req, res) {
       err?.code === "ETIMEDOUT" ||
       err?.killed;
 
-    const tooLarge = err instanceof RepoTooLargeError;
+    const tooLarge = err instanceof RepoTooLargeError || err instanceof CoverageTooLargeError;
+    const badCoverage = err instanceof CoverageParseError;
 
     const message = timedOut
       ? "Analysis timed out — this repo is too large for the ~55s window. Try a smaller repo."
-      : tooLarge
+      : tooLarge || badCoverage
       ? err.message
       : err?.message || "Analysis failed.";
 
-    res.status(tooLarge ? 413 : 500).json({ error: message });
+    const status = tooLarge ? 413 : badCoverage ? 400 : 500;
+    res.status(status).json({ error: message });
   } finally {
     // Single rm covers everything (no separate tarPath exists any more).
     await rm(workDir, { recursive: true, force: true }).catch(() => {});
