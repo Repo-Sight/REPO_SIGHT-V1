@@ -136,6 +136,7 @@ class RepoSightDashboard {
         this.bindFilesToolbar();
         this.bindDuplicationToolbar();
         this.bindSecurityToolbar();
+        this.bindCoverageToolbar();
         this.bindAuth();
     }
 
@@ -149,7 +150,7 @@ class RepoSightDashboard {
         const tabs = Array.from(document.querySelectorAll('.rs-tab'));
         if (!tabs.length) return;
 
-        const TAB_TITLES = { overview: 'Overview', bylang: 'By Language', files: 'Files', scoring: 'Scoring', duplication: 'Duplication', security: 'Security' };
+        const TAB_TITLES = { overview: 'Overview', bylang: 'By Language', files: 'Files', scoring: 'Scoring', duplication: 'Duplication', security: 'Security', coverage: 'Coverage' };
 
         tabs.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -380,7 +381,33 @@ class RepoSightDashboard {
         const urlInput = this.$('new-scan-url');
         const submitBtn = this.$('new-scan-submit');
         const errorEl = this.$('new-scan-error');
+        const coverageInput = this.$('new-scan-coverage');
+        const coverageLabelText = this.$('new-scan-coverage-label-text');
         if (!form || !urlInput || !submitBtn || !errorEl) return;
+
+        // Phase 6d: update the label to show the chosen filename, same
+        // affordance as the "Upload a file" panel's drop-label below.
+        if (coverageInput && coverageLabelText) {
+            coverageInput.addEventListener('change', () => {
+                const file = coverageInput.files && coverageInput.files[0];
+                coverageLabelText.textContent = file ? file.name : '+ Add coverage report (optional, LCOV)';
+            });
+        }
+
+        // Reads the optional coverage file as text. Never rejects -- a
+        // file that can't be read just means the scan proceeds without
+        // coverage, same "optional extra can't break the primary flow"
+        // principle as the server-side merge in api/_lib/coverage.js.
+        function readCoverageFileIfAny() {
+            const file = coverageInput && coverageInput.files && coverageInput.files[0];
+            if (!file) return Promise.resolve(null);
+            return new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onerror = () => resolve(null);
+                reader.onload = () => resolve(String(reader.result || ''));
+                reader.readAsText(file);
+            });
+        }
 
         form.addEventListener('submit', async e => {
             e.preventDefault();
@@ -393,11 +420,15 @@ class RepoSightDashboard {
             this.track('scan_started', { mode: 'repo' });
 
             try {
+                const coverageReport = await readCoverageFileIfAny();
+                const body = { repoUrl };
+                if (coverageReport) body.coverageReport = coverageReport;
+
                 const headers = await this.getAuthHeaders();
                 const res = await fetch('/api/analyze', {
                     method: 'POST',
                     headers,
-                    body: JSON.stringify({ repoUrl }),
+                    body: JSON.stringify(body),
                 });
                 const data = await res.json().catch(() => ({}));
 
@@ -635,12 +666,14 @@ class RepoSightDashboard {
         this.populateUnanalyzedCallout();
         this.populateDuplicationCallout();
         this.populateSecurityCallout();
+        this.populateCoverageCallout();
         this.populateHotspots();
         this.populateByLanguage();
         this.populateFilesTab();
         this.populateScoring();
         this.populateDuplicationTab();
         this.populateSecurityTab();
+        this.populateCoverageTab();
         this.updateTopbarMeta();
         this.updateStreak();
         this.maybeShowFeedbackAlready();
@@ -720,6 +753,32 @@ class RepoSightDashboard {
         body.innerHTML = `
             ${this.formatNumber(findings.length)} security finding(s) across ${this.formatNumber(fileCount)} file(s)
             (${this.formatNumber(warningCount)} flagged for review). See the Security tab for details.
+        `;
+        callout.classList.remove('hidden');
+    }
+
+    // Phase 6d: coverageSummary only exists on the scan JSON when the user
+    // attached an LCOV report at scan time (api/_lib/coverage.js sets
+    // { available: false } otherwise) -- silent when absent, same policy
+    // as Duplication/Security being silent when there's nothing to report.
+    populateCoverageCallout() {
+        const cov = this.jsonData.coverageSummary;
+        const callout = this.$('coverage-callout');
+        const body = this.$('coverage-callout-body');
+        if (!callout || !body) return;
+
+        if (!cov || !cov.available) {
+            callout.classList.add('hidden');
+            return;
+        }
+
+        const unmatchedNote = cov.unmatchedFiles && cov.unmatchedFiles.length
+            ? ` ${this.formatNumber(cov.unmatchedFiles.length)} file(s) in the report couldn't be matched to a scanned source file and were skipped.`
+            : '';
+
+        body.innerHTML = `
+            ${cov.overallPct.toFixed(1)}% line coverage across ${this.formatNumber(cov.filesMatched)} matched file(s).
+            See the Coverage tab for the per-file breakdown.${this.escapeHtml(unmatchedNote)}
         `;
         callout.classList.remove('hidden');
     }
@@ -1213,6 +1272,158 @@ class RepoSightDashboard {
                 if (!this.securityState) return;
                 this.securityState.showAll = true;
                 this.renderSecurityTable();
+            });
+        }
+    }
+
+    /* -----------------------------------------------------------------
+       Coverage tab (Phase 6d) -- table over files[] entries that carry a
+       .coverage field (attached server-side by api/_lib/coverage.js when
+       an LCOV report was submitted with the scan; see that module's
+       header comment for why REPO-SIGHT never runs the repo's own tests
+       itself). Reuses the Duplication/Security tabs' table/toolbar/
+       empty-state CSS classes as-is -- no new CSS needed. Sorted
+       worst-coverage-first, same "most actionable first" rationale as
+       Security's severity-first sort. Purely informational: does not
+       affect HealthScore.
+       ----------------------------------------------------------------- */
+    getCoveredFiles() {
+        return (this.jsonData.files || []).filter(f => f.coverage);
+    }
+
+    populateCoverageTab() {
+        const cov = this.jsonData.coverageSummary;
+        this.coverageState = { search: '', renderCap: 300, showAll: false };
+
+        const overallPctEl = this.$('coverage-overall-pct');
+        const linesHitEl = this.$('coverage-lines-hit');
+        const filesMatchedEl = this.$('coverage-files-matched');
+        const subEl = this.$('coverage-summary-sub');
+
+        if (!cov || !cov.available) {
+            if (overallPctEl) overallPctEl.textContent = '\u2014';
+            if (linesHitEl) linesHitEl.textContent = '\u2014';
+            if (filesMatchedEl) filesMatchedEl.textContent = '\u2014';
+            if (subEl) subEl.textContent = '';
+            this.renderCoverageTable();
+            return;
+        }
+
+        if (overallPctEl) overallPctEl.textContent = `${cov.overallPct.toFixed(1)}%`;
+        if (linesHitEl) linesHitEl.textContent = `${this.formatNumber(cov.linesHit)} / ${this.formatNumber(cov.linesFound)}`;
+        if (filesMatchedEl) filesMatchedEl.textContent = this.formatNumber(cov.filesMatched);
+        if (subEl) {
+            subEl.textContent = (cov.unmatchedFiles && cov.unmatchedFiles.length)
+                ? `${this.formatNumber(cov.unmatchedFiles.length)} file(s) in the report couldn't be matched`
+                : 'from the uploaded LCOV report';
+        }
+
+        this.renderCoverageTable();
+    }
+
+    getFilteredSortedCoverageFiles() {
+        const files = this.getCoveredFiles();
+        const search = ((this.coverageState || {}).search || '').toLowerCase();
+
+        let rows = files;
+        if (search) {
+            rows = rows.filter(f => (f.path || '').toLowerCase().includes(search));
+        }
+
+        return rows.slice().sort((a, b) => {
+            const byPct = a.coverage.coveragePct - b.coverage.coveragePct;
+            return byPct !== 0 ? byPct : (a.path || '').localeCompare(b.path || '');
+        });
+    }
+
+    formatUncoveredLines(lines) {
+        if (!lines || !lines.length) return '\u2014';
+        const MAX_SHOWN = 6;
+        const shown = lines.slice(0, MAX_SHOWN).join(', ');
+        const extra = lines.length - MAX_SHOWN;
+        return extra > 0 ? `${shown} (+${this.formatNumber(extra)} more)` : shown;
+    }
+
+    renderCoverageTable() {
+        const tbody = this.$('coverage-table-body');
+        const empty = this.$('coverage-empty');
+        const countLabel = this.$('coverage-count-label');
+        const showMoreBtn = this.$('coverage-show-more');
+        if (!tbody || !empty || !countLabel) return;
+
+        const cov = this.jsonData.coverageSummary;
+
+        // Two distinct empty states, not one generic one -- "nothing was
+        // uploaded" and "something was uploaded but nothing matched" call
+        // for different messages (same UX principle as the Files tab's
+        // unanalyzed-languages pointer).
+        if (!cov || !cov.available) {
+            tbody.innerHTML = '';
+            empty.textContent = 'No coverage report was uploaded for this scan.';
+            empty.classList.remove('hidden');
+            countLabel.textContent = '';
+            if (showMoreBtn) showMoreBtn.classList.add('hidden');
+            return;
+        }
+
+        const totalFiles = this.getCoveredFiles().length;
+        const allFiltered = this.getFilteredSortedCoverageFiles();
+
+        if (!totalFiles) {
+            tbody.innerHTML = '';
+            empty.textContent = "Coverage report was uploaded, but none of its files matched a scanned source file.";
+            empty.classList.remove('hidden');
+            countLabel.textContent = '';
+            if (showMoreBtn) showMoreBtn.classList.add('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+
+        const state = this.coverageState || {};
+        const rows = state.showAll ? allFiltered : allFiltered.slice(0, state.renderCap || 300);
+
+        tbody.innerHTML = rows
+            .map(f => `
+                <tr>
+                    <td class="file-path-cell" title="${this.escapeHtml(f.path)}">${this.escapeHtml(f.path)}</td>
+                    <td>${f.coverage.coveragePct.toFixed(1)}%</td>
+                    <td>${this.formatNumber(f.coverage.linesHit)} / ${this.formatNumber(f.coverage.linesFound)}</td>
+                    <td>${this.escapeHtml(this.formatUncoveredLines(f.coverage.uncoveredLines))}</td>
+                </tr>
+            `)
+            .join('');
+
+        countLabel.textContent = allFiltered.length === totalFiles
+            ? `${this.formatNumber(totalFiles)} file(s)`
+            : `${this.formatNumber(allFiltered.length)} of ${this.formatNumber(totalFiles)} file(s)`;
+
+        if (showMoreBtn) {
+            const hiddenCount = allFiltered.length - rows.length;
+            if (hiddenCount > 0) {
+                showMoreBtn.textContent = `Show all files (${this.formatNumber(hiddenCount)} more)`;
+                showMoreBtn.classList.remove('hidden');
+            } else {
+                showMoreBtn.classList.add('hidden');
+            }
+        }
+    }
+
+    bindCoverageToolbar() {
+        const searchInput = this.$('coverage-search');
+        const showMoreBtn = this.$('coverage-show-more');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                if (!this.coverageState) return;
+                this.coverageState.search = searchInput.value;
+                this.renderCoverageTable();
+            });
+        }
+        if (showMoreBtn) {
+            showMoreBtn.addEventListener('click', () => {
+                if (!this.coverageState) return;
+                this.coverageState.showAll = true;
+                this.renderCoverageTable();
             });
         }
     }
