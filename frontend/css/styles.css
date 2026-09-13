@@ -1064,6 +1064,31 @@ main {
   color: var(--info-ink);
   text-transform: uppercase;
 }
+/* Complexity sparkline cell (Files tab) -- left-edge fill bar, blueprint
+   ruler feel: a hairline-bordered track with a solid fill, not a rounded
+   progress-bar widget. Number stays next to it, tabular-nums so the
+   column still reads cleanly when the bar width varies row to row. */
+.complexity-sparkline {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 7px;
+  vertical-align: middle;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  margin-right: 7px;
+}
+.complexity-sparkline-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: var(--accent);
+}
+.complexity-sparkline-value {
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
 .files-empty {
   padding: 40px 16px;
   text-align: center;
