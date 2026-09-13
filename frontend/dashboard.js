@@ -905,6 +905,15 @@ class RepoSightDashboard {
             showAll: false,
         };
         this._violationCounts = this.violationCountsByPath();
+        // Sparkline column (Section 7.2.1 follow-up polish) scales each
+        // file's complexity bar against the highest value in the *full*
+        // unfiltered set, computed once here -- so bars stay visually
+        // comparable as the user searches/filters/sorts, rather than
+        // rescaling against whatever subset happens to be visible.
+        this._maxFileComplexity = Math.max(
+            1,
+            ...files.map(f => f.cyclomaticComplexity || 0)
+        );
 
         const langSelect = this.$('files-lang-filter');
         if (langSelect) {
@@ -944,6 +953,26 @@ class RepoSightDashboard {
         return rows;
     }
 
+    // Complexity sparkline cell: a left-edge fill bar (data-bar style, like
+    // a spreadsheet's in-cell bar) sized relative to the most complex file
+    // in the whole report, with the exact number kept alongside it -- the
+    // bar communicates shape/relative-magnitude across the file list at a
+    // glance, the number stays the source of truth. Deliberately
+    // monochrome (var(--accent), no low/med/high coloring): file-total
+    // complexity has no validated absolute thresholds the way per-function
+    // McCabe complexity or the density-based By Language badges do, so
+    // color-coding it as good/bad here would be a fabricated signal.
+    renderComplexitySparkline(cc) {
+        const value = cc || 0;
+        const pct = Math.max(2, Math.min(100, (value / this._maxFileComplexity) * 100));
+        return `
+            <span class="complexity-sparkline" title="${this.formatNumber(value)} of ${this.formatNumber(this._maxFileComplexity)} (max in this report)">
+                <span class="complexity-sparkline-fill" style="width:${pct}%"></span>
+            </span>
+            <span class="complexity-sparkline-value">${this.formatNumber(value)}</span>
+        `;
+    }
+
     renderFilesTable() {
         const tbody = this.$('files-table-body');
         const empty = this.$('files-empty');
@@ -973,7 +1002,7 @@ class RepoSightDashboard {
                     <td class="file-path-cell" title="${this.escapeHtml(f.path)}">${this.escapeHtml(f.path)}</td>
                     <td><span class="lang-badge">${this.escapeHtml(f.language || '?')}</span></td>
                     <td>${this.formatNumber(f.codeLines)}</td>
-                    <td>${this.formatNumber(f.cyclomaticComplexity)}</td>
+                    <td>${this.renderComplexitySparkline(f.cyclomaticComplexity)}</td>
                     <td>${this.formatNumber(f.maxNestingDepth)}</td>
                     <td>${this.formatNumber(f.functionCount)}</td>
                     <td>${this.formatNumber(f.issues)}</td>
