@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
   <link rel="icon" type="image/png" href="/favicon-32.png" />
@@ -114,6 +114,18 @@
           </form>
           <p class="new-scan-error hidden" id="new-scan-error"></p>
           <p class="hero-fineprint" id="hero-repo-fineprint">Public repositories only &middot; best for repos that analyze in under a minute &middot; no account needed</p>
+
+          <!-- Phase 6d: optional LCOV coverage upload. REPO-SIGHT never runs
+               a repo's own test suite (no secure sandbox exists in this
+               stack) -- the user attaches a coverage report from their own
+               local/CI run instead. Sibling input+label pattern matches the
+               existing "Upload a file" panel below (#file-scan-upload). -->
+          <div id="new-scan-coverage-row" style="margin-top: 10px;">
+            <label class="btn-ghost" id="new-scan-coverage-label" for="new-scan-coverage" style="cursor: pointer;">
+              <span id="new-scan-coverage-label-text">+ Add coverage report (optional, LCOV)</span>
+            </label>
+            <input type="file" id="new-scan-coverage" class="hidden" accept=".info,.lcov,text/plain" />
+          </div>
 
           <div class="hero-file-panels hidden" id="hero-file-panels">
             <div class="hero-file-panel">
@@ -405,6 +417,7 @@ TODO Comments          : <span class="t-value">9</span>
         <button type="button" class="rs-tab" data-tab="scoring" role="tab" aria-selected="false" id="rs-tab-scoring">Scoring</button>
         <button type="button" class="rs-tab" data-tab="duplication" role="tab" aria-selected="false" id="rs-tab-duplication">Duplication</button>
         <button type="button" class="rs-tab" data-tab="security" role="tab" aria-selected="false" id="rs-tab-security">Security</button>
+        <button type="button" class="rs-tab" data-tab="coverage" role="tab" aria-selected="false" id="rs-tab-coverage">Coverage</button>
       </nav>
 
       <div class="tab-panel" data-tab-panel="overview">
@@ -437,6 +450,20 @@ TODO Comments          : <span class="t-value">9</span>
           <div>
             <div class="callout-title">Security findings detected</div>
             <div id="security-callout-body"></div>
+          </div>
+        </div>
+
+        <!-- Coverage callout -- Phase 6d. Neutral (non-warning) styling
+             deliberately -- unlike Duplication/Security this isn't a
+             detected problem, it's just informational, so it doesn't use
+             .callout-warning's amber accent. Silent when no coverage
+             report was uploaded for this scan (coverageSummary.available
+             === false), same policy as the other callouts being silent
+             when there's nothing to report. -->
+        <div class="callout hidden" id="coverage-callout">
+          <div>
+            <div class="callout-title">Coverage report attached</div>
+            <div id="coverage-callout-body"></div>
           </div>
         </div>
 
@@ -697,6 +724,46 @@ TODO Comments          : <span class="t-value">9</span>
         </div>
         <p class="files-empty hidden" id="security-empty">No security findings detected in this scan.</p>
         <button type="button" class="btn-ghost files-show-more hidden" id="security-show-more">Show all findings</button>
+      </div>
+
+      <!-- Coverage tab -- Phase 6d. REPO-SIGHT does not run the repo's own
+           tests (no secure sandbox in this stack); this table renders
+           whatever LCOV report the user attached at scan time, merged
+           into files[] server-side (api/_lib/coverage.js). Reuses the
+           Duplication/Security tabs' metric-card / files-table /
+           files-toolbar chrome as-is -- no new CSS needed. -->
+      <div class="tab-panel hidden" data-tab-panel="coverage">
+        <div class="metric-card" style="margin-bottom: 20px;">
+          <div class="metric-card-head">
+            <span class="metric-card-title">Coverage</span>
+            <span class="metric-card-sub" id="coverage-summary-sub"></span>
+          </div>
+          <div class="metric-card-row">
+            <div class="metric-item"><span class="metric-value" id="coverage-overall-pct">&mdash;</span><span class="metric-label">Overall coverage</span></div>
+            <div class="metric-item"><span class="metric-value" id="coverage-lines-hit">&mdash;</span><span class="metric-label">Lines hit</span></div>
+            <div class="metric-item"><span class="metric-value" id="coverage-files-matched">&mdash;</span><span class="metric-label">Files matched</span></div>
+          </div>
+        </div>
+
+        <div class="files-toolbar">
+          <input type="search" id="coverage-search" placeholder="Filter by file path&hellip;" aria-label="Filter coverage by path" />
+          <span class="files-count" id="coverage-count-label"></span>
+        </div>
+        <div class="files-table-wrap">
+          <table class="files-table" id="coverage-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Coverage</th>
+                <th>Lines hit / found</th>
+                <th>Uncovered lines</th>
+              </tr>
+            </thead>
+            <tbody id="coverage-table-body"></tbody>
+          </table>
+        </div>
+        <p class="files-empty hidden" id="coverage-empty">No coverage report was uploaded for this scan.</p>
+        <button type="button" class="btn-ghost files-show-more hidden" id="coverage-show-more">Show all files</button>
       </div>
 
       <div class="streak-strip">
