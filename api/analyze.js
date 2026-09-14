@@ -172,6 +172,15 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
     status: "COMPLETED",
     scanId,
     projectName: `${parsed.owner}/${parsed.repo}`,
+    // Additive (schemaVersion 2 rule: never break old consumers) -- needed
+    // by api/explain-finding.js to re-fetch a single file's current
+    // content from GitHub for the "Explain this finding" feature. Scans
+    // recorded before this field existed simply won't have it; the
+    // frontend treats its absence as "explain not available for this
+    // scan" rather than erroring.
+    repoOwner: parsed.owner,
+    repoName: parsed.repo,
+    repoBranch: branch,
     createdAt: new Date().toISOString(),
     ...report,
   };
