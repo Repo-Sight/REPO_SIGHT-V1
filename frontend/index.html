@@ -421,6 +421,20 @@ TODO Comments          : <span class="t-value">9</span>
       </nav>
 
       <div class="tab-panel" data-tab-panel="overview">
+        <!-- Trend callout -- regression tracking against the signed-in
+             user's previous scan of the same repo (rough-plan ask: "is it
+             improving or not"). No API cost, pure diff of two already-
+             stored scans. Populated asynchronously after sign-in + a
+             prior scan of this repo are both confirmed to exist; hidden
+             (stays hidden) for anonymous viewers, first-time scans of a
+             repo, or scans predating the repoOwner/repoName fields. -->
+        <div class="callout hidden" id="trend-callout">
+          <div>
+            <div class="callout-title">Since your last scan</div>
+            <div id="trend-callout-body"></div>
+          </div>
+        </div>
+
         <!-- Unanalyzed-languages callout -- only shown if the scan skipped
              any files REPO-SIGHT doesn't have a front-end for yet. -->
         <div class="callout callout-warning hidden" id="unanalyzed-callout">
