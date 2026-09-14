@@ -73,7 +73,7 @@ std::string ReportGenerator::toJson(
     const ProjectMetrics& metrics,
     const std::vector<std::pair<std::string, FileMetrics>>& files) {
     std::ostringstream out;
-    writeJson(metrics, files, nullptr, nullptr, nullptr, out);
+    writeJson(metrics, files, nullptr, nullptr, nullptr, nullptr, out);
     return out.str();
 }
 
@@ -83,7 +83,7 @@ bool ReportGenerator::saveJsonToFile(
     const std::string& outputPath) {
     std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
     if (!file.is_open()) return false;
-    writeJson(metrics, files, nullptr, nullptr, nullptr, file);
+    writeJson(metrics, files, nullptr, nullptr, nullptr, nullptr, file);
     return file.good();
 }
 
@@ -92,7 +92,7 @@ std::string ReportGenerator::toJson(
     const std::vector<std::pair<std::string, FileMetrics>>& files,
     const DependencyGraph& graph) {
     std::ostringstream out;
-    writeJson(metrics, files, &graph, nullptr, nullptr, out);
+    writeJson(metrics, files, &graph, nullptr, nullptr, nullptr, out);
     return out.str();
 }
 
@@ -103,7 +103,7 @@ bool ReportGenerator::saveJsonToFile(
     const std::string& outputPath) {
     std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
     if (!file.is_open()) return false;
-    writeJson(metrics, files, &graph, nullptr, nullptr, file);
+    writeJson(metrics, files, &graph, nullptr, nullptr, nullptr, file);
     return file.good();
 }
 
@@ -113,7 +113,7 @@ std::string ReportGenerator::toJson(
     const DependencyGraph& graph,
     const HotspotReport& hotspots) {
     std::ostringstream out;
-    writeJson(metrics, files, &graph, &hotspots, nullptr, out);
+    writeJson(metrics, files, &graph, &hotspots, nullptr, nullptr, out);
     return out.str();
 }
 
@@ -125,7 +125,7 @@ bool ReportGenerator::saveJsonToFile(
     const std::string& outputPath) {
     std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
     if (!file.is_open()) return false;
-    writeJson(metrics, files, &graph, &hotspots, nullptr, file);
+    writeJson(metrics, files, &graph, &hotspots, nullptr, nullptr, file);
     return file.good();
 }
 
@@ -136,7 +136,7 @@ std::string ReportGenerator::toJson(
     const HotspotReport& hotspots,
     const ViolationReport& violations) {
     std::ostringstream out;
-    writeJson(metrics, files, &graph, &hotspots, &violations, out);
+    writeJson(metrics, files, &graph, &hotspots, &violations, nullptr, out);
     return out.str();
 }
 
@@ -149,7 +149,33 @@ bool ReportGenerator::saveJsonToFile(
     const std::string& outputPath) {
     std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
     if (!file.is_open()) return false;
-    writeJson(metrics, files, &graph, &hotspots, &violations, file);
+    writeJson(metrics, files, &graph, &hotspots, &violations, nullptr, file);
+    return file.good();
+}
+
+std::string ReportGenerator::toJson(
+    const ProjectMetrics& metrics,
+    const std::vector<std::pair<std::string, FileMetrics>>& files,
+    const DependencyGraph& graph,
+    const HotspotReport& hotspots,
+    const ViolationReport& violations,
+    const DuplicationReport& duplication) {
+    std::ostringstream out;
+    writeJson(metrics, files, &graph, &hotspots, &violations, &duplication, out);
+    return out.str();
+}
+
+bool ReportGenerator::saveJsonToFile(
+    const ProjectMetrics& metrics,
+    const std::vector<std::pair<std::string, FileMetrics>>& files,
+    const DependencyGraph& graph,
+    const HotspotReport& hotspots,
+    const ViolationReport& violations,
+    const DuplicationReport& duplication,
+    const std::string& outputPath) {
+    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
+    if (!file.is_open()) return false;
+    writeJson(metrics, files, &graph, &hotspots, &violations, &duplication, file);
     return file.good();
 }
 
@@ -159,9 +185,10 @@ void ReportGenerator::writeJson(
     const DependencyGraph* graph,
     const HotspotReport* hotspots,
     const ViolationReport* violations,
+    const DuplicationReport* duplication,
     std::ostream& out) {
     out << "{\n";
-
+    out << "  \"schemaVersion\": 2,\n";
     out << "  \"project\": {\n";
     out << "    \"filesAnalyzed\": "        << m.filesAnalyzed        << ",\n";
     out << "    \"totalLines\": "           << m.totalLines           << ",\n";
@@ -184,7 +211,14 @@ void ReportGenerator::writeJson(
         const auto health = computeHealthScore(m);
         out << "    \"longestFunctionName\": \"" << jsonEscape(m.longestFunctionName) << "\",\n";
         out << "    \"healthScore\": "  << health.score << ",\n";
-        out << "    \"healthGrade\": \"" << health.grade << "\"\n";
+       out << "    \"healthGrade\": \"" << health.grade << "\",\n";
+       out << "    \"scoreBreakdown\": {\n";
+       out << "      \"complexityDensity\": " << health.breakdown.complexityDensity << ",\n";
+        out << "      \"avgFunctionLength\": " << health.breakdown.avgFunctionLength << ",\n";
+        out << "      \"commentCoverage\": "   << health.breakdown.commentCoverage   << ",\n";
+        out << "      \"todoDensity\": "       << health.breakdown.todoDensity       << ",\n";
+        out << "      \"nestingDepth\": "      << health.breakdown.nestingDepth      << "\n";
+        out << "    }\n";
     } else {
         out << "    \"longestFunctionName\": \"" << jsonEscape(m.longestFunctionName) << "\"\n";
     }
@@ -210,6 +244,10 @@ void ReportGenerator::writeJson(
     }
     out << (files.empty() ? "" : "\n  ");
     out << "]";
+    out << ",\n";
+    writeByLanguageJson(m.byLanguage, out);
+    out << ",\n";
+    writeUnanalyzedLanguagesJson(m.unanalyzedLanguages, out);
 
     if (hotspots != nullptr) {
         out << ",\n";
@@ -221,10 +259,16 @@ void ReportGenerator::writeJson(
         writeViolationsJson(*violations, out);
     }
 
+    if (duplication != nullptr) {
+        out << ",\n";
+        writeDuplicationJson(*duplication, out);
+    }
+
     out << "\n}\n";
 }
 
 void ReportGenerator::writeFileMetricsJson(const FileMetrics& fm, std::ostream& out) {
+    out << "      \"language\": \""           << jsonEscape(fm.language) << "\",\n";
     out << "      \"totalLines\": "           << fm.totalLines           << ",\n";
     out << "      \"blankLines\": "           << fm.blankLines           << ",\n";
     out << "      \"commentLines\": "         << fm.commentLines         << ",\n";
@@ -267,6 +311,54 @@ void ReportGenerator::writeFileMetricsJson(const FileMetrics& fm, std::ostream& 
             << "\"kind\": \"" << kindStr << "\"}";
     }
     out << (fm.classes.empty() ? "" : "\n      ");
+    out << "]";
+}
+void ReportGenerator::writeByLanguageJson(
+    const std::vector<LanguageAggregate>& byLanguage, std::ostream& out) {
+    out << "  \"byLanguage\": [";
+    for (std::size_t i = 0; i < byLanguage.size(); ++i) {
+        const auto& la = byLanguage[i];
+        out << (i == 0 ? "\n" : ",\n");
+        out << "    {\n";
+        out << "      \"language\": \""          << jsonEscape(la.language)   << "\",\n";
+        out << "      \"fileCount\": "            << la.fileCount             << ",\n";
+       out << "      \"totalLines\": "           << la.totalLines            << ",\n";
+        out << "      \"blankLines\": "           << la.blankLines            << ",\n";
+        out << "      \"commentLines\": "         << la.commentLines          << ",\n";
+        out << "      \"codeLines\": "            << la.codeLines             << ",\n";
+        out << "      \"functionCount\": "        << la.functionCount         << ",\n";
+        out << "      \"classCount\": "           << la.classCount            << ",\n";
+        out << "      \"variableCount\": "        << la.variableCount         << ",\n";
+        out << "      \"includeCount\": "         << la.includeCount          << ",\n";
+        out << "      \"loopCount\": "             << la.loopCount             << ",\n";
+        out << "      \"conditionCount\": "       << la.conditionCount        << ",\n";
+        out << "      \"tryCatchCount\": "        << la.tryCatchCount         << ",\n";
+        out << "      \"maxNestingDepth\": "      << la.maxNestingDepth       << ",\n";
+        out << "      \"cyclomaticComplexity\": " << la.cyclomaticComplexity  << ",\n";
+        out << "      \"todoCount\": "            << la.todoCount             << ",\n";
+        out << "      \"avgFunctionLength\": "    << la.avgFunctionLength     << ",\n";
+        out << "      \"longestFunctionLines\": " << la.longestFunctionLines  << ",\n";
+        out << "      \"longestFunctionName\": \"" << jsonEscape(la.longestFunctionName) << "\"\n";
+        out << "    }";
+    }
+    out << (byLanguage.empty() ? "" : "\n  ");
+    out << "]";
+}
+
+void ReportGenerator::writeUnanalyzedLanguagesJson(
+    const std::vector<UnanalyzedLanguageSummary>& unanalyzedLanguages, std::ostream& out) {
+    out << "  \"unanalyzedLanguages\": [";
+    for (std::size_t i = 0; i < unanalyzedLanguages.size(); ++i) {
+        const auto& u = unanalyzedLanguages[i];
+        out << (i == 0 ? "\n" : ",\n");
+        out << "    {\n";
+        out << "      \"extension\": \""    << jsonEscape(u.extension)    << "\",\n";
+        out << "      \"languageName\": \"" << jsonEscape(u.languageName) << "\",\n";
+        out << "      \"fileCount\": "      << u.fileCount                << ",\n";
+        out << "      \"lineCount\": "      << u.lineCount                << "\n";
+        out << "    }";
+    }
+    out << (unanalyzedLanguages.empty() ? "" : "\n  ");
     out << "]";
 }
 
@@ -327,11 +419,37 @@ void ReportGenerator::writeViolationsJson(const ViolationReport& violations, std
         out << "      \"ruleId\": \""   << jsonEscape(v.ruleId)   << "\",\n";
         out << "      \"language\": \"" << jsonEscape(v.language) << "\",\n";
         out << "      \"message\": \""  << jsonEscape(v.message)  << "\",\n";
-        out << "      \"severity\": \"" << jsonEscape(v.severity) << "\"\n";
+        out << "      \"severity\": \"" << jsonEscape(v.severity) << "\",\n";
+        out << "      \"category\": \"" << jsonEscape(v.category) << "\"\n";
         out << "    }";
     }
     out << (violations.violations.empty() ? "" : "\n  ");
     out << "]";
+}
+
+void ReportGenerator::writeDuplicationJson(
+    const DuplicationReport& duplication, std::ostream& out) {
+    out << "  \"duplication\": {\n";
+    out << "    \"duplicateLineCount\": " << duplication.duplicateLineCount << ",\n";
+    out << "    \"duplicatePercentage\": " << duplication.duplicatePercentage << ",\n";
+    out << "    \"matches\": [";
+    for (std::size_t i = 0; i < duplication.matches.size(); ++i) {
+        const auto& dm = duplication.matches[i];
+        out << (i == 0 ? "\n" : ",\n");
+        out << "      {\n";
+        out << "        \"pathA\": \""    << jsonEscape(dm.pathA) << "\",\n";
+        out << "        \"lineStartA\": " << dm.lineStartA         << ",\n";
+        out << "        \"lineEndA\": "   << dm.lineEndA           << ",\n";
+        out << "        \"pathB\": \""    << jsonEscape(dm.pathB) << "\",\n";
+        out << "        \"lineStartB\": " << dm.lineStartB         << ",\n";
+        out << "        \"lineEndB\": "   << dm.lineEndB           << ",\n";
+        out << "        \"tokenCount\": " << dm.tokenCount         << ",\n";
+        out << "        \"lineCount\": "  << dm.lineCount          << "\n";
+        out << "      }";
+    }
+    out << (duplication.matches.empty() ? "" : "\n    ");
+    out << "]\n";
+    out << "  }";
 }
 
 std::string ReportGenerator::jsonEscape(const std::string& s) {
@@ -398,37 +516,44 @@ std::string ReportGenerator::toBadgeSvg(const ProjectMetrics& metrics) {
 
     std::ostringstream scoreText;
     scoreText << static_cast<int>(health.score + 0.5) << "/100 (" << health.grade << ")";
-    const std::string scoreLabel = xmlEscape(scoreText.str());
-    const std::string color = colorForGrade(health.grade);
 
-    constexpr int kLabelWidth = 96;
-    constexpr int kValueWidth = 92;
-    constexpr int kHeight     = 20;
-    const int totalWidth = kLabelWidth + kValueWidth;
+    const std::string label      = "code health";
+    const std::string value      = scoreText.str();
+    const std::string labelEsc   = xmlEscape(label);
+    const std::string valueEsc   = xmlEscape(value);
+    const char*        color     = colorForGrade(health.grade);
+
+    const int charWidth   = 7;
+    const int labelPad    = 10;
+    const int valuePad    = 10;
+    const int labelWidth  = static_cast<int>(label.size()) * charWidth + labelPad * 2;
+    const int valueWidth  = static_cast<int>(value.size()) * charWidth + valuePad * 2;
+    const int totalWidth  = labelWidth + valueWidth;
+    const int labelCenter = labelWidth / 2;
+    const int valueCenter = labelWidth + valueWidth / 2;
 
     std::ostringstream svg;
     svg << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << totalWidth
-        << "\" height=\"" << kHeight << "\" role=\"img\" aria-label=\"code health: "
-        << scoreLabel << "\">\n";
-    svg << "  <linearGradient id=\"s\" x2=\"0\" y2=\"100%\">\n";
-    svg << "    <stop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/>\n";
-    svg << "    <stop offset=\"1\" stop-opacity=\".1\"/>\n";
-    svg << "  </linearGradient>\n";
-    svg << "  <clipPath id=\"r\">\n";
-    svg << "    <rect width=\"" << totalWidth << "\" height=\"" << kHeight << "\" rx=\"3\" fill=\"#fff\"/>\n";
-    svg << "  </clipPath>\n";
-    svg << "  <g clip-path=\"url(#r)\">\n";
-    svg << "    <rect width=\"" << kLabelWidth << "\" height=\"" << kHeight << "\" fill=\"#555\"/>\n";
-    svg << "    <rect x=\"" << kLabelWidth << "\" width=\"" << kValueWidth
-        << "\" height=\"" << kHeight << "\" fill=\"" << color << "\"/>\n";
-    svg << "    <rect width=\"" << totalWidth << "\" height=\"" << kHeight << "\" fill=\"url(#s)\"/>\n";
-    svg << "  </g>\n";
-    svg << "  <g fill=\"#fff\" text-anchor=\"middle\" "
+        << "\" height=\"20\" role=\"img\" aria-label=\"" << labelEsc << ": " << valueEsc << "\">\n";
+    svg << "<linearGradient id=\"s\" x2=\"0\" y2=\"100%\">\n"
+        << "<stop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/>\n"
+        << "<stop offset=\"1\" stop-opacity=\".1\"/>\n"
+        << "</linearGradient>\n";
+    svg << "<clipPath id=\"r\"><rect width=\"" << totalWidth
+        << "\" height=\"20\" rx=\"3\" fill=\"#fff\"/></clipPath>\n";
+    svg << "<g clip-path=\"url(#r)\">\n";
+    svg << "<rect width=\"" << labelWidth << "\" height=\"20\" fill=\"#555\"/>\n";
+    svg << "<rect x=\"" << labelWidth << "\" width=\"" << valueWidth
+        << "\" height=\"20\" fill=\"" << color << "\"/>\n";
+    svg << "<rect width=\"" << totalWidth << "\" height=\"20\" fill=\"url(#s)\"/>\n";
+    svg << "</g>\n";
+    svg << "<g fill=\"#fff\" text-anchor=\"middle\" "
            "font-family=\"Verdana,Geneva,DejaVu Sans,sans-serif\" font-size=\"11\">\n";
-    svg << "    <text x=\"" << (kLabelWidth / 2) << "\" y=\"14\">code health</text>\n";
-    svg << "    <text x=\"" << (kLabelWidth + kValueWidth / 2) << "\" y=\"14\">" << scoreLabel << "</text>\n";
-    svg << "  </g>\n";
+    svg << "<text x=\"" << labelCenter << "\" y=\"14\">" << labelEsc << "</text>\n";
+    svg << "<text x=\"" << valueCenter << "\" y=\"14\">" << valueEsc << "</text>\n";
+    svg << "</g>\n";
     svg << "</svg>\n";
+
     return svg.str();
 }
 
@@ -448,7 +573,7 @@ std::string ReportGenerator::toHtml(
     const ProjectMetrics& metrics,
     const std::vector<std::pair<std::string, FileMetrics>>& files) {
     std::ostringstream out;
-    writeHtml(metrics, files, nullptr, nullptr, nullptr, out);
+    writeHtml(metrics, files, nullptr, nullptr, nullptr, nullptr, out);
     return out.str();
 }
 
@@ -458,7 +583,7 @@ bool ReportGenerator::saveHtmlToFile(
     const std::string& outputPath) {
     std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
     if (!file.is_open()) return false;
-    writeHtml(metrics, files, nullptr, nullptr, nullptr, file);
+    writeHtml(metrics, files, nullptr, nullptr, nullptr, nullptr, file);
     return file.good();
 }
 
@@ -469,7 +594,7 @@ std::string ReportGenerator::toHtml(
     const HotspotReport& hotspots,
     const ViolationReport& violations) {
     std::ostringstream out;
-    writeHtml(metrics, files, &graph, &hotspots, &violations, out);
+    writeHtml(metrics, files, &graph, &hotspots, &violations, nullptr, out);
     return out.str();
 }
 
@@ -482,7 +607,33 @@ bool ReportGenerator::saveHtmlToFile(
     const std::string& outputPath) {
     std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
     if (!file.is_open()) return false;
-    writeHtml(metrics, files, &graph, &hotspots, &violations, file);
+    writeHtml(metrics, files, &graph, &hotspots, &violations, nullptr, file);
+    return file.good();
+}
+
+std::string ReportGenerator::toHtml(
+    const ProjectMetrics& metrics,
+    const std::vector<std::pair<std::string, FileMetrics>>& files,
+    const DependencyGraph& graph,
+    const HotspotReport& hotspots,
+    const ViolationReport& violations,
+    const DuplicationReport& duplication) {
+    std::ostringstream out;
+    writeHtml(metrics, files, &graph, &hotspots, &violations, &duplication, out);
+    return out.str();
+}
+
+bool ReportGenerator::saveHtmlToFile(
+    const ProjectMetrics& metrics,
+    const std::vector<std::pair<std::string, FileMetrics>>& files,
+    const DependencyGraph& graph,
+    const HotspotReport& hotspots,
+    const ViolationReport& violations,
+    const DuplicationReport& duplication,
+    const std::string& outputPath) {
+    std::ofstream file(outputPath, std::ios::out | std::ios::trunc);
+    if (!file.is_open()) return false;
+    writeHtml(metrics, files, &graph, &hotspots, &violations, &duplication, file);
     return file.good();
 }
 
@@ -507,6 +658,7 @@ void ReportGenerator::writeHtml(
     const DependencyGraph* graph,
     const HotspotReport* hotspots,
     const ViolationReport* violations,
+    const DuplicationReport* duplication,
     std::ostream& out) {
 
     out << "<!DOCTYPE html>\n"
@@ -570,6 +722,8 @@ void ReportGenerator::writeHtml(
         writeHtmlHotspotsSection(*hotspots, out);
     if (violations != nullptr)
         writeHtmlViolationsSection(*violations, out);
+    if (duplication != nullptr)
+        writeHtmlDuplicationSection(*duplication, out);
 
     out << "</div>\n"
         << "</body>\n"
@@ -716,6 +870,43 @@ void ReportGenerator::writeHtmlViolationsSection(
                 << "<td>" << htmlEscape(v.language) << "</td>"
                 << "<td>" << htmlEscape(v.severity) << "</td>"
                 << "<td>" << htmlEscape(v.message)  << "</td>"
+                << "</tr>\n";
+        }
+
+        out << "</tbody>\n"
+            << "</table>\n";
+    }
+
+    out << "</section>\n";
+}
+
+void ReportGenerator::writeHtmlDuplicationSection(
+    const DuplicationReport& duplication,
+    std::ostream& out) {
+    out << "<section id=\"duplication\">\n"
+        << "<h2>Duplication</h2>\n";
+
+    if (duplication.matches.empty()) {
+        out << "<p class=\"muted\">No duplicate blocks detected</p>\n";
+    } else {
+        out << "<p>" << duplication.duplicatePercentage
+            << "% of code lines duplicated (" << duplication.duplicateLineCount
+            << " lines)</p>\n";
+        out << "<table>\n"
+            << "<thead>\n"
+            << "<tr>"
+            << "<th>File A</th><th>Lines</th><th>File B</th><th>Lines</th><th>Tokens</th>"
+            << "</tr>\n"
+            << "</thead>\n"
+            << "<tbody>\n";
+
+        for (const auto& dm : duplication.matches) {
+            out << "<tr>"
+                << "<td>" << htmlEscape(dm.pathA) << "</td>"
+                << "<td>" << dm.lineStartA << "-" << dm.lineEndA << "</td>"
+                << "<td>" << htmlEscape(dm.pathB) << "</td>"
+                << "<td>" << dm.lineStartB << "-" << dm.lineEndB << "</td>"
+                << "<td>" << dm.tokenCount << "</td>"
                 << "</tr>\n";
         }
 

@@ -14,27 +14,15 @@ import { pipeline as streamPipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabase, getUserFromRequest, recordUserScan } from "./_lib/supabase.js";
+import {
+  parseLcov,
+  mergeCoverageIntoReport,
+  CoverageTooLargeError,
+  CoverageParseError,
+} from "./_lib/coverage.js";
 
 const execFileAsync = promisify(execFile);
-
-// Lazy init -- if the env vars are missing/wrong, this throws INSIDE the
-// handler's try/catch instead of crashing the whole module at cold start.
-let _supabase;
-function getSupabase() {
-  if (!_supabase) {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error(
-        "Server misconfigured: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY " +
-        "are not set for this environment in Vercel Project Settings."
-      );
-    }
-    _supabase = createClient(url, key);
-  }
-  return _supabase;
-}
 
 const CMA_BINARY = join(process.cwd(), "backend", "bin", "linux-x64-cma");
 
@@ -128,7 +116,7 @@ async function downloadAndExtract(owner, repo, srcDir) {
   return null;
 }
 
-async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase }) {
+async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport }) {
   const branch = await downloadAndExtract(parsed.owner, parsed.repo, srcDir);
 
   if (!branch) {
@@ -166,10 +154,33 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase }) {
 
   const report = JSON.parse(await readFile(reportPath, "utf8"));
 
+  // Phase 6d: optional user-uploaded LCOV report, merged into the CMA
+  // output before storage. REPO-SIGHT never runs the repo's own test
+  // suite (no secure sandbox exists in this stack -- see coverage.js's
+  // header comment) -- the user supplies coverage from their own
+  // local/CI test run instead. Parse/merge errors are surfaced as 400s;
+  // they never fail a scan that otherwise succeeded on its own terms, so
+  // a bad coverage paste can't take down an otherwise-good analysis.
+  if (typeof coverageReport === "string" && coverageReport.length > 0) {
+    const lcovEntries = parseLcov(coverageReport); // throws Coverage{TooLarge,Parse}Error
+    mergeCoverageIntoReport(report, lcovEntries, { srcDirPrefix: srcDir });
+  } else {
+    report.coverageSummary = { available: false };
+  }
+
   const payload = {
     status: "COMPLETED",
     scanId,
     projectName: `${parsed.owner}/${parsed.repo}`,
+    // Additive (schemaVersion 2 rule: never break old consumers) -- needed
+    // by api/explain-finding.js to re-fetch a single file's current
+    // content from GitHub for the "Explain this finding" feature. Scans
+    // recorded before this field existed simply won't have it; the
+    // frontend treats its absence as "explain not available for this
+    // scan" rather than erroring.
+    repoOwner: parsed.owner,
+    repoName: parsed.repo,
+    repoBranch: branch,
     createdAt: new Date().toISOString(),
     ...report,
   };
@@ -182,6 +193,19 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase }) {
     });
 
   if (uploadError) throw uploadError;
+
+  // Phase 5: additive only -- anonymous scans (user === null) behave
+  // exactly as they did in Phases 0-4. A failure here is logged and
+  // swallowed rather than failing a scan that already succeeded and is
+  // already durably stored; losing one history-list entry isn't worth
+  // turning a working scan into an error for the user.
+  if (user) {
+    try {
+      await recordUserScan(supabase, user.id, scanId, payload);
+    } catch (historyErr) {
+      console.error("recordUserScan failed (scan itself still succeeded):", historyErr);
+    }
+  }
 
   return { status: 200, body: { scanId } };
 }
@@ -213,10 +237,13 @@ export default async function handler(req, res) {
 
   try {
     const supabase = getSupabase();
+    const user = await getUserFromRequest(req, supabase);
     await mkdir(srcDir, { recursive: true });
 
+    const coverageReport = req.body?.coverageReport;
+
     const result = await withDeadline(
-      runPipeline({ parsed, srcDir, reportPath, scanId, supabase }),
+      runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport }),
       OVERALL_TIMEOUT_MS
     );
     res.status(result.status).json(result.body);
@@ -228,15 +255,17 @@ export default async function handler(req, res) {
       err?.code === "ETIMEDOUT" ||
       err?.killed;
 
-    const tooLarge = err instanceof RepoTooLargeError;
+    const tooLarge = err instanceof RepoTooLargeError || err instanceof CoverageTooLargeError;
+    const badCoverage = err instanceof CoverageParseError;
 
     const message = timedOut
       ? "Analysis timed out — this repo is too large for the ~55s window. Try a smaller repo."
-      : tooLarge
+      : tooLarge || badCoverage
       ? err.message
       : err?.message || "Analysis failed.";
 
-    res.status(tooLarge ? 413 : 500).json({ error: message });
+    const status = tooLarge ? 413 : badCoverage ? 400 : 500;
+    res.status(status).json({ error: message });
   } finally {
     // Single rm covers everything (no separate tarPath exists any more).
     await rm(workDir, { recursive: true, force: true }).catch(() => {});

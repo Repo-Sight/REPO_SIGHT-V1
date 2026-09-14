@@ -38,7 +38,44 @@ Violation makeViolation(const std::string& path, int line, const std::string& ru
     v.message = std::move(message); v.severity = severity;
     return v;
 }
- 
+
+// Phase 6c: identical to makeViolation() but stamps category="security" so
+// the frontend's Security tab can filter these out of the general
+// style/best-practice violations list without a new report type.
+Violation makeSecurityViolation(const std::string& path, int line, const std::string& ruleId,
+                                  std::string message, const std::string& severity) {
+    Violation v = makeViolation(path, line, ruleId, std::move(message), severity);
+    v.category = "security";
+    return v;
+}
+
+// Phase 6c heuristic: does this identifier look like it names a credential?
+// Lowercased substring match -- intentionally simple (flags for human
+// review, isn't a proof of anything leaking).
+bool isSuspiciousSecretName(const std::string& name) {
+    std::string lower;
+    lower.reserve(name.size());
+    for (char c : name) lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    static const std::array<const char*, 8> needles = {
+        "password", "passwd", "secret", "apikey", "api_key",
+        "accesskey", "access_key", "authtoken"
+    };
+    for (const char* needle : needles) {
+        if (lower.find(needle) != std::string::npos) return true;
+    }
+    return false;
+}
+
+// Phase 6c heuristic: a STRING_LITERAL token's value includes its
+// surrounding quote characters (see CppLexer::lexStringLiteral) -- strip
+// them before judging whether the literal is long enough to plausibly be
+// a real secret rather than a placeholder/empty string.
+bool isPlausibleSecretLiteral(const std::string& raw) {
+    if (raw.size() < 2) return false;
+    const std::string stripped = raw.substr(1, raw.size() - 2);
+    return stripped.size() >= 6;
+}
+
 bool isCppHeaderPath(const std::string& path) {
     static const std::array<const char*, 4> exts = {".h", ".hpp", ".hxx", ".h++"};
     for (const char* ext : exts) {
@@ -118,6 +155,62 @@ std::vector<Violation> checkCppRules(const std::string& path, const std::vector<
                     "Magic number '" + tok.value + "' in condition -- consider a named constant", "info"));
             }
         }
+
+        // cpp-sec-system-call / cpp-sec-popen-call: shelling out with
+        // caller-influenced input is a classic command-injection vector.
+        if (tok.type == TokenType::IDENTIFIER &&
+            (tok.value == "system" || tok.value == "popen") &&
+            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN) {
+            out.push_back(makeSecurityViolation(path, tok.line,
+                tok.value == "system" ? "cpp-sec-system-call" : "cpp-sec-popen-call",
+                "Call to '" + tok.value + "(...)' runs a shell command -- review that no part of "
+                "the command is built from untrusted input", "warning"));
+        }
+
+        // cpp-sec-unsafe-buffer-fn: classic unbounded/format-string buffer
+        // functions (CWE-120/CWE-676).
+        if (tok.type == TokenType::IDENTIFIER &&
+            (tok.value == "strcpy" || tok.value == "strcat" ||
+             tok.value == "sprintf" || tok.value == "gets") &&
+            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN) {
+            out.push_back(makeSecurityViolation(path, tok.line, "cpp-sec-unsafe-buffer-fn",
+                "'" + tok.value + "(...)' does not bound-check its destination -- prefer the "
+                "bounded variant (strncpy, snprintf, fgets)", "warning"));
+        }
+
+        // cpp-sec-weak-random: rand()/srand() are not cryptographically
+        // secure -- fine for simulations/games, not for tokens/keys/nonces.
+        if (tok.type == TokenType::IDENTIFIER &&
+            (tok.value == "rand" || tok.value == "srand") &&
+            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN) {
+            out.push_back(makeSecurityViolation(path, tok.line, "cpp-sec-weak-random",
+                "'" + tok.value + "(...)' is not cryptographically secure -- avoid it for "
+                "security-sensitive randomness (tokens, keys, nonces)", "info"));
+        }
+
+        // cpp-sec-weak-hash: MD5/SHA1 are broken for collision resistance --
+        // fine for checksums, not for passwords, signatures, or integrity checks.
+        if (tok.type == TokenType::IDENTIFIER &&
+            (tok.value == "MD5" || tok.value == "SHA1" ||
+             tok.value == "EVP_md5" || tok.value == "EVP_sha1") &&
+            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN) {
+            out.push_back(makeSecurityViolation(path, tok.line, "cpp-sec-weak-hash",
+                "'" + tok.value + "(...)' is a broken/weak hash -- avoid it for passwords, "
+                "signatures, or integrity checks that need collision resistance", "info"));
+        }
+
+        // cpp-sec-hardcoded-secret: NAME = "literal" where NAME looks like a
+        // credential. Heuristic only -- flags for review, not a proven leak.
+        if (tok.type == TokenType::IDENTIFIER && isSuspiciousSecretName(tok.value) &&
+            i + 2 < n &&
+            tokens[i + 1].type == TokenType::OPERATOR && tokens[i + 1].value == "=" &&
+            tokens[i + 2].type == TokenType::STRING_LITERAL &&
+            isPlausibleSecretLiteral(tokens[i + 2].value)) {
+            out.push_back(makeSecurityViolation(path, tok.line, "cpp-sec-hardcoded-secret",
+                "'" + tok.value + "' is assigned a string literal that looks like a credential "
+                "-- review whether this should come from a secret store or environment "
+                "variable instead", "warning"));
+        }
     }
  
     // cpp-long-function
@@ -150,4 +243,3 @@ std::vector<Violation> checkCppRules(const std::string& path, const std::vector<
 }
  
 } // namespace cma
- 

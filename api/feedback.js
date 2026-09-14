@@ -20,25 +20,7 @@
 // record of truth; email is a convenience notification only -- neither the
 // stats update nor the email can fail the user's submission.
 import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
-
-// Lazy init -- same pattern as api/analyze.js and api/scans/[scanId].js, so
-// a missing env var surfaces as a JSON error instead of crashing cold start.
-let _supabase;
-function getSupabase() {
-  if (!_supabase) {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error(
-        "Server misconfigured: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY " +
-        "are not set for this environment in Vercel Project Settings."
-      );
-    }
-    _supabase = createClient(url, key);
-  }
-  return _supabase;
-}
+import { getSupabase } from "./_lib/supabase.js";
 
 const BUCKET = "scans";
 const STATS_KEY = "feedback/_stats.json";
