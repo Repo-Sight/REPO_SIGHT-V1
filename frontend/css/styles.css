@@ -917,6 +917,13 @@ main {
 .callout-warning {
   border-left-color: var(--warning);
 }
+/* Trend callout, good-news case (score flat/improved, no new problems) --
+   reuses --accent rather than inventing a green: Direction B's palette is
+   deliberately ink-blue/amber/red only, and A/B grades already use this
+   same blue to mean "healthy". */
+.callout-good {
+  border-left-color: var(--accent);
+}
 .callout-title {
   font-weight: 700;
   color: var(--text-primary);
