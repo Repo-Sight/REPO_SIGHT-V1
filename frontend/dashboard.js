@@ -1277,6 +1277,17 @@ class RepoSightDashboard {
         });
     }
 
+    // "Explain this finding" (AI features, first cut) only makes sense for
+    // repo-based scans -- it re-fetches the flagged file from GitHub by
+    // owner/repo/branch, which a paste/upload single-file scan has no
+    // concept of, and older scans recorded before this field existed
+    // won't have it either. Missing any of the three -> hide the button
+    // entirely rather than showing something that will just 401/404.
+    canExplainFindings() {
+        const d = this.jsonData || {};
+        return !!(d.repoOwner && d.repoName && d.repoBranch);
+    }
+
     renderSecurityTable() {
         const tbody = this.$('security-table-body');
         const empty = this.$('security-empty');
@@ -1299,15 +1310,24 @@ class RepoSightDashboard {
 
         const state = this.securityState || {};
         const rows = state.showAll ? allFiltered : allFiltered.slice(0, state.renderCap || 300);
+        // Stashed so the delegated Explain-button click handler (bound
+        // once on tbody in bindSecurityToolbar) can look a finding back
+        // up by its row index without re-parsing the DOM or re-encoding
+        // the whole violation into data-attributes.
+        this._securityRenderedFindings = rows;
+        const canExplain = this.canExplainFindings();
 
         tbody.innerHTML = rows
-            .map(v => `
-                <tr>
+            .map((v, idx) => `
+                <tr data-finding-idx="${idx}">
                     <td class="file-path-cell" title="${this.escapeHtml(v.path)}">${this.escapeHtml(v.path)}</td>
                     <td>${this.formatNumber(v.line)}</td>
                     <td>${this.escapeHtml(v.ruleId)}</td>
                     <td>${this.escapeHtml(v.severity)}</td>
                     <td>${this.escapeHtml(v.message)}</td>
+                    <td>${canExplain
+                        ? `<button type="button" class="btn-ghost btn-explain" data-finding-idx="${idx}">Explain</button>`
+                        : ''}</td>
                 </tr>
             `)
             .join('');
@@ -1330,6 +1350,7 @@ class RepoSightDashboard {
     bindSecurityToolbar() {
         const searchInput = this.$('security-search');
         const showMoreBtn = this.$('security-show-more');
+        const tbody = this.$('security-table-body');
 
         if (searchInput) {
             searchInput.addEventListener('input', () => {
@@ -1344,6 +1365,78 @@ class RepoSightDashboard {
                 this.securityState.showAll = true;
                 this.renderSecurityTable();
             });
+        }
+        // Delegated (bound once on the static tbody element, not per-row)
+        // since renderSecurityTable() replaces tbody.innerHTML on every
+        // search/sort/show-more -- per-row listeners would need
+        // re-binding on every render and are easy to leak.
+        if (tbody) {
+            tbody.addEventListener('click', e => {
+                const btn = e.target.closest('.btn-explain');
+                if (!btn) return;
+                this.handleExplainClick(parseInt(btn.dataset.findingIdx, 10), btn);
+            });
+        }
+    }
+
+    // Toggles an inline explanation row directly under the clicked
+    // finding. Second click on an already-open row collapses it instead
+    // of re-fetching -- cheap UX win, and avoids burning a second call
+    // against the shared free-tier rate limit for something already on
+    // screen.
+    async handleExplainClick(idx, btn) {
+        const finding = (this._securityRenderedFindings || [])[idx];
+        const row = btn.closest('tr');
+        if (!finding || !row) return;
+
+        const existing = row.nextElementSibling;
+        if (existing && existing.classList.contains('explain-row')) {
+            existing.remove();
+            return;
+        }
+        // Only one explanation open at a time keeps the table from
+        // growing unbounded if someone clicks several findings in a row.
+        this.$('security-table-body')?.querySelectorAll('.explain-row').forEach(el => el.remove());
+
+        const colCount = row.children.length;
+        const explainRow = document.createElement('tr');
+        explainRow.className = 'explain-row';
+        explainRow.innerHTML = `<td colspan="${colCount}"><div class="explain-body">Asking the AI about this one\u2026</div></td>`;
+        row.after(explainRow);
+
+        const bodyEl = explainRow.querySelector('.explain-body');
+        const d = this.jsonData || {};
+
+        try {
+            const headers = await this.getAuthHeaders();
+            const res = await fetch('/api/explain-finding', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    repoOwner: d.repoOwner,
+                    repoName: d.repoName,
+                    repoBranch: d.repoBranch,
+                    path: finding.path,
+                    line: finding.line,
+                    ruleId: finding.ruleId,
+                    language: finding.language,
+                    message: finding.message,
+                    severity: finding.severity,
+                    category: finding.category,
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                bodyEl.classList.add('explain-error');
+                bodyEl.textContent = res.status === 401
+                    ? 'Sign in to use AI explanations.'
+                    : (data.error || 'Could not generate an explanation.');
+                return;
+            }
+            bodyEl.textContent = data.explanation || 'No explanation returned.';
+        } catch (_) {
+            bodyEl.classList.add('explain-error');
+            bodyEl.textContent = 'Network error reaching the explanation service.';
         }
     }
 
