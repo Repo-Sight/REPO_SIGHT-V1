@@ -33,6 +33,60 @@ const LOADING_TIPS = [
     'No, we can\u2019t see your commit messages. We wish we could judge those too.',
 ];
 
+// Regression tracking (rough-plan ask: "user can see... last time these
+// were the metrics and now they are improving or not"). Free feature --
+// no LLM, no new API cost -- pure diff between the current report and the
+// signed-in user's previous scan of the same repo, both already available
+// via existing endpoints (user_scans table via Supabase client, full scan
+// JSON via the existing GET /api/scans/:id). Kept as a standalone pure
+// function (no `this`) so it's directly unit-testable without any DOM or
+// network mocking -- only the two report objects go in, a plain data
+// object comes out; rendering is a separate, thin step.
+function computeScanDelta(current, previous) {
+    const currentScore = Math.round(current?.project?.healthScore || 0);
+    const previousScore = Math.round(previous?.project?.healthScore || 0);
+
+    const fingerprint = v => `${v.path}::${v.line}::${v.ruleId}`;
+    const currentViolations = current?.violations || [];
+    const previousViolations = previous?.violations || [];
+    const currentFP = new Set(currentViolations.map(fingerprint));
+    const previousFP = new Set(previousViolations.map(fingerprint));
+
+    const newViolationsCount = currentViolations.filter(v => !previousFP.has(fingerprint(v))).length;
+    const resolvedViolationsCount = previousViolations.filter(v => !currentFP.has(fingerprint(v))).length;
+
+    const isSecurity = v => v.category === 'security';
+    const newSecurityCount = currentViolations.filter(v => isSecurity(v) && !previousFP.has(fingerprint(v))).length;
+    const resolvedSecurityCount = previousViolations.filter(v => isSecurity(v) && !currentFP.has(fingerprint(v))).length;
+
+    // Per-file complexity trend -- only meaningful for files present in
+    // both scans (a file that's new or deleted isn't "getting more/less
+    // complex", it's just new/gone).
+    const previousByPath = new Map((previous?.files || []).map(f => [f.path, f]));
+    let filesWorseCount = 0, filesBetterCount = 0, mostWorsenedFile = null;
+    for (const f of current?.files || []) {
+        const prevFile = previousByPath.get(f.path);
+        if (!prevFile) continue;
+        const delta = (f.cyclomaticComplexity || 0) - (prevFile.cyclomaticComplexity || 0);
+        if (delta > 0) {
+            filesWorseCount++;
+            if (!mostWorsenedFile || delta > mostWorsenedFile.delta) {
+                mostWorsenedFile = { path: f.path, delta };
+            }
+        } else if (delta < 0) {
+            filesBetterCount++;
+        }
+    }
+
+    return {
+        currentScore, previousScore, scoreDelta: currentScore - previousScore,
+        previousDate: previous?.createdAt || null,
+        newViolationsCount, resolvedViolationsCount,
+        newSecurityCount, resolvedSecurityCount,
+        filesWorseCount, filesBetterCount, mostWorsenedFile,
+    };
+}
+
 // Mirrors analyser/src/report/HealthScore.cpp exactly (weights + good/bad
 // reference points for each of the five scoreBreakdown components) so the
 // Scoring tab's bars and "your value vs. target" captions stay truthful to
@@ -706,6 +760,7 @@ class RepoSightDashboard {
 
         this.populateOverview(this.jsonData.project || {});
         this.populateUnanalyzedCallout();
+        this.populateTrendCallout(); // async, fire-and-forget -- see method comment
         this.populateDuplicationCallout();
         this.populateSecurityCallout();
         this.populateCoverageCallout();
@@ -726,6 +781,80 @@ class RepoSightDashboard {
        Both were already in the scan JSON (schemaVersion 2 / Phase 2) but
        had no UI anywhere until Phase 4 (v2 plan Section 7.4).
        ----------------------------------------------------------------- */
+    // Async and deliberately never awaited by populateReport() -- the rest
+    // of the report renders immediately from data already in hand; this
+    // enhancement layers in afterward once (a) we know the user is signed
+    // in and (b) a previous scan of the same repo is found. Silent no-op
+    // in every other case: anonymous viewer, first-ever scan of this repo,
+    // or a pre-repoOwner/repoName scan (paste-based, or scanned before
+    // this field existed) -- matches the same graceful-absence pattern as
+    // every other Overview callout.
+    async populateTrendCallout() {
+        const callout = this.$('trend-callout');
+        const body = this.$('trend-callout-body');
+        if (!callout || !body) return;
+        callout.classList.add('hidden');
+
+        const d = this.jsonData || {};
+        if (!d.repoOwner || !d.repoName || !d.scanId) return;
+
+        const supabase = window.supabaseClient;
+        if (!supabase) return;
+        const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: null }));
+        if (!sessionData?.session) return;
+
+        const { data: rows, error } = await supabase
+            .from('user_scans')
+            .select('scan_id, scanned_at')
+            .eq('project_name', d.projectName)
+            .neq('scan_id', d.scanId)
+            .order('scanned_at', { ascending: false })
+            .limit(1);
+        if (error || !rows?.length) return;
+
+        const prevRes = await fetch(`/api/scans/${encodeURIComponent(rows[0].scan_id)}`).catch(() => null);
+        if (!prevRes || !prevRes.ok) return;
+        const previous = await prevRes.json().catch(() => null);
+        if (!previous || previous.status === 'FAILED') return;
+
+        const delta = computeScanDelta(d, previous);
+        this.renderTrendCallout(delta);
+    }
+
+    renderTrendCallout(delta) {
+        const callout = this.$('trend-callout');
+        const body = this.$('trend-callout-body');
+        if (!callout || !body) return;
+
+        const scoreDir = delta.scoreDelta > 0 ? 'up' : delta.scoreDelta < 0 ? 'down' : 'flat';
+        const scoreLine = scoreDir === 'flat'
+            ? `Health score unchanged at ${delta.currentScore}/100 since your last scan`
+            : `Health score ${scoreDir === 'up' ? 'up' : 'down'} ${Math.abs(delta.scoreDelta)} point${Math.abs(delta.scoreDelta) === 1 ? '' : 's'} (${delta.previousScore} \u2192 ${delta.currentScore}) since your last scan`;
+
+        const parts = [];
+        if (delta.resolvedViolationsCount > 0) parts.push(`${delta.resolvedViolationsCount} finding(s) resolved`);
+        if (delta.newViolationsCount > 0) parts.push(`${delta.newViolationsCount} new finding(s)`);
+        if (delta.resolvedSecurityCount > 0) parts.push(`${delta.resolvedSecurityCount} security hotspot(s) fixed`);
+        if (delta.newSecurityCount > 0) parts.push(`${delta.newSecurityCount} new security hotspot(s)`);
+        if (delta.filesBetterCount > 0) parts.push(`${delta.filesBetterCount} file(s) simplified`);
+        if (delta.filesWorseCount > 0) parts.push(`${delta.filesWorseCount} file(s) more complex`);
+
+        // Tone follows the same grade-color logic as everywhere else in
+        // this app (no separate "success green" -- Direction B's palette
+        // is deliberately ink-blue/amber/red only): score improved or flat
+        // with no new problems -> accent-blue (same hue A/B grades use);
+        // anything net-worse -> the existing warning amber.
+        const gotWorse = delta.scoreDelta < 0 || delta.newViolationsCount > delta.resolvedViolationsCount || delta.newSecurityCount > 0;
+        callout.classList.remove('callout-warning', 'callout-good');
+        callout.classList.add(gotWorse ? 'callout-warning' : 'callout-good');
+
+        body.innerHTML = `
+            ${this.escapeHtml(scoreLine)}${parts.length ? ' \u2014 ' + parts.map(p => this.escapeHtml(p)).join(', ') : ''}.
+            ${delta.mostWorsenedFile ? `<br>Biggest complexity jump: <span class="file-path-cell" title="${this.escapeHtml(delta.mostWorsenedFile.path)}">${this.escapeHtml(delta.mostWorsenedFile.path)}</span> (+${delta.mostWorsenedFile.delta}).` : ''}
+        `;
+        callout.classList.remove('hidden');
+    }
+
     populateUnanalyzedCallout() {
         const list = this.jsonData.unanalyzedLanguages || [];
         const callout = this.$('unanalyzed-callout');
@@ -2005,5 +2134,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { RepoSightDashboard };
+    module.exports = { RepoSightDashboard, computeScanDelta };
 }
