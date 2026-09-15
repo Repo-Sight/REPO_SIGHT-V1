@@ -30,6 +30,7 @@
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/js/site-enhancements.js"></script>
 </head>
 <body>
   <!-- ==================================================================
@@ -149,6 +150,11 @@ TODO Comments          : <span class="t-value">9</span>
            data-ad-format="auto"
            data-full-width-responsive="true"></ins>
       <script>
+         try {
+          if (localStorage.getItem("rs-cookie-consent") !== "accepted") {
+            (adsbygoogle = window.adsbygoogle || []).requestNonPersonalizedAds = 1;
+          }
+        } catch (e) {}
         (adsbygoogle = window.adsbygoogle || []).push({});
       </script>
     </div>
