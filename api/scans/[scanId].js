@@ -5,29 +5,12 @@
 // Reads `${scanId}.json` from the Supabase `scans` storage bucket
 // (written by api/analyze.js) and returns it as-is.
 
-import { createClient } from "@supabase/supabase-js";
+import { getSupabase } from "../_lib/supabase.js";
 // analyze.js only ever names scan objects with crypto.randomUUID() (v4).
 // Validating that shape here means this endpoint can only ever look up
 // keys that our own analyze step could have created -- it can't be used
 // to fetch arbitrary "<anything>.json" out of the scans bucket.
 const SCAN_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-
-let _supabase;
-function getSupabase() {
-  if (!_supabase) {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error(
-        "Server misconfigured: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY " +
-        "are not set for this environment in Vercel Project Settings."
-      );
-    }
-    _supabase = createClient(url, key);
-  }
-  return _supabase;
-}
 
 export default async function handler(req, res) {
   const { scanId } = req.query;

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <link rel="icon" type="image/png" href="/favicon-32.png" />
-  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="google-adsense-account" content="ca-pub-9503894064247817">
@@ -35,7 +35,8 @@
       <a class="brand" href="/">
         <span class="brand-mark">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
+            <circle cx="12" cy="12" r="9.5" />
+            <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
           </svg>
         </span>
         <span class="brand-name">REPO-SIGHT</span>
@@ -74,7 +75,7 @@
     </ul>
 
     <h2>How REPO-SIGHT reports it</h2>
-    <p>REPO-SIGHT's parser walks the token stream of each C++, Python, or Java file and increments a per-function counter at every branch point &mdash; loops, conditionals, case labels, catch blocks, ternaries, and short-circuit operators &mdash; the same decision points described above. Per-function totals roll up into a project-wide cyclomatic complexity figure, and complexity density (complexity relative to code volume) feeds into the overall health score at a 35% weight, the single largest factor in the grade. <a href="/#analyze">Run it on a repo</a> to see your own numbers.</p>
+    <p>REPO-SIGHT's parser walks the token stream of each C++, Python, Java, TypeScript, JavaScript, or C# file and increments a per-function counter at every branch point &mdash; loops, conditionals, case labels, catch blocks, ternaries, and short-circuit operators &mdash; the same decision points described above. Per-function totals roll up into a project-wide cyclomatic complexity figure, and complexity density (complexity relative to code volume) feeds into the overall health score at a 35% weight, the single largest factor in the grade. <a href="/#analyze">Run it on a repo</a> to see your own numbers.</p>
   </main>
 
   <footer class="site-footer">
@@ -82,11 +83,12 @@
       <div class="footer-brand">
         <div class="brand">
           <span class="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" />
+            <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
           </span>
           <span class="brand-name">REPO-SIGHT</span>
         </div>
-        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+        <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
       </div>
       <div class="footer-col">
         <h4>Product</h4>

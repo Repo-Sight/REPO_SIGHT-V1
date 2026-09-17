@@ -2,6 +2,7 @@
 #include "common/LanguageDispatch.h"
 #include "filesystem/FileScanner.h"
 #include "metrics/DependencyGraph.h"
+#include "metrics/DuplicationReport.h"
 #include "metrics/HotspotReport.h"
 #include "metrics/MetricsEngine.h"
 #include "metrics/ViolationReport.h"
@@ -52,7 +53,8 @@ int main(int argc, char* argv[]) {
     if (!cfg) return 1;
 
     const FileScanner scanner(cfg->targetPath);
-    const std::vector<fs::path> files = scanner.scan();
+    std::vector<UnsupportedFile> unsupportedFiles;
+    const std::vector<fs::path> files = scanner.scan(&unsupportedFiles);
 
     if (files.empty()) {
         std::cerr << "No recognized source files found in: " << cfg->targetPath << '\n';
@@ -85,17 +87,51 @@ int main(int argc, char* argv[]) {
 
         auto tokens  = tokenizeSource(*lang, *source);
         FileMetrics fm = parseTokens(*lang, tokens, lineCount);
-
+        fm.language = languageToString(*lang);
+ 
         auto fileViolations = checkRules(*lang, filepath.string(), tokens, fm);
         violations.insert(violations.end(),
                           std::make_move_iterator(fileViolations.begin()),
                           std::make_move_iterator(fileViolations.end()));
+
+        // Phase 6a: feed the same tokens (already produced above for
+        // parsing/rules) into the duplication-detection pass. Normalized
+        // and stored internally by the engine -- `tokens` itself is not
+        // touched here and is discarded normally at the end of this
+        // loop iteration.
+        engine.addFileTokens(filepath.string(), fm.language, tokens);
 
         engine.addFile(filepath.string(), std::move(fm));
     }
 
     if (skipped > 0)
         std::cout << "Warning: skipped " << skipped << " unreadable file(s).\n";
+
+    // Unanalyzed files: no front-end exists for these, so only a cheap
+    // line count is taken -- no tokenize/parse. A read failure here is
+    // silently skipped from the report (not counted in `skipped` above,
+    // which tracks recognized-but-unreadable files, a different case).
+    int unanalyzedReadFailures = 0;
+    for (const auto& unsupported : unsupportedFiles) {
+        const auto source = FileScanner::readFile(unsupported.path);
+        if (!source) {
+            ++unanalyzedReadFailures;
+            continue;
+        }
+        const int lineCount =
+            static_cast<int>(std::count(source->begin(), source->end(), '\n')) + 1;
+        engine.addUnanalyzedFile(unsupported.extension, lineCount);
+    }
+
+    if (!unsupportedFiles.empty()) {
+        std::cout << "Note: found " << unsupportedFiles.size()
+                  << " file(s) with no language front-end yet"
+                     " (see report's unanalyzedLanguages).\n";
+    }
+    if (unanalyzedReadFailures > 0) {
+        std::cerr << "Warning: could not read " << unanalyzedReadFailures
+                  << " unanalyzed file(s) for line count.\n";
+    }
 
     std::sort(violations.begin(), violations.end(),
               [](const Violation& a, const Violation& b) {
@@ -129,9 +165,12 @@ int main(int argc, char* argv[]) {
         ViolationReport violationReport;
         violationReport.violations = violations;
 
+        const DuplicationReport duplication = engine.buildDuplicationReport();
+
         if (!cfg->jsonFile.empty()) {
             if (ReportGenerator::saveJsonToFile(report, engine.files(), depGraph,
-                                                hotspots, violationReport, cfg->jsonFile))
+                                                hotspots, violationReport, duplication,
+                                                cfg->jsonFile))
                 std::cout << "JSON report saved to: " << cfg->jsonFile << '\n';
             else
                 std::cerr << "Warning: could not write JSON to: " << cfg->jsonFile << '\n';
@@ -139,7 +178,8 @@ int main(int argc, char* argv[]) {
 
         if (!cfg->htmlFile.empty()) {
             if (ReportGenerator::saveHtmlToFile(report, engine.files(), depGraph,
-                                                hotspots, violationReport, cfg->htmlFile))
+                                                hotspots, violationReport, duplication,
+                                                cfg->htmlFile))
                 std::cout << "HTML report saved to: " << cfg->htmlFile << '\n';
             else
                 std::cerr << "Warning: could not write HTML to: " << cfg->htmlFile << '\n';

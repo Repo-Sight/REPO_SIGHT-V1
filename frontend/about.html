@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <link rel="icon" type="image/png" href="/favicon-32.png" />
-  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="google-adsense-account" content="ca-pub-9503894064247817">
   <title>About — REPO-SIGHT</title>
-  <meta name="description" content="Who builds REPO-SIGHT, what it does, and why it's free — a static code analysis tool for public C++, Python, and Java repositories." />
+  <meta name="description" content="Who builds REPO-SIGHT, what it does, and why it's free — a static code analysis tool for public C++, Python, Java, TypeScript, JavaScript, and C# repositories." />
   <link rel="canonical" href="https://www.repo-sight.com/about.html" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="About — REPO-SIGHT" />
@@ -18,9 +18,13 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="About — REPO-SIGHT" />
   <meta name="twitter:description" content="Who builds REPO-SIGHT, what it does, and why it's free." />
   <meta name="robots" content="index, follow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&family=Zilla+Slab:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="css/styles.css" />
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -35,6 +39,8 @@
         <span class="brand-mark">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
+            <circle cx="12" cy="12" r="9.5" />
+            <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
           </svg>
         </span>
         <span class="brand-name">REPO-SIGHT</span>
@@ -75,17 +81,28 @@
       <li>Metrics are heuristic indicators of maintainability, not a security scan, a correctness proof, or a substitute for human code review.</li>
       <li>Very large repositories can exceed the analysis time budget and time out rather than return a partial report.</li>
     </ul>
+    <p class="legal-updated">Last updated: September 16, 2026</p>
+    <p>REPO-SIGHT is a free static code analysis tool. Paste a public GitHub URL for a C++, Python, Java, TypeScript, JavaScript, or C# repository, and it reports size, structure, complexity, duplication, security hotspots, technical debt, and rule violations in seconds — no account, no signup, no paywall.</p>
+
+    <h2>What it does</h2>
+    <p>The engine behind REPO-SIGHT is a deterministic, five-stage pipeline — scan, lex, parse, aggregate, report — the same one the <code>cma</code> binary runs from the command line. It checks 39 rules across all six supported languages, flags duplicated code and security hotspots, and can correlate an uploaded LCOV coverage report against the files that need it most, all rolled up into a single project health score. Sign in and it also remembers your last scan of a repo, so you can see whether a codebase is actually improving.</p>
+
+    <h2>Why it exists</h2>
+    <p>Most static analysis tools are built for teams — they assume a CI pipeline, a paid seat per developer, and someone whose job is to read the dashboard. REPO-SIGHT exists for the case those tools tend to ignore: a student, a job seeker, or a solo developer who wants an honest, specific read on a codebase right now, without signing up for anything or waiting on a sales call.</p>
 
     <h2>Who builds it</h2>
     <p>REPO-SIGHT is built and maintained by Ronak Arora, a solo developer. The project is open source under the Apache 2.0 License.</p>
 
     <h2>How it's funded</h2>
     <p>REPO-SIGHT is free to use, with no paid tier. A small amount of advertising, served through Google AdSense, supports hosting and infrastructure costs so the tool can stay free and signup-free.</p>
+    <p>REPO-SIGHT is free to use, with no paid tier. A small amount of advertising, served through Google AdSense, supports hosting and infrastructure costs — that's the whole business model. No usage limits, no feature paywall, no credit card.</p>
 
     <h2>Get in touch</h2>
     <p>Questions, bug reports, or feedback can be sent via the <a href="/contact.html">contact page</a> or directly to <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>.</p>
   </main>
 <footer class="site-footer">
+
+  <footer class="site-footer">
     <div class="site-footer-inner">
       <div class="footer-brand">
         <div class="brand">
@@ -95,6 +112,7 @@
           <span class="brand-name">REPO-SIGHT</span>
         </div>
         <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+        <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
       </div>
       <div class="footer-col">
         <h4>Product</h4>
@@ -108,6 +126,9 @@
         <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
         <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
    
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+        <a href="/learn/reading-a-code-health-score.html">Reading a health score</a>
       </div>
       <div class="footer-col">
         <h4>Legal</h4>
@@ -125,6 +146,7 @@
         <h4>Follow</h4>
         <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
         <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        <a href="mailto:ronak.reposight@gmail.com">ronak.reposight@gmail.com</a>
       </div>
     </div>
   </footer>
