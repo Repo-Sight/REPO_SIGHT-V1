@@ -1,24 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/png" href="/favicon-32.png" />
-<link rel="apple-touch-icon" href="/favicon-32.png" />
-<meta property="og:image" content="https://www.repo-sight.com/favicon-32.png" />
-<meta name="twitter:card" content="summary_large_image" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
-  <title>REPO-SIGHT — The audit you skip when you're solo, done in seconds</title>
-  <meta name="description" content="REPO-SIGHT reads your C++, Python, or Java repository and reports the numbers that matter — size, structure, complexity, and rule violations. Paste a public GitHub URL, no signup required." />
+  <title>REPO-SIGHT — Free static code analysis, graded in seconds</title>
+  <meta name="description" content="REPO-SIGHT reads your C++, Python, Java, TypeScript, JavaScript, or C# repository and grades it — size, complexity, duplication, security hotspots, coverage, and rule violations. Paste a public GitHub URL, no signup required." />
   <link rel="canonical" href="https://www.repo-sight.com/" />
+  <meta name="robots" content="index, follow" />
+
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="REPO-SIGHT — The audit you skip when you're solo, done in seconds" />
-  <meta property="og:description" content="REPO-SIGHT reads your C++, Python, or Java repository and reports the numbers that matter — size, structure, complexity, and rule violations. Paste a public GitHub URL, no signup required." />
+  <meta property="og:title" content="REPO-SIGHT — Free static code analysis, graded in seconds" />
+  <meta property="og:description" content="Paste a public GitHub URL and get a graded code health report across 6 languages — complexity, duplication, security, coverage. No signup." />
   <meta property="og:url" content="https://www.repo-sight.com/" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="REPO-SIGHT — The audit you skip when you're solo, done in seconds" />
-  <meta name="twitter:description" content="Paste a public GitHub URL, get code metrics for C++, Python, and Java in seconds." />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="REPO-SIGHT — Free static code analysis, graded in seconds" />
+  <meta name="twitter:description" content="Paste a public GitHub URL and get a graded code health report across 6 languages. No signup." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+
+  <!-- Fonts: one combined request via <link>, not @import (the old
+       @import inside styles.css was render-blocking and loaded both
+       themes' fonts on every page regardless of which was needed).
+       Covers the marketing site's Ledger & Ink theme (Work Sans, Zilla
+       Slab, JetBrains Mono) and the report view's Annotated blueprint
+       theme (Archivo, Inter) in one request. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&family=Zilla+Slab:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="css/styles.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "REPO-SIGHT",
+        "url": "https://www.repo-sight.com/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any (web-based)",
+        "description": "Free static code analysis for C++, Python, Java, TypeScript, JavaScript, and C#. Paste a public GitHub URL and get complexity, duplication, security hotspots, coverage, and a graded health score in seconds. No signup required.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Ronak Arora" }
+      },
+      {
+        "@type": "Organization",
+        "name": "REPO-SIGHT",
+        "url": "https://www.repo-sight.com/",
+        "logo": "https://www.repo-sight.com/apple-touch-icon.png",
+        "email": "ronak.reposight@gmail.com"
+      }
+    ]
+  }
+  </script>
+
   <!-- Supabase Auth (Phase 5) -- module script so it can pull the client
        library from a CDN with no build step. Module scripts always finish
        before DOMContentLoaded, so dashboard.js's bootstrap (which also
@@ -33,9 +74,9 @@
       "sb_publishable_VydPRlN9Sd3rJ3lifHCTog_0ulffKcm"
     );
   </script>
- <!-- AdSense loader -- publisher ID matches ads.txt, the meta verification tag above,
-+       and the .ad-slot unit below (ca-pub-9503894064247817). ... -->
-  <script async src="...adsbygoogle.js?client=ca-pub-9503894064247817" crossorigin="anonymous"></script>
+  <!-- AdSense loader -- publisher ID matches ads.txt, the meta verification
+       tag above, and the .ad-slot unit below (ca-pub-9503894064247817). -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9503894064247817" crossorigin="anonymous"></script>
 
   <!-- Vercel Web Analytics -->
   <script>
@@ -92,15 +133,14 @@
     <section class="hero" id="analyze">
       <div class="hero-inner">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="eyebrow-dot"></span>FREE &middot; NO SIGNUP &middot; RESULTS IN SECONDS<span class="token-pill token-pill-inline">IDENTIFIER</span></p>
           <h1>
-            The audit you skip when you're solo &mdash;
-            <span class="hero-underline">done in seconds</span>.
+            The audit you skip when you're solo.
+            <span class="hero-underline">Free, in seconds.</span>
           </h1>
-                    <p class="hero-sub">
-            Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo &mdash;
-            size, structure, complexity, technical debt, and rule violations, across C++, Python, Java,
-            TypeScript, JavaScript, and C#.
+          <p class="hero-sub">
+            Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo: size,
+            structure, complexity, duplication, security hotspots, and rule violations, across C++,
+            Python, Java, TypeScript, JavaScript, and C#.
           </p>
 
           <div class="hero-mode-toggle" role="tablist">
@@ -120,7 +160,7 @@
                stack) -- the user attaches a coverage report from their own
                local/CI run instead. Sibling input+label pattern matches the
                existing "Upload a file" panel below (#file-scan-upload). -->
-          <div id="new-scan-coverage-row" style="margin-top: 10px;">
+          <div id="new-scan-coverage-row">
             <label class="btn-ghost" id="new-scan-coverage-label" for="new-scan-coverage" style="cursor: pointer;">
               <span id="new-scan-coverage-label-text">+ Add coverage report (optional, LCOV)</span>
             </label>
@@ -156,29 +196,33 @@
           <p class="hero-fineprint hidden" id="hero-file-fineprint">Single file, up to 2 MB &middot; C++, Python, Java, TypeScript, JavaScript, C# &middot; no account needed</p>
         </div>
 
-        <div class="hero-terminal" aria-hidden="true">
-          <div class="terminal-chrome">
-            <span class="dot dot-1"></span><span class="dot dot-2"></span><span class="dot dot-3"></span>
-            <span class="terminal-title">cma . --json report.json</span>
+        <div class="hero-visual">
+          <div class="hero-stamp" aria-hidden="true">
+            <span class="hero-stamp-grade">A</span>
+            <span class="hero-stamp-caption">graded in<br />seconds</span>
           </div>
-          <pre class="terminal-body">====================================
+          <div class="hero-terminal" aria-hidden="true">
+            <div class="terminal-chrome">
+              <span class="dot dot-1"></span><span class="dot dot-2"></span><span class="dot dot-3"></span>
+              <span class="terminal-title">cma . --json report.json</span>
+            </div>
+            <pre class="terminal-body">====================================
 <span class="t-strong">CODE METRICS REPORT</span>
 ====================================
-Files Analyzed        : <span class="t-value">14</span>
-Total Lines            : <span class="t-value">2,850</span>
-Functions              : <span class="t-value">65</span>
-Classes                : <span class="t-value">12</span>
-Cyclomatic Complexity  : <span class="t-value">137</span>
-Longest Function       : <span class="t-accent">processOrder()</span> &middot; 78 lines
-TODO Comments          : <span class="t-value">9</span>
-====================================</pre>
+Files Analyzed         : <span class="t-value">14</span>
+Total Lines             : <span class="t-value">2,850</span>
+Cyclomatic Complexity   : <span class="t-value">137</span>
+Duplication             : <span class="t-value">4.2%</span>
+Security Hotspots       : <span class="t-accent">3</span>
+Health Grade            : <span class="t-accent">B+</span>
+====================================<span class="terminal-cursor"></span></pre>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- Pipeline -->
     <section class="pipeline" id="pipeline">
-      <p class="eyebrow"><span class="eyebrow-dot"></span>THE PIPELINE<span class="token-pill token-pill-inline">PREPROCESSOR</span></p>
       <h2>Five stages. One pass. No black box.</h2>
       <p class="section-sub">
         Every file goes through the same deterministic pipeline &mdash; the same one the
@@ -188,7 +232,7 @@ TODO Comments          : <span class="t-value">9</span>
         <div class="pipeline-card">
           <span class="pipeline-num">01</span>
           <h3>Scan</h3>
-          <p>Finds every recognized source file &mdash; .cpp/.h, .py, .java &mdash; in a repo, a folder, or a single file.</p>
+          <p>Finds every recognized source file across all six supported languages, in a repo, a folder, or a single file.</p>
         </div>
         <div class="pipeline-card">
           <span class="pipeline-num">02</span>
@@ -203,7 +247,7 @@ TODO Comments          : <span class="t-value">9</span>
         <div class="pipeline-card">
           <span class="pipeline-num">04</span>
           <h3>Aggregate</h3>
-          <p>Per-file metrics and rule violations roll up into one project-level report and health score.</p>
+          <p>Per-file metrics, duplication, and rule violations roll up into one project-level report and health score.</p>
         </div>
         <div class="pipeline-card">
           <span class="pipeline-num">05</span>
@@ -213,6 +257,7 @@ TODO Comments          : <span class="t-value">9</span>
       </div>
     </section>
     <div class="ad-slot" data-ad-region="mid-page" aria-label="Advertisement">
+      <span class="ad-slot-label">Advertisement</span>
       <ins class="adsbygoogle"
            style="display:block"
            data-ad-client="ca-pub-9503894064247817"
@@ -225,69 +270,88 @@ TODO Comments          : <span class="t-value">9</span>
     </div>
     <!-- Features -->
     <section class="features" id="features">
-      <p class="eyebrow"><span class="eyebrow-dot"></span>WHAT YOU GET<span class="token-pill token-pill-inline">STRING_LITERAL</span></p>
       <h2>Every metric the engine computes &mdash; one dashboard.</h2>
+      <p class="section-sub">Six languages, one report. Everything below runs on the same free scan, no tier gating.</p>
       <div class="features-grid">
         <div class="feature-card">
-          <div class="feature-icon feature-icon-a">
+          <div class="feature-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M4 4h4v4H4zM10 10h4v10h-4zM16 6h4v14h-4z"/></svg>
           </div>
-          <h3>Size &amp; shape</h3>
-          <p>Total lines, blank lines, comment lines, and real code lines &mdash; split out, not lumped together.</p>
+          <h3>Size &amp; structure</h3>
+          <p>Lines, functions, classes, and imports &mdash; split by real code vs. comments vs. blank, rolled up project-wide.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon feature-icon-b">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 4.5-9 4.5-9-4.5L12 3zM3 12l9 4.5 9-4.5M3 16.5L12 21l9-4.5"/></svg>
-          </div>
-          <h3>Structure</h3>
-          <p>Functions, classes/structs, variables, and include/import counts, rolled up project-wide.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon feature-icon-c">
+          <div class="feature-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
           </div>
           <h3>Complexity</h3>
           <p>Cyclomatic complexity, max nesting depth, loops and conditions, and your longest function.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon feature-icon-d">
+          <div class="feature-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
           </div>
           <h3>Technical debt</h3>
           <p>Every TODO and FIXME marker, counted &mdash; so nothing quietly rots in a comment.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon feature-icon-e">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="10" height="10" rx="1.5"/><rect x="10" y="10" width="10" height="10" rx="1.5"/></svg>
+          </div>
+          <h3>Duplication</h3>
+          <p>Token-based clone detection finds copy-pasted blocks across your whole codebase, not just per file.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-2-2M16 6l2-2M12 7v2M9 9h6a3 3 0 013 3v3a6 6 0 01-12 0v-3a3 3 0 013-3z"/></svg>
           </div>
-          <h3>Rule violations</h3>
-          <p>21 rules across C++, Python, and Java flag risky patterns, rolled up by severity.</p>
+          <h3>Security hotspots</h3>
+          <p>39 rules across all six languages flag risky patterns &mdash; rolled up by severity, not just line count.</p>
         </div>
-
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5"/></svg>
+          </div>
+          <h3>Coverage</h3>
+          <p>Upload an LCOV report from your own CI run and see line coverage mapped against the files that need it most.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l5-5M9 19l7-11M16 19l4-15"/></svg>
+          </div>
+          <h3>Scan-over-scan tracking</h3>
+          <p>Sign in and REPO-SIGHT remembers your last scan of a repo, so you can see if it's actually improving.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="3.5"/></svg>
+          </div>
+          <h3>AI explain-this-finding</h3>
+          <p>Signed-in users can ask for a plain-English explanation of any specific finding, not just the raw rule text.</p>
+        </div>
       </div>
     </section>
     <!-- Learn -->
     <section class="features" id="learn">
-      <p class="eyebrow"><span class="eyebrow-dot"></span>LEARN<span class="token-pill token-pill-inline">DOC_COMMENT</span></p>
       <h2>Read up on what the numbers mean.</h2>
       <p class="section-sub">Short, practical explainers on the metrics REPO-SIGHT reports and why they matter.</p>
-      <div class="features-grid">
+      <div class="features-grid features-grid--three">
         <a href="/learn/what-is-static-analysis.html" class="feature-card feature-card-link">
-          <div class="feature-icon feature-icon-a">
+          <div class="feature-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
           </div>
           <h3>What is static code analysis?</h3>
           <p>How reading source without running it catches structural problems early &mdash; and where it falls short.</p>
         </a>
         <a href="/learn/cyclomatic-complexity-explained.html" class="feature-card feature-card-link">
-          <div class="feature-icon feature-icon-c">
+          <div class="feature-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
           </div>
           <h3>Cyclomatic complexity, explained</h3>
           <p>What the number counts, why 10+ is a common warning line, and how to bring a function back down.</p>
         </a>
         <a href="/learn/reading-a-code-health-score.html" class="feature-card feature-card-link">
-          <div class="feature-icon feature-icon-e">
+          <div class="feature-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
           </div>
           <h3>How to read a code health score</h3>
@@ -299,7 +363,6 @@ TODO Comments          : <span class="t-value">9</span>
     <section class="cta-band">
       <div class="cta-band-inner">
         <div>
-          <p class="eyebrow eyebrow-invert"><span class="eyebrow-dot"></span>FREE, FOR NOW AND FOR REAL</p>
           <h2>Free is the whole plan.</h2>
           <p>No tiers, no paywalled metrics. A small amount of advertising keeps it free instead of a paywall &mdash; analyze without an account any time.</p>
         </div>
@@ -316,12 +379,12 @@ TODO Comments          : <span class="t-value">9</span>
             </span>
             <span class="brand-name">REPO-SIGHT</span>
           </div>
-          <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+          <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
         </div>
         <div class="footer-col">
           <h4>Product</h4>
           <a href="#analyze">Analyze a repo</a>
-           <a href="#pipeline">How it works</a>
+          <a href="#pipeline">How it works</a>
           <a href="#features">What you get</a>
         </div>
         <div class="footer-col">
@@ -333,7 +396,6 @@ TODO Comments          : <span class="t-value">9</span>
         <div class="footer-col">
           <h4>Legal</h4>
           <a href="/about.html">About</a>
-
           <a href="/privacy.html">Privacy Policy</a>
           <a href="/terms.html">Terms of Use</a>
           <span class="footer-static">Apache 2.0 License</span>
