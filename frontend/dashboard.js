@@ -1,2138 +1,946 @@
-/* ==========================================================================
-   repo-sight dashboard — client-side logic
-   Reads ?scan=<id> from the URL and polls GET /api/scans/:id until the
-   scan is COMPLETED/FAILED, then renders the Overview report from
-   { project, violations }. With no ?scan= param it renders the "start a
-   new scan" form, which POSTs to /api/analyze and redirects to ?scan=<id>.
-   ========================================================================== */
-
-// Direction B tokens (body.report-mode in styles.css) -- grade colors map
-// 1:1 onto the accent/warning/critical tokens per v2 plan Section 7.2.1,
-// rather than a separate green/amber/red severity palette.
-const GRADE_COLOR = { A: '#3d5a8a', B: '#3d5a8a', C: '#c77d22', D: '#c77d22', F: '#b4432e' };
-const GAUGE_RADIUS = 54;
-const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
-const LONG_FUNCTION_THRESHOLD = 100; // matches cpp/py/java-long-*-function rule
-
-// Rough-plan ask: "add humour related to engineers to keep users engaged."
-// Scoped deliberately to the scan-wait screen only -- one real tip mixed
-// with dry engineer humor, rotated while the user is stuck waiting. The
-// actual report tabs (Overview/By Language/Files/Scoring/etc.) stay
-// serious on purpose -- that's the part a freelancer might hand straight
-// to a client, so it doesn't get jokes. This does.
-const LOADING_TIPS = [
-    'Tip: analysis runs against the repository\u2019s default branch (main or master).',
-    'Counting cyclomatic complexity, one nested if at a time.',
-    'Politely not judging your variable names. Yet.',
-    'Grep couldn\u2019t do this. Grep never could.',
-    'Checking if that TODO from 2019 is still there.',
-    'Somewhere, a linter is nodding in approval. Or not.',
-    'Comparing your code to the docs. The docs are losing.',
-    'This is the part where we pretend to read every line.',
-    'Still faster than waiting for CI.',
-    'No, we can\u2019t see your commit messages. We wish we could judge those too.',
-];
-
-// Regression tracking (rough-plan ask: "user can see... last time these
-// were the metrics and now they are improving or not"). Free feature --
-// no LLM, no new API cost -- pure diff between the current report and the
-// signed-in user's previous scan of the same repo, both already available
-// via existing endpoints (user_scans table via Supabase client, full scan
-// JSON via the existing GET /api/scans/:id). Kept as a standalone pure
-// function (no `this`) so it's directly unit-testable without any DOM or
-// network mocking -- only the two report objects go in, a plain data
-// object comes out; rendering is a separate, thin step.
-function computeScanDelta(current, previous) {
-    const currentScore = Math.round(current?.project?.healthScore || 0);
-    const previousScore = Math.round(previous?.project?.healthScore || 0);
-
-    const fingerprint = v => `${v.path}::${v.line}::${v.ruleId}`;
-    const currentViolations = current?.violations || [];
-    const previousViolations = previous?.violations || [];
-    const currentFP = new Set(currentViolations.map(fingerprint));
-    const previousFP = new Set(previousViolations.map(fingerprint));
-
-    const newViolationsCount = currentViolations.filter(v => !previousFP.has(fingerprint(v))).length;
-    const resolvedViolationsCount = previousViolations.filter(v => !currentFP.has(fingerprint(v))).length;
-
-    const isSecurity = v => v.category === 'security';
-    const newSecurityCount = currentViolations.filter(v => isSecurity(v) && !previousFP.has(fingerprint(v))).length;
-    const resolvedSecurityCount = previousViolations.filter(v => isSecurity(v) && !currentFP.has(fingerprint(v))).length;
-
-    // Per-file complexity trend -- only meaningful for files present in
-    // both scans (a file that's new or deleted isn't "getting more/less
-    // complex", it's just new/gone).
-    const previousByPath = new Map((previous?.files || []).map(f => [f.path, f]));
-    let filesWorseCount = 0, filesBetterCount = 0, mostWorsenedFile = null;
-    for (const f of current?.files || []) {
-        const prevFile = previousByPath.get(f.path);
-        if (!prevFile) continue;
-        const delta = (f.cyclomaticComplexity || 0) - (prevFile.cyclomaticComplexity || 0);
-        if (delta > 0) {
-            filesWorseCount++;
-            if (!mostWorsenedFile || delta > mostWorsenedFile.delta) {
-                mostWorsenedFile = { path: f.path, delta };
-            }
-        } else if (delta < 0) {
-            filesBetterCount++;
-        }
-    }
-
-    return {
-        currentScore, previousScore, scoreDelta: currentScore - previousScore,
-        previousDate: previous?.createdAt || null,
-        newViolationsCount, resolvedViolationsCount,
-        newSecurityCount, resolvedSecurityCount,
-        filesWorseCount, filesBetterCount, mostWorsenedFile,
-    };
-}
-
-// Mirrors analyser/src/report/HealthScore.cpp exactly (weights + good/bad
-// reference points for each of the five scoreBreakdown components) so the
-// Scoring tab's bars and "your value vs. target" captions stay truthful to
-// the actual formula instead of drifting from it. Do not tune these here --
-// change HealthScore.cpp and update this comment/table together.
-const SCORE_COMPONENTS = [
-    {
-        key: 'complexityDensity', weight: 0.35, goodRef: 0.15, badRef: 0.50, higherIsBetter: false,
-        title: 'Complexity density', unit: 'ratio',
-        valueOf: p => (p.cyclomaticComplexity || 0) / Math.max(1, p.codeLines || 0),
-        format: v => v.toFixed(2),
-        detail: (v, good) => `Your repo: ${v.toFixed(2)} cyclomatic complexity per code line (target: ${good.toFixed(2)} or lower).`,
-        tip: 'Break large functions into smaller ones and reduce branching (if/else, loops) per function.',
-    },
-    {
-        key: 'avgFunctionLength', weight: 0.25, goodRef: 15, badRef: 60, higherIsBetter: false,
-        title: 'Average function length', unit: 'lines',
-        valueOf: p => p.avgFunctionLength || 0,
-        format: v => v.toFixed(1),
-        detail: (v, good) => `Your repo: ${v.toFixed(1)} lines per function on average (target: ${good} or fewer).`,
-        tip: 'Split your longest functions into smaller, single-purpose ones \u2014 see the Files tab to find them.',
-    },
-    {
-        key: 'commentCoverage', weight: 0.20, goodRef: 0.20, badRef: 0.02, higherIsBetter: true,
-        title: 'Comment coverage', unit: 'ratio',
-        valueOf: p => (p.commentLines || 0) / Math.max(1, p.codeLines || 0),
-        format: v => `${(v * 100).toFixed(1)}%`,
-        detail: (v, good) => `Your repo: ${(v * 100).toFixed(1)}% of code lines are comments (target: ${(good * 100).toFixed(0)}% or more).`,
-        tip: 'Add explanatory comments to non-obvious logic, especially in your most complex files.',
-    },
-    {
-        key: 'todoDensity', weight: 0.10, goodRef: 0.01, badRef: 0.05, higherIsBetter: false,
-        title: 'TODO density', unit: 'ratio',
-        valueOf: p => (p.todoCount || 0) / Math.max(1, p.codeLines || 0),
-        format: v => `${(v * 100).toFixed(1)}%`,
-        detail: (v, good) => `Your repo: ${(v * 100).toFixed(1)}% of code lines carry a TODO/FIXME (target: ${(good * 100).toFixed(0)}% or lower).`,
-        tip: 'Resolve or remove outstanding TODO/FIXME markers instead of letting them accumulate.',
-    },
-    {
-        key: 'nestingDepth', weight: 0.10, goodRef: 3, badRef: 8, higherIsBetter: false,
-        title: 'Max nesting depth', unit: 'levels',
-        valueOf: p => p.maxNestingDepth || 0,
-        format: v => `${v}`,
-        detail: (v, good) => `Your repo's deepest nesting: ${v} levels (target: ${good} or shallower).`,
-        tip: 'Flatten deeply nested if/loop blocks \u2014 early returns and guard clauses usually help.',
-    },
-];
-
-class RepoSightDashboard {
-    constructor() {
-        this.jsonData = null;
-        this.meta = { projectName: '', scanId: '', createdAt: '' };
-        this.lastAnalysisDate = localStorage.getItem('rs-last-analysis');
-        this.analysisStreak = parseInt(localStorage.getItem('rs-streak') || '0', 10);
-        this.feedbackRating = 0;
-        this.feedbackSubmitting = false;
-
-        this.init();
-    }
-
-    init() {
-        this.bindStaticEvents();
-        this.loadReport();
-        this.updateStreakDisplay();
-    }
-
-    /* -----------------------------------------------------------------
-       Small DOM helpers (defensive -- never throw if markup drifts)
-       ----------------------------------------------------------------- */
-    $(id) {
-        return document.getElementById(id);
-    }
-
-    setText(id, value) {
-        const el = this.$(id);
-        if (el) el.textContent = value;
-    }
-
-    escapeHtml(str) {
-        if (str === null || str === undefined) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-      formatNumber(num) {
-        return Number(num || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
-
-    // Vercel Web Analytics custom events (Section 9 of the v2 plan --
-    // scan_started/scan_completed/scan_failed/file_upload_used). This is a
-    // plain static site with no bundler, so this calls the window.va queue
-    // shim declared in index.html's <head> directly rather than importing
-    // the @vercel/analytics npm package, which cannot run unbundled in the
-    // browser. Defensive: never throws if the shim isn't present.
-    track(name, data) {
-        try {
-            if (typeof window.va === 'function') {
-                window.va('event', data ? { name, data } : { name });
-            }
-        } catch (_) {
-            // Analytics must never break the actual scan flow.
-        }
-    }
-    /* -----------------------------------------------------------------
-       Static event bindings -- the rerun button and the feedback widget.
-       Both live in markup that's present regardless of scan state, so
-       binding happens once up front rather than after the report loads.
-       ----------------------------------------------------------------- */
-    bindStaticEvents() {
-        const rerunBtn = this.$('rerun-btn');
-        if (rerunBtn) {
-            rerunBtn.addEventListener('click', () => window.location.reload());
-        }
-        this.bindFeedbackWidget();
-        this.bindTabs();
-        this.bindFilesToolbar();
-        this.bindDuplicationToolbar();
-        this.bindSecurityToolbar();
-        this.bindCoverageToolbar();
-        this.bindAuth();
-    }
-
-    /* -----------------------------------------------------------------
-       Phase 4: tab navigation (Overview / By Language / Files / Scoring).
-       Markup is present regardless of scan state, so binding happens up
-       front like the other static events -- switching tabs before data
-       has loaded is harmless, the panels are just empty.
-       ----------------------------------------------------------------- */
-    bindTabs() {
-        const tabs = Array.from(document.querySelectorAll('.rs-tab'));
-        if (!tabs.length) return;
-
-        const TAB_TITLES = { overview: 'Overview', bylang: 'By Language', files: 'Files', scoring: 'Scoring', duplication: 'Duplication', security: 'Security', coverage: 'Coverage' };
-
-        tabs.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tabId = btn.dataset.tab;
-                tabs.forEach(t => {
-                    const active = t === btn;
-                    t.classList.toggle('active', active);
-                    t.setAttribute('aria-selected', active ? 'true' : 'false');
-                });
-                document.querySelectorAll('.tab-panel').forEach(panel => {
-                    panel.classList.toggle('hidden', panel.dataset.tabPanel !== tabId);
-                });
-                this.setText('page-header-title', TAB_TITLES[tabId] || 'Overview');
-                this.track('tab_viewed', { tab: tabId });
-            });
-        });
-    }
-
-    /* -----------------------------------------------------------------
-       Feedback widget -- star rating (1-5) + optional comment, shown on
-       the report page. Submits to POST /api/feedback and remembers (via
-       localStorage, keyed by scanId) that this scan was already rated so
-       a page refresh doesn't ask twice.
-       ----------------------------------------------------------------- */
-    bindFeedbackWidget() {
-        const stars = Array.from(document.querySelectorAll('#feedback-stars .feedback-star'));
-        const submitBtn = this.$('feedback-submit');
-        const messageEl = this.$('feedback-message');
-        const statusEl = this.$('feedback-status');
-        const honeypotEl = this.$('feedback-company');
-        if (!stars.length || !submitBtn || !messageEl || !statusEl) return;
-
-        stars.forEach(star => {
-            star.addEventListener('click', () => {
-                this.feedbackRating = parseInt(star.dataset.value, 10) || 0;
-                stars.forEach(s => {
-                    const active = (parseInt(s.dataset.value, 10) || 0) <= this.feedbackRating;
-                    s.classList.toggle('is-active', active);
-                    s.setAttribute('aria-checked', active ? 'true' : 'false');
-                });
-                submitBtn.disabled = this.feedbackRating < 1;
-            });
-        });
-
-        submitBtn.addEventListener('click', () => this.submitFeedback({ submitBtn, messageEl, statusEl, honeypotEl }));
-    }
-
-    async submitFeedback({ submitBtn, messageEl, statusEl, honeypotEl }) {
-        if (!this.feedbackRating || this.feedbackSubmitting) return;
-
-        this.feedbackSubmitting = true;
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Sending\u2026';
-        statusEl.textContent = '';
-        statusEl.classList.remove('is-error', 'is-success');
-
-        try {
-            const res = await fetch('/api/feedback', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    rating: this.feedbackRating,
-                    message: messageEl.value.trim(),
-                    scanId: this.meta.scanId || '',
-                    projectName: this.meta.projectName || '',
-                    company: honeypotEl ? honeypotEl.value : '',
-                }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-
-            if (this.meta.scanId) {
-                localStorage.setItem(`rs-feedback-${this.meta.scanId}`, '1');
-            }
-            this.showFeedbackThanks();
-        } catch (err) {
-            statusEl.textContent = err.message || 'Could not send feedback \u2014 try again.';
-            statusEl.classList.add('is-error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Send feedback';
-            this.feedbackSubmitting = false;
-        }
-    }
-
-    showFeedbackThanks() {
-        const state = this.$('feedback-form-state');
-        if (state) {
-            state.innerHTML = '<p class="feedback-thanks">Thanks for the rating \u2014 it genuinely helps.</p>';
-        }
-    }
-
-    // Called once meta.scanId is known (see populateReport) so a returning
-    // visit to an already-rated scan shows the thank-you state instead of
-    // asking again.
-    maybeShowFeedbackAlready() {
-        if (this.meta.scanId && localStorage.getItem(`rs-feedback-${this.meta.scanId}`)) {
-            this.showFeedbackThanks();
-        }
-    }
-
-    /* -----------------------------------------------------------------
-       Entry point -- either poll an existing scan or show the "start a
-       new scan" form.
-       ----------------------------------------------------------------- */
-    loadReport() {
-        const scanId = new URLSearchParams(window.location.search).get('scan');
-        if (!scanId) {
-            this.renderLandingPage();
-            return;
-        }
-
-        // Landing page (#landing-page) is the default-visible markup so
-        // crawlers/no-JS/slow-JS always see real content first. Once we
-        // confirm a real scan is being requested, swap to the dashboard
-        // shell explicitly rather than assuming it's already visible.
-        const landing = this.$('landing-page');
-        if (landing) landing.classList.add('hidden');
-
-        // Phase 4 / Direction B theme is scoped to the report view only
-        // (v2 plan Section 7.5) -- see body.report-mode in styles.css.
-        document.body.classList.add('report-mode');
-
-        const topbar = document.querySelector('.dash-topbar');
-        if (topbar) topbar.classList.remove('hidden');
-
-        const dashboardMain = document.querySelector('body > main');
-        if (dashboardMain) dashboardMain.classList.remove('hidden');
-
-        this.meta.scanId = scanId;
-        this.showLoadingState();
-        this.pollScan(scanId);
-    }
-
-    pollScan(scanId, attempt = 0) {
-        const poll = async at => {
-            try {
-                const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}`);
-                const data = await res.json().catch(() => ({}));
-
-                // The API always answers 200 (even "not found"), signalling
-                // state through the body's `status` field instead of the
-                // HTTP status code -- so lag right after submission shows
-                // up as status: "FAILED" with a "Scan not found" message,
-                // not a 404. Retry that specific case a few times before
-                // treating it as a real failure.
-                const notFoundYet =
-                    data.status === 'FAILED' &&
-                    /not found/i.test(data.errorMessage || '') &&
-                    at < 6;
-                if (notFoundYet) {
-                    setTimeout(() => poll(at + 1), 2000);
-                    return;
-                }
-
-                if (!res.ok && data.status === undefined) {
-                    throw new Error(`HTTP ${res.status}`);
-                }
-
-                const status = data.status || (data.project ? 'COMPLETED' : 'PROCESSING');
-
-                if (status === 'QUEUED' || status === 'PROCESSING') {
-                    const pct = data.totalFiles > 0
-                        ? Math.round((data.processedFiles / data.totalFiles) * 100)
-                        : null;
-                    this.updateLoadingProgress(pct);
-                    setTimeout(() => poll(0), 3000);
-                    return;
-                }
-
-                                if (status === 'FAILED') {
-                    this.track('scan_failed', { reason: data.errorMessage || 'unknown' });
-                    this.showError(data.errorMessage || 'Analysis failed.');
-                    return;
-                }
-
-                if (status === 'COMPLETED') {
-                    this.meta.projectName = data.projectName || '';
-                    this.meta.createdAt = data.createdAt || '';
-                    this.jsonData = {
-                        project: data.project || {},
-                        violations: data.violations || [],
-                        files: data.files || [],
-                        byLanguage: data.byLanguage || [],
-                        unanalyzedLanguages: data.unanalyzedLanguages || [],
-                        hotspots: data.hotspots || null,
-                    };
-                    this.track('scan_completed');
-                    this.hideLoadingState();
-                    this.populateReport();
-                    return;
-                }
-
-                this.track('scan_failed', { reason: `unknown_status_${status}` });
-                this.showError(`Unknown scan status: ${status}`);
-            } catch (err) {
-                console.error('Polling error:', err);
-                if (at < 3) {
-                    setTimeout(() => poll(at + 1), 3000);
-                } else {
-                    this.track('scan_failed', { reason: 'poll_error' });
-                    this.showError(`Could not load report: ${err.message}`);
-                }
-            }
-        };
-
-        poll(attempt);
-    }
-
-    /* -----------------------------------------------------------------
-       Landing page (no ?scan= in the URL) -- the marketing homepage is
-       static markup already sitting in index.html as #landing-page, so
-       this just swaps it in for the dashboard shell and wires the hero
-       form's submit handler.
-       ----------------------------------------------------------------- */
-    renderLandingPage() {
-        document.body.classList.add('landing-mode');
-
-        const topbar = document.querySelector('.dash-topbar');
-        if (topbar) topbar.classList.add('hidden');
-
-        const dashboardMain = document.querySelector('body > main');
-        if (dashboardMain) dashboardMain.classList.add('hidden');
-
-        const landing = this.$('landing-page');
-        if (landing) landing.classList.remove('hidden');
-
-        const form = this.$('new-scan-form');
-        const urlInput = this.$('new-scan-url');
-        const submitBtn = this.$('new-scan-submit');
-        const errorEl = this.$('new-scan-error');
-        const coverageInput = this.$('new-scan-coverage');
-        const coverageLabelText = this.$('new-scan-coverage-label-text');
-        if (!form || !urlInput || !submitBtn || !errorEl) return;
-
-        // Phase 6d: update the label to show the chosen filename, same
-        // affordance as the "Upload a file" panel's drop-label below.
-        if (coverageInput && coverageLabelText) {
-            coverageInput.addEventListener('change', () => {
-                const file = coverageInput.files && coverageInput.files[0];
-                coverageLabelText.textContent = file ? file.name : '+ Add coverage report (optional, LCOV)';
-            });
-        }
-
-        // Reads the optional coverage file as text. Never rejects -- a
-        // file that can't be read just means the scan proceeds without
-        // coverage, same "optional extra can't break the primary flow"
-        // principle as the server-side merge in api/_lib/coverage.js.
-        function readCoverageFileIfAny() {
-            const file = coverageInput && coverageInput.files && coverageInput.files[0];
-            if (!file) return Promise.resolve(null);
-            return new Promise(resolve => {
-                const reader = new FileReader();
-                reader.onerror = () => resolve(null);
-                reader.onload = () => resolve(String(reader.result || ''));
-                reader.readAsText(file);
-            });
-        }
-
-        form.addEventListener('submit', async e => {
-            e.preventDefault();
-            const repoUrl = urlInput.value.trim();
-            if (!repoUrl) return;
-
-                       errorEl.classList.add('hidden');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Analyzing\u2026';
-            this.track('scan_started', { mode: 'repo' });
-
-            try {
-                const coverageReport = await readCoverageFileIfAny();
-                const body = { repoUrl };
-                if (coverageReport) body.coverageReport = coverageReport;
-
-                const headers = await this.getAuthHeaders();
-                const res = await fetch('/api/analyze', {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify(body),
-                });
-                const data = await res.json().catch(() => ({}));
-
-                if (!res.ok || !data.scanId) {
-                    throw new Error(data.error || `HTTP ${res.status}`);
-                }
-
-                window.location.search = `?scan=${encodeURIComponent(data.scanId)}`;
-            } catch (err) {
-                this.track('scan_failed', { reason: 'submit_error' });
-                errorEl.textContent = err.message || 'Could not start analysis.';
-                errorEl.classList.remove('hidden');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Analyze';
-            }
-        });
-
-        this.bindFileScanPanels();
-    }
-
-    /* -----------------------------------------------------------------
-       Phase 3: "Analyze a file" hero tab -- mode toggle plus the two
-       side-by-side panels (paste code / upload a file). Both panels
-       collect { filename, content } and hand off to the same submit
-       routine, which POSTs to /api/analyze-file and reuses the exact
-       ?scan=<id> redirect the repo-scan form uses -- pollScan/populateReport
-       don't need to know or care which endpoint produced the scan.
-       ----------------------------------------------------------------- */
-    bindFileScanPanels() {
-        const repoTabBtn = this.$('hero-mode-repo');
-        const fileTabBtn = this.$('hero-mode-file');
-        const repoForm = this.$('new-scan-form');
-        const repoFineprint = this.$('hero-repo-fineprint');
-        const filePanels = this.$('hero-file-panels');
-        const fileFineprint = this.$('hero-file-fineprint');
-        const fileErrorEl = this.$('file-scan-error');
-
-        if (repoTabBtn && fileTabBtn && repoForm && filePanels) {
-            const showRepoMode = () => {
-                repoTabBtn.classList.add('active');
-                repoTabBtn.setAttribute('aria-selected', 'true');
-                fileTabBtn.classList.remove('active');
-                fileTabBtn.setAttribute('aria-selected', 'false');
-                repoForm.classList.remove('hidden');
-                if (repoFineprint) repoFineprint.classList.remove('hidden');
-                filePanels.classList.add('hidden');
-                if (fileFineprint) fileFineprint.classList.add('hidden');
-                if (fileErrorEl) fileErrorEl.classList.add('hidden');
-            };
-            const showFileMode = () => {
-                fileTabBtn.classList.add('active');
-                fileTabBtn.setAttribute('aria-selected', 'true');
-                repoTabBtn.classList.remove('active');
-                repoTabBtn.setAttribute('aria-selected', 'false');
-                filePanels.classList.remove('hidden');
-                if (fileFineprint) fileFineprint.classList.remove('hidden');
-                repoForm.classList.add('hidden');
-                if (repoFineprint) repoFineprint.classList.add('hidden');
-                this.$('new-scan-error')?.classList.add('hidden');
-            };
-            repoTabBtn.addEventListener('click', showRepoMode);
-            fileTabBtn.addEventListener('click', showFileMode);
-        }
-
-        this.bindPasteCodePanel(fileErrorEl);
-        this.bindUploadFilePanel(fileErrorEl);
-    }
-
-    // Shared by both panels: POSTs { filename, content } to
-    // /api/analyze-file, redirects to ?scan=<id> on success, otherwise
-    // shows the message inline in the shared file-scan-error element.
-    async submitFileForAnalysis({ filename, content, mode, buttons, errorEl }) {
-        if (errorEl) errorEl.classList.add('hidden');
-        buttons.forEach(btn => { if (btn) btn.disabled = true; });
-        this.track('scan_started', { mode });
-        if (mode === 'upload') this.track('file_upload_used');
-
-        try {
-            const headers = await this.getAuthHeaders();
-            const res = await fetch('/api/analyze-file', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ filename, content }),
-            });
-            const data = await res.json().catch(() => ({}));
-
-            if (!res.ok || !data.scanId) {
-                throw new Error(data.error || `HTTP ${res.status}`);
-            }
-
-            window.location.search = `?scan=${encodeURIComponent(data.scanId)}`;
-        } catch (err) {
-            this.track('scan_failed', { reason: 'submit_error' });
-            if (errorEl) {
-                errorEl.textContent = err.message || 'Could not analyze this file.';
-                errorEl.classList.remove('hidden');
-            }
-            buttons.forEach(btn => { if (btn) btn.disabled = false; });
-        }
-    }
-
-    bindPasteCodePanel(fileErrorEl) {
-        const languageSelect = this.$('file-scan-language');
-        const contentArea = this.$('file-scan-content');
-        const submitBtn = this.$('file-scan-paste-submit');
-        if (!languageSelect || !contentArea || !submitBtn) return;
-
-        const EXT_BY_LANGUAGE = {
-            cpp: 'cpp',
-            python: 'py',
-            java: 'java',
-            typescript: 'ts',
-            javascript: 'js',
-            csharp: 'cs',
-        };
-
-        submitBtn.addEventListener('click', () => {
-            const content = contentArea.value;
-            if (!content.trim()) {
-                if (fileErrorEl) {
-                    fileErrorEl.textContent = 'Paste some code first.';
-                    fileErrorEl.classList.remove('hidden');
-                }
-                return;
-            }
-            const ext = EXT_BY_LANGUAGE[languageSelect.value] || 'txt';
-            const originalLabel = submitBtn.textContent;
-            submitBtn.textContent = 'Analyzing\u2026';
-            this.submitFileForAnalysis({
-                filename: `pasted.${ext}`,
-                content,
-                mode: 'paste',
-                buttons: [submitBtn],
-                errorEl: fileErrorEl,
-            }).finally(() => { submitBtn.textContent = originalLabel; });
-        });
-    }
-
-    bindUploadFilePanel(fileErrorEl) {
-        const fileInput = this.$('file-scan-upload');
-        const dropLabel = this.$('file-scan-drop-label');
-        const dropZone = this.$('file-scan-drop');
-        const submitBtn = this.$('file-scan-upload-submit');
-        if (!fileInput || !dropLabel || !submitBtn) return;
-
-        fileInput.addEventListener('change', () => {
-            const file = fileInput.files && fileInput.files[0];
-            if (file) {
-                dropLabel.textContent = file.name;
-                dropZone?.classList.add('has-file');
-                submitBtn.disabled = false;
-            } else {
-                dropLabel.textContent = 'Click to choose a file\u2026';
-                dropZone?.classList.remove('has-file');
-                submitBtn.disabled = true;
-            }
-        });
-
-        submitBtn.addEventListener('click', () => {
-            const file = fileInput.files && fileInput.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onerror = () => {
-                if (fileErrorEl) {
-                    fileErrorEl.textContent = 'Could not read that file.';
-                    fileErrorEl.classList.remove('hidden');
-                }
-            };
-            reader.onload = () => {
-                const originalLabel = submitBtn.textContent;
-                submitBtn.textContent = 'Analyzing\u2026';
-                this.submitFileForAnalysis({
-                    filename: file.name,
-                    content: String(reader.result || ''),
-                    mode: 'upload',
-                    buttons: [submitBtn],
-                    errorEl: fileErrorEl,
-                }).finally(() => { submitBtn.textContent = originalLabel; });
-            };
-            reader.readAsText(file);
-        });
-    }
-
-    /* -----------------------------------------------------------------
-       Loading / error state
-       ----------------------------------------------------------------- */
-    showLoadingState() {
-        const loadingState = this.$('loading-state');
-        const reportContent = this.$('report-content');
-        if (loadingState) loadingState.classList.remove('hidden');
-        if (reportContent) reportContent.classList.add('hidden');
-        this.setText('loading-message', 'Starting analysis\u2026');
-        this.setText('loading-progress', '');
-        this.startLoadingTips();
-    }
-
-    // Rotates LOADING_TIPS every ~2.8s while the scan-wait screen is up.
-    // Always clears any previous interval first -- showLoadingState() can
-    // fire more than once per page life (rerun button), and a stray
-    // duplicate interval would double up the rotation speed silently.
-    startLoadingTips() {
-        this.stopLoadingTips();
-        let i = 0;
-        this.setText('loading-tip', LOADING_TIPS[0]);
-        this._loadingTipInterval = setInterval(() => {
-            i = (i + 1) % LOADING_TIPS.length;
-            this.setText('loading-tip', LOADING_TIPS[i]);
-        }, 2800);
-    }
-
-    stopLoadingTips() {
-        if (this._loadingTipInterval) {
-            clearInterval(this._loadingTipInterval);
-            this._loadingTipInterval = null;
-        }
-    }
-
-    updateLoadingProgress(pct) {
-        this.setText('loading-message', 'Analyzing source files\u2026');
-        this.setText('loading-progress', pct === null ? '' : `${pct}%`);
-    }
-
-    hideLoadingState() {
-        const loadingState = this.$('loading-state');
-        const reportContent = this.$('report-content');
-        this.stopLoadingTips();
-        if (loadingState) loadingState.classList.add('hidden');
-        if (reportContent) reportContent.classList.remove('hidden');
-    }
-
-    // Keeps loading-state visible (with report-content hidden) so the
-    // error message is actually seen, instead of hiding the element the
-    // message was written into.
-    showError(message) {
-        const loadingState = this.$('loading-state');
-        const reportContent = this.$('report-content');
-        this.stopLoadingTips();
-        if (reportContent) reportContent.classList.add('hidden');
-        if (loadingState) {
-            loadingState.classList.remove('hidden');
-            loadingState.innerHTML = `
-                <div class="error-panel">
-                    <h2>Analysis failed</h2>
-                    <p>${this.escapeHtml(message)}</p>
-                </div>
-            `;
-        }
-    }
-
-    /* -----------------------------------------------------------------
-       Report rendering -- Overview only.
-       ----------------------------------------------------------------- */
-    populateReport() {
-        if (!this.jsonData) return;
-
-        this.populateOverview(this.jsonData.project || {});
-        this.populateUnanalyzedCallout();
-        this.populateTrendCallout(); // async, fire-and-forget -- see method comment
-        this.populateDuplicationCallout();
-        this.populateSecurityCallout();
-        this.populateCoverageCallout();
-        this.populateHotspots();
-        this.populateByLanguage();
-        this.populateFilesTab();
-        this.populateScoring();
-        this.populateDuplicationTab();
-        this.populateSecurityTab();
-        this.populateCoverageTab();
-        this.updateTopbarMeta();
-        this.updateStreak();
-        this.maybeShowFeedbackAlready();
-    }
-
-    /* -----------------------------------------------------------------
-       Overview tab additions -- unanalyzed-languages callout + hotspots.
-       Both were already in the scan JSON (schemaVersion 2 / Phase 2) but
-       had no UI anywhere until Phase 4 (v2 plan Section 7.4).
-       ----------------------------------------------------------------- */
-    // Async and deliberately never awaited by populateReport() -- the rest
-    // of the report renders immediately from data already in hand; this
-    // enhancement layers in afterward once (a) we know the user is signed
-    // in and (b) a previous scan of the same repo is found. Silent no-op
-    // in every other case: anonymous viewer, first-ever scan of this repo,
-    // or a pre-repoOwner/repoName scan (paste-based, or scanned before
-    // this field existed) -- matches the same graceful-absence pattern as
-    // every other Overview callout.
-    async populateTrendCallout() {
-        const callout = this.$('trend-callout');
-        const body = this.$('trend-callout-body');
-        if (!callout || !body) return;
-        callout.classList.add('hidden');
-
-        const d = this.jsonData || {};
-        if (!d.repoOwner || !d.repoName || !d.scanId) return;
-
-        const supabase = window.supabaseClient;
-        if (!supabase) return;
-        const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: null }));
-        if (!sessionData?.session) return;
-
-        const { data: rows, error } = await supabase
-            .from('user_scans')
-            .select('scan_id, scanned_at')
-            .eq('project_name', d.projectName)
-            .neq('scan_id', d.scanId)
-            .order('scanned_at', { ascending: false })
-            .limit(1);
-        if (error || !rows?.length) return;
-
-        const prevRes = await fetch(`/api/scans/${encodeURIComponent(rows[0].scan_id)}`).catch(() => null);
-        if (!prevRes || !prevRes.ok) return;
-        const previous = await prevRes.json().catch(() => null);
-        if (!previous || previous.status === 'FAILED') return;
-
-        const delta = computeScanDelta(d, previous);
-        this.renderTrendCallout(delta);
-    }
-
-    renderTrendCallout(delta) {
-        const callout = this.$('trend-callout');
-        const body = this.$('trend-callout-body');
-        if (!callout || !body) return;
-
-        const scoreDir = delta.scoreDelta > 0 ? 'up' : delta.scoreDelta < 0 ? 'down' : 'flat';
-        const scoreLine = scoreDir === 'flat'
-            ? `Health score unchanged at ${delta.currentScore}/100 since your last scan`
-            : `Health score ${scoreDir === 'up' ? 'up' : 'down'} ${Math.abs(delta.scoreDelta)} point${Math.abs(delta.scoreDelta) === 1 ? '' : 's'} (${delta.previousScore} \u2192 ${delta.currentScore}) since your last scan`;
-
-        const parts = [];
-        if (delta.resolvedViolationsCount > 0) parts.push(`${delta.resolvedViolationsCount} finding(s) resolved`);
-        if (delta.newViolationsCount > 0) parts.push(`${delta.newViolationsCount} new finding(s)`);
-        if (delta.resolvedSecurityCount > 0) parts.push(`${delta.resolvedSecurityCount} security hotspot(s) fixed`);
-        if (delta.newSecurityCount > 0) parts.push(`${delta.newSecurityCount} new security hotspot(s)`);
-        if (delta.filesBetterCount > 0) parts.push(`${delta.filesBetterCount} file(s) simplified`);
-        if (delta.filesWorseCount > 0) parts.push(`${delta.filesWorseCount} file(s) more complex`);
-
-        // Tone follows the same grade-color logic as everywhere else in
-        // this app (no separate "success green" -- Direction B's palette
-        // is deliberately ink-blue/amber/red only): score improved or flat
-        // with no new problems -> accent-blue (same hue A/B grades use);
-        // anything net-worse -> the existing warning amber.
-        const gotWorse = delta.scoreDelta < 0 || delta.newViolationsCount > delta.resolvedViolationsCount || delta.newSecurityCount > 0;
-        callout.classList.remove('callout-warning', 'callout-good');
-        callout.classList.add(gotWorse ? 'callout-warning' : 'callout-good');
-
-        body.innerHTML = `
-            ${this.escapeHtml(scoreLine)}${parts.length ? ' \u2014 ' + parts.map(p => this.escapeHtml(p)).join(', ') : ''}.
-            ${delta.mostWorsenedFile ? `<br>Biggest complexity jump: <span class="file-path-cell" title="${this.escapeHtml(delta.mostWorsenedFile.path)}">${this.escapeHtml(delta.mostWorsenedFile.path)}</span> (+${delta.mostWorsenedFile.delta}).` : ''}
-        `;
-        callout.classList.remove('hidden');
-    }
-
-    populateUnanalyzedCallout() {
-        const list = this.jsonData.unanalyzedLanguages || [];
-        const callout = this.$('unanalyzed-callout');
-        const body = this.$('unanalyzed-callout-body');
-        if (!callout || !body) return;
-
-        if (!list.length) {
-            callout.classList.add('hidden');
-            return;
-        }
-
-        const totalFiles = list.reduce((sum, u) => sum + (u.fileCount || 0), 0);
-        const totalLines = list.reduce((sum, u) => sum + (u.lineCount || 0), 0);
-        const items = list
-            .slice()
-            .sort((a, b) => (b.lineCount || 0) - (a.lineCount || 0))
-            .map(u => `<li>${this.escapeHtml(u.languageName || u.extension)} \u2014 ${this.formatNumber(u.fileCount)} file(s), ${this.formatNumber(u.lineCount)} lines</li>`)
-            .join('');
-
-        body.innerHTML = `
-            ${this.formatNumber(totalFiles)} file(s) totaling ${this.formatNumber(totalLines)} lines weren't analyzed \u2014 REPO-SIGHT doesn't have a language front-end for these yet:
-            <ul>${items}</ul>
-        `;
-        callout.classList.remove('hidden');
-    }
-
-    // Duplication data has existed in the scan JSON since Phase 6a (analyser
-    // side); this callout is the first place it's surfaced anywhere in the
-    // UI (Phase 6b). Silent when there's nothing to report -- 0% duplication
-    // isn't worth a callout, it's the expected/good case.
-    populateDuplicationCallout() {
-        const dup = this.jsonData.duplication;
-        const callout = this.$('duplication-callout');
-        const body = this.$('duplication-callout-body');
-        if (!callout || !body) return;
-
-        if (!dup || !dup.matches || !dup.matches.length) {
-            callout.classList.add('hidden');
-            return;
-        }
-
-        const pct = dup.duplicatePercentage || 0;
-        body.innerHTML = `
-            ${pct.toFixed(1)}% of code lines (${this.formatNumber(dup.duplicateLineCount)} lines) appear in more than one place across
-            ${this.formatNumber(dup.matches.length)} matched block(s). See the Duplication tab for details.
-        `;
-        callout.classList.remove('hidden');
-    }
-
-    // Phase 6c: security-hotspot findings are just violations[] entries
-    // with category="security" -- no new top-level JSON key, so this
-    // filters the existing array rather than reading a dedicated field.
-    // Silent when there's nothing to report, same policy as Duplication.
-    populateSecurityCallout() {
-        const findings = (this.jsonData.violations || []).filter(v => v.category === 'security');
-        const callout = this.$('security-callout');
-        const body = this.$('security-callout-body');
-        if (!callout || !body) return;
-
-        if (!findings.length) {
-            callout.classList.add('hidden');
-            return;
-        }
-
-        const fileCount = new Set(findings.map(v => v.path)).size;
-        const warningCount = findings.filter(v => v.severity === 'warning').length;
-        body.innerHTML = `
-            ${this.formatNumber(findings.length)} security finding(s) across ${this.formatNumber(fileCount)} file(s)
-            (${this.formatNumber(warningCount)} flagged for review). See the Security tab for details.
-        `;
-        callout.classList.remove('hidden');
-    }
-
-    // Phase 6d: coverageSummary only exists on the scan JSON when the user
-    // attached an LCOV report at scan time (api/_lib/coverage.js sets
-    // { available: false } otherwise) -- silent when absent, same policy
-    // as Duplication/Security being silent when there's nothing to report.
-    populateCoverageCallout() {
-        const cov = this.jsonData.coverageSummary;
-        const callout = this.$('coverage-callout');
-        const body = this.$('coverage-callout-body');
-        if (!callout || !body) return;
-
-        if (!cov || !cov.available) {
-            callout.classList.add('hidden');
-            return;
-        }
-
-        const unmatchedNote = cov.unmatchedFiles && cov.unmatchedFiles.length
-            ? ` ${this.formatNumber(cov.unmatchedFiles.length)} file(s) in the report couldn't be matched to a scanned source file and were skipped.`
-            : '';
-
-        body.innerHTML = `
-            ${cov.overallPct.toFixed(1)}% line coverage across ${this.formatNumber(cov.filesMatched)} matched file(s).
-            See the Coverage tab for the per-file breakdown.${this.escapeHtml(unmatchedNote)}
-        `;
-        callout.classList.remove('hidden');
-    }
-
-    populateHotspots() {
-        const hotspots = this.jsonData.hotspots;
-        const listEl = this.$('hotspot-list');
-        const noteEl = this.$('hotspots-unavailable-note');
-        if (!listEl || !noteEl) return;
-
-        if (!hotspots || !hotspots.gitAvailable) {
-            listEl.classList.add('hidden');
-            noteEl.classList.remove('hidden');
-            return;
-        }
-
-        const topFiles = (hotspots.topFiles || [])
-            .slice()
-            .sort((a, b) => (b.hotspotScore || 0) - (a.hotspotScore || 0))
-            .slice(0, 5);
-
-        if (!topFiles.length) {
-            listEl.classList.add('hidden');
-            noteEl.classList.remove('hidden');
-            noteEl.textContent = 'No hotspots to show \u2014 not enough commit history yet for this repository.';
-            return;
-        }
-
-        noteEl.classList.add('hidden');
-        listEl.innerHTML = topFiles
-            .map(fh => `
-                <li class="hotspot-item">
-                    <span class="hotspot-path" title="${this.escapeHtml(fh.path)}">${this.escapeHtml(fh.path)}</span>
-                    <span class="hotspot-stats">
-                        <span>CC <b>${this.formatNumber(fh.cyclomaticComplexity)}</b></span>
-                        <span>Commits <b>${this.formatNumber(fh.commitCount)}</b></span>
-                        <span>+${this.formatNumber(fh.linesAdded)}/-${this.formatNumber(fh.linesDeleted)}</span>
-                    </span>
-                </li>
-            `)
-            .join('');
-        listEl.classList.remove('hidden');
-    }
-
-    /* -----------------------------------------------------------------
-       By Language tab -- one corner-bracket card per language from the
-       scan JSON's byLanguage[] array, sorted by share of project LOC.
-       ----------------------------------------------------------------- */
-    classifyComplexityDensity(density) {
-        // Same thresholds as HealthScore.cpp's kComplexityDensityGood/Bad
-        // (0.15 / 0.50) -- a presentational Low/Med/High bucket, not a
-        // restatement of the full 5-component weighted health score.
-        if (density <= 0.15) return 'low';
-        if (density >= 0.50) return 'high';
-        return 'med';
-    }
-
-    populateByLanguage() {
-        const byLanguage = this.jsonData.byLanguage || [];
-        const grid = this.$('bylang-grid');
-        const empty = this.$('bylang-empty');
-        if (!grid || !empty) return;
-
-        if (!byLanguage.length) {
-            grid.innerHTML = '';
-            empty.classList.remove('hidden');
-            return;
-        }
-        empty.classList.add('hidden');
-
-        const projectCodeLines = Math.max(1, this.jsonData.project.codeLines || 0);
-        const sorted = byLanguage.slice().sort((a, b) => (b.codeLines || 0) - (a.codeLines || 0));
-
-        grid.innerHTML = sorted
-            .map(la => {
-                const pct = ((la.codeLines || 0) / projectCodeLines) * 100;
-                const density = (la.cyclomaticComplexity || 0) / Math.max(1, la.codeLines || 0);
-                const bucket = this.classifyComplexityDensity(density);
-                const badgeLabel = bucket === 'low' ? 'Low complexity' : bucket === 'high' ? 'High complexity' : 'Med complexity';
-                const badgeClass = bucket === 'low' ? '' : bucket;
-                return `
-                    <div class="metric-card">
-                        <div class="metric-card-head">
-                            <span class="metric-card-title">${this.escapeHtml(la.language)}</span>
-                            <span class="complexity-badge ${badgeClass}">${badgeLabel}</span>
-                        </div>
-                        <div class="metric-card-sub">${pct.toFixed(1)}% of project \u00b7 ${this.formatNumber(la.fileCount)} file(s)</div>
-                        <div class="metric-card-row">
-                            <div class="metric-item"><span class="metric-value">${this.formatNumber(la.codeLines)}</span><span class="metric-label">Code lines</span></div>
-                            <div class="metric-item"><span class="metric-value">${this.formatNumber(la.functionCount)}</span><span class="metric-label">Functions</span></div>
-                            <div class="metric-item"><span class="metric-value">${this.formatNumber(la.cyclomaticComplexity)}</span><span class="metric-label">Complexity</span></div>
-                            <div class="metric-item"><span class="metric-value">${this.formatNumber(la.classCount)}</span><span class="metric-label">Classes</span></div>
-                            <div class="metric-item"><span class="metric-value">${(la.avgFunctionLength || 0).toFixed(1)}</span><span class="metric-label">Avg fn length</span></div>
-                            <div class="metric-item"><span class="metric-value">${this.formatNumber(la.todoCount)}</span><span class="metric-label">TODOs</span></div>
-                        </div>
-                    </div>
-                `;
-            })
-            .join('');
-    }
-
-    /* -----------------------------------------------------------------
-       Files tab -- sortable/filterable table over the scan JSON's
-       files[] array. Rendering is capped (FILES_RENDER_CAP) with a
-       "show all" escape hatch so a very large repo's file list doesn't
-       lock up the tab; sort/filter always run against the full array.
-       ----------------------------------------------------------------- */
-    violationCountsByPath() {
-        const counts = {};
-        (this.jsonData.violations || []).forEach(v => {
-            counts[v.path] = (counts[v.path] || 0) + 1;
-        });
-        return counts;
-    }
-
-    populateFilesTab() {
-        const files = this.jsonData.files || [];
-        this.filesState = {
-            sortKey: 'cyclomaticComplexity',
-            sortDir: 'desc',
-            search: '',
-            lang: '',
-            renderCap: 300,
-            showAll: false,
-        };
-        this._violationCounts = this.violationCountsByPath();
-        // Sparkline column (Section 7.2.1 follow-up polish) scales each
-        // file's complexity bar against the highest value in the *full*
-        // unfiltered set, computed once here -- so bars stay visually
-        // comparable as the user searches/filters/sorts, rather than
-        // rescaling against whatever subset happens to be visible.
-        this._maxFileComplexity = Math.max(
-            1,
-            ...files.map(f => f.cyclomaticComplexity || 0)
-        );
-
-        const langSelect = this.$('files-lang-filter');
-        if (langSelect) {
-            const languages = Array.from(new Set(files.map(f => f.language).filter(Boolean))).sort();
-            langSelect.innerHTML = '<option value="">All languages</option>' +
-                languages.map(l => `<option value="${this.escapeHtml(l)}">${this.escapeHtml(l)}</option>`).join('');
-        }
-
-        this.renderFilesTable();
-    }
-
-    getFilteredSortedFiles() {
-        const files = this.jsonData.files || [];
-        const state = this.filesState || {};
-        const search = (state.search || '').toLowerCase();
-        const lang = state.lang || '';
-
-        let rows = files.filter(f => {
-            if (lang && f.language !== lang) return false;
-            if (search && !f.path.toLowerCase().includes(search)) return false;
-            return true;
-        });
-
-        rows = rows.map(f => ({ ...f, issues: this._violationCounts[f.path] || 0 }));
-
-        const key = state.sortKey || 'cyclomaticComplexity';
-        const dir = state.sortDir === 'asc' ? 1 : -1;
-        rows.sort((a, b) => {
-            const av = a[key];
-            const bv = b[key];
-            if (typeof av === 'string' || typeof bv === 'string') {
-                return dir * String(av || '').localeCompare(String(bv || ''));
-            }
-            return dir * ((av || 0) - (bv || 0));
-        });
-
-        return rows;
-    }
-
-    // Complexity sparkline cell: a left-edge fill bar (data-bar style, like
-    // a spreadsheet's in-cell bar) sized relative to the most complex file
-    // in the whole report, with the exact number kept alongside it -- the
-    // bar communicates shape/relative-magnitude across the file list at a
-    // glance, the number stays the source of truth. Deliberately
-    // monochrome (var(--accent), no low/med/high coloring): file-total
-    // complexity has no validated absolute thresholds the way per-function
-    // McCabe complexity or the density-based By Language badges do, so
-    // color-coding it as good/bad here would be a fabricated signal.
-    renderComplexitySparkline(cc) {
-        const value = cc || 0;
-        const pct = Math.max(2, Math.min(100, (value / this._maxFileComplexity) * 100));
-        return `
-            <span class="complexity-sparkline" title="${this.formatNumber(value)} of ${this.formatNumber(this._maxFileComplexity)} (max in this report)">
-                <span class="complexity-sparkline-fill" style="width:${pct}%"></span>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>REPO-SIGHT — Free static code analysis, graded in seconds</title>
+  <meta name="description" content="REPO-SIGHT reads your C++, Python, Java, TypeScript, JavaScript, or C# repository and grades it — size, complexity, duplication, security hotspots, coverage, and rule violations. Paste a public GitHub URL, no signup required." />
+  <link rel="canonical" href="https://www.repo-sight.com/" />
+  <meta name="robots" content="index, follow" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="REPO-SIGHT — Free static code analysis, graded in seconds" />
+  <meta property="og:description" content="Paste a public GitHub URL and get a graded code health report across 6 languages — complexity, duplication, security, coverage. No signup." />
+  <meta property="og:url" content="https://www.repo-sight.com/" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="REPO-SIGHT — Free static code analysis, graded in seconds" />
+  <meta name="twitter:description" content="Paste a public GitHub URL and get a graded code health report across 6 languages. No signup." />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+
+  <!-- Fonts: one combined request via <link>, not @import (the old
+       @import inside styles.css was render-blocking and loaded both
+       themes' fonts on every page regardless of which was needed).
+       Covers the marketing site's Ledger & Ink theme (Work Sans, Zilla
+       Slab, JetBrains Mono) and the report view's Annotated blueprint
+       theme (Archivo, Inter) in one request. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&family=Zilla+Slab:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="css/styles.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "REPO-SIGHT",
+        "url": "https://www.repo-sight.com/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any (web-based)",
+        "description": "Free static code analysis for C++, Python, Java, TypeScript, JavaScript, and C#. Paste a public GitHub URL and get complexity, duplication, security hotspots, coverage, and a graded health score in seconds. No signup required.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Ronak Arora" }
+      },
+      {
+        "@type": "Organization",
+        "name": "REPO-SIGHT",
+        "url": "https://www.repo-sight.com/",
+        "logo": "https://www.repo-sight.com/apple-touch-icon.png",
+        "email": "ronak.reposight@gmail.com"
+      }
+    ]
+  }
+  </script>
+
+  <!-- Supabase Auth (Phase 5) -- module script so it can pull the client
+       library from a CDN with no build step. Module scripts always finish
+       before DOMContentLoaded, so dashboard.js's bootstrap (which also
+       runs on DOMContentLoaded) can rely on window.supabaseClient already
+       existing. The publishable key below is meant to be public -- it's
+       gated by the user_scans table's Row Level Security policy in
+       Postgres, not by keeping the key secret. -->
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    window.supabaseClient = createClient(
+      "https://pktcvyzndrxqgetyyxwu.supabase.co",
+      "sb_publishable_VydPRlN9Sd3rJ3lifHCTog_0ulffKcm"
+    );
+  </script>
+  <!-- AdSense loader -- publisher ID matches ads.txt, the meta verification
+       tag above, and the .ad-slot unit below (ca-pub-9503894064247817). -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9503894064247817" crossorigin="anonymous"></script>
+
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/js/site-enhancements.js"></script>
+</head>
+<body>
+  <!-- ==================================================================
+       Landing page (shown when the URL has no ?scan= param). Static
+       markup rather than a JS-injected template so the marketing copy
+       is crawlable -- and, critically, this block is visible by default
+       (no "hidden" class) so a crawler or a client where JS is slow/
+       blocked/fails still sees real content instead of the dashboard's
+       loading spinner. The dashboard shell below starts hidden; both
+       dashboard.js#loadReport() branches explicitly toggle both blocks
+       rather than assuming either one's starting state.
+       ================================================================== -->
+  <div id="landing-page">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9.5" />
+              <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
+            </svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </a>
+        <nav class="site-nav">
+          <a href="#pipeline">How it works</a>
+          <a href="#features">What you get</a>
+          <a href="#learn">Learn</a>
+        </nav>
+        <a href="#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+        <div class="auth-widget">
+          <button type="button" class="btn-ghost auth-signin-btn">Sign in</button>
+          <div class="auth-account hidden">
+            <button type="button" class="auth-account-btn">
+              <span class="auth-avatar" aria-hidden="true"></span>
+              <span class="auth-email"></span>
+            </button>
+            <div class="auth-menu hidden">
+              <button type="button" class="auth-menu-item auth-myscans-btn">My Scans</button>
+              <button type="button" class="auth-menu-item auth-signout-btn">Sign out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero" id="analyze">
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <h1>
+            The audit you skip when you're solo.
+            <span class="hero-underline">Free, in seconds.</span>
+          </h1>
+          <p class="hero-sub">
+            Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo: size,
+            structure, complexity, duplication, security hotspots, and rule violations, across C++,
+            Python, Java, TypeScript, JavaScript, and C#.
+          </p>
+
+          <div class="hero-mode-toggle" role="tablist">
+            <button type="button" class="hero-mode-btn active" id="hero-mode-repo" role="tab" aria-selected="true">Scan a repo</button>
+            <button type="button" class="hero-mode-btn" id="hero-mode-file" role="tab" aria-selected="false">Analyze a file</button>
+          </div>
+
+          <form id="new-scan-form" class="hero-form">
+            <input type="text" id="new-scan-url" placeholder="https://github.com/owner/repo" autocomplete="off" />
+            <button type="submit" class="btn-primary" id="new-scan-submit">Analyze</button>
+          </form>
+          <p class="new-scan-error hidden" id="new-scan-error"></p>
+          <p class="hero-fineprint" id="hero-repo-fineprint">Public repositories only &middot; best for repos that analyze in under a minute &middot; no account needed</p>
+          <p class="hero-sample-link" id="hero-sample-link"><a href="?scan=SAMPLE_SCAN_ID&amp;sample=1">See a sample report &rarr;</a></p>
+
+          <!-- Phase 6d: optional LCOV coverage upload. REPO-SIGHT never runs
+               a repo's own test suite (no secure sandbox exists in this
+               stack) -- the user attaches a coverage report from their own
+               local/CI run instead. Sibling input+label pattern matches the
+               existing "Upload a file" panel below (#file-scan-upload). -->
+          <div id="new-scan-coverage-row">
+            <label class="btn-ghost" id="new-scan-coverage-label" for="new-scan-coverage" style="cursor: pointer;">
+              <span id="new-scan-coverage-label-text">+ Add coverage report (optional, LCOV)</span>
+            </label>
+            <input type="file" id="new-scan-coverage" class="hidden" accept=".info,.lcov,text/plain" />
+          </div>
+
+          <div class="hero-file-panels hidden" id="hero-file-panels">
+            <div class="hero-file-panel">
+              <h3>Paste code</h3>
+              <select id="file-scan-language">
+                <option value="cpp">C++</option>
+                <option value="python">Python</option>
+                <option value="java">Java</option>
+                <option value="typescript">TypeScript</option>
+                <option value="javascript">JavaScript</option>
+                <option value="csharp">C#</option>
+              </select>
+              <textarea id="file-scan-content" placeholder="Paste a single file's source here&hellip;"></textarea>
+              <button type="button" class="btn-primary" id="file-scan-paste-submit">Analyze pasted code</button>
+            </div>
+
+            <div class="hero-file-panel">
+              <h3>Upload a file</h3>
+              <label class="hero-file-drop" id="file-scan-drop" for="file-scan-upload">
+                <span id="file-scan-drop-label">Click to choose a file&hellip;</span>
+              </label>
+              <input type="file" id="file-scan-upload" class="hidden"
+                accept=".cpp,.cc,.cxx,.c++,.h,.hpp,.hxx,.h++,.py,.java,.ts,.tsx,.js,.mjs,.cjs,.jsx,.cs" />
+              <button type="button" class="btn-primary" id="file-scan-upload-submit" disabled>Analyze uploaded file</button>
+            </div>
+          </div>
+          <p class="new-scan-error hidden" id="file-scan-error"></p>
+          <p class="hero-fineprint hidden" id="hero-file-fineprint">Single file, up to 2 MB &middot; C++, Python, Java, TypeScript, JavaScript, C# &middot; no account needed</p>
+        </div>
+
+        <div class="hero-visual">
+          <div class="hero-stamp" aria-hidden="true">
+            <span class="hero-stamp-grade">A</span>
+            <span class="hero-stamp-caption">graded in<br />seconds</span>
+          </div>
+          <div class="hero-terminal" aria-hidden="true">
+            <div class="terminal-chrome">
+              <span class="dot dot-1"></span><span class="dot dot-2"></span><span class="dot dot-3"></span>
+              <span class="terminal-title">cma . --json report.json</span>
+            </div>
+            <pre class="terminal-body">====================================
+<span class="t-strong">CODE METRICS REPORT</span>
+====================================
+Files Analyzed         : <span class="t-value">14</span>
+Total Lines             : <span class="t-value">2,850</span>
+Cyclomatic Complexity   : <span class="t-value">137</span>
+Duplication             : <span class="t-value">4.2%</span>
+Security Hotspots       : <span class="t-accent">3</span>
+Health Grade            : <span class="t-accent">B+</span>
+====================================<span class="terminal-cursor"></span></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pipeline -->
+    <section class="pipeline" id="pipeline">
+      <h2>Five stages. One pass. No black box.</h2>
+      <p class="section-sub">
+        Every file goes through the same deterministic pipeline &mdash; the same one the
+        <code>cma</code> binary runs on the command line.
+      </p>
+      <div class="pipeline-grid">
+        <div class="pipeline-card">
+          <span class="pipeline-num">01</span>
+          <h3>Scan</h3>
+          <p>Finds every recognized source file across all six supported languages, in a repo, a folder, or a single file.</p>
+        </div>
+        <div class="pipeline-card">
+          <span class="pipeline-num">02</span>
+          <h3>Lex</h3>
+          <p>Character-level tokenizer per language. Keywords, identifiers, literals, operators &mdash; no regex, no compiler.</p>
+        </div>
+        <div class="pipeline-card">
+          <span class="pipeline-num">03</span>
+          <h3>Parse</h3>
+          <p>Walks the token stream to find functions, classes, nesting depth, and cyclomatic complexity.</p>
+        </div>
+        <div class="pipeline-card">
+          <span class="pipeline-num">04</span>
+          <h3>Aggregate</h3>
+          <p>Per-file metrics, duplication, and rule violations roll up into one project-level report and health score.</p>
+        </div>
+        <div class="pipeline-card">
+          <span class="pipeline-num">05</span>
+          <h3>Report</h3>
+          <p>A dashboard you can read &mdash; never a black box.</p>
+        </div>
+      </div>
+    </section>
+    <div class="ad-slot" data-ad-region="mid-page" aria-label="Advertisement">
+      <span class="ad-slot-label">Advertisement</span>
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-9503894064247817"
+           data-ad-slot="8550818093"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>
+         try {
+          if (localStorage.getItem("rs-cookie-consent") !== "accepted") {
+            (adsbygoogle = window.adsbygoogle || []).requestNonPersonalizedAds = 1;
+          }
+        } catch (e) {}
+        (adsbygoogle = window.adsbygoogle || []).push({});
+      </script>
+    </div>
+    <!-- Features -->
+    <section class="features" id="features">
+      <h2>Every metric the engine computes &mdash; one dashboard.</h2>
+      <p class="section-sub">Six languages, one report. Everything below runs on the same free scan, no tier gating.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M4 4h4v4H4zM10 10h4v10h-4zM16 6h4v14h-4z"/></svg>
+          </div>
+          <h3>Size &amp; structure</h3>
+          <p>Lines, functions, classes, and imports &mdash; split by real code vs. comments vs. blank, rolled up project-wide.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+          </div>
+          <h3>Complexity</h3>
+          <p>Cyclomatic complexity, max nesting depth, loops and conditions, and your longest function.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <h3>Technical debt</h3>
+          <p>Every TODO and FIXME marker, counted &mdash; so nothing quietly rots in a comment.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="10" height="10" rx="1.5"/><rect x="10" y="10" width="10" height="10" rx="1.5"/></svg>
+          </div>
+          <h3>Duplication</h3>
+          <p>Token-based clone detection finds copy-pasted blocks across your whole codebase, not just per file.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-2-2M16 6l2-2M12 7v2M9 9h6a3 3 0 013 3v3a6 6 0 01-12 0v-3a3 3 0 013-3z"/></svg>
+          </div>
+          <h3>Security hotspots</h3>
+          <p>39 rules across all six languages flag risky patterns &mdash; rolled up by severity, not just line count.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5"/></svg>
+          </div>
+          <h3>Coverage</h3>
+          <p>Upload an LCOV report from your own CI run and see line coverage mapped against the files that need it most.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l5-5M9 19l7-11M16 19l4-15"/></svg>
+          </div>
+          <h3>Scan-over-scan tracking</h3>
+          <p>Sign in and REPO-SIGHT remembers your last scan of a repo, so you can see if it's actually improving.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="3.5"/></svg>
+          </div>
+          <h3>AI explain-this-finding</h3>
+          <p>Signed-in users can ask for a plain-English explanation of any specific finding, not just the raw rule text.</p>
+        </div>
+      </div>
+    </section>
+    <!-- Learn -->
+    <section class="features" id="learn">
+      <h2>Read up on what the numbers mean.</h2>
+      <p class="section-sub">Short, practical explainers on the metrics REPO-SIGHT reports and why they matter.</p>
+      <div class="features-grid features-grid--three">
+        <a href="/learn/what-is-static-analysis.html" class="feature-card feature-card-link">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+          <h3>What is static code analysis?</h3>
+          <p>How reading source without running it catches structural problems early &mdash; and where it falls short.</p>
+        </a>
+        <a href="/learn/cyclomatic-complexity-explained.html" class="feature-card feature-card-link">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+          <h3>Cyclomatic complexity, explained</h3>
+          <p>What the number counts, why 10+ is a common warning line, and how to bring a function back down.</p>
+        </a>
+        <a href="/learn/reading-a-code-health-score.html" class="feature-card feature-card-link">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+          <h3>How to read a code health score</h3>
+          <p>What REPO-SIGHT's A&ndash;F grade weighs, and what to fix first when a repo grades low.</p>
+        </a>
+      </div>
+    </section>
+    <!-- CTA band -->
+    <section class="cta-band">
+      <div class="cta-band-inner">
+        <div>
+          <h2>Free is the whole plan.</h2>
+          <p>No tiers, no paywalled metrics. A small amount of advertising keeps it free instead of a paywall &mdash; analyze without an account any time.</p>
+        </div>
+        <a href="#analyze" class="btn-primary btn-cta-band">Analyze a repo now</a>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <div class="site-footer-inner">
+        <div class="footer-brand">
+          <div class="brand">
+            <span class="brand-mark">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
             </span>
-            <span class="complexity-sparkline-value">${this.formatNumber(value)}</span>
-        `;
-    }
-
-    renderFilesTable() {
-        const tbody = this.$('files-table-body');
-        const empty = this.$('files-empty');
-        const countLabel = this.$('files-count-label');
-        const showMoreBtn = this.$('files-show-more');
-        if (!tbody || !empty || !countLabel) return;
-
-        const allFiltered = this.getFilteredSortedFiles();
-        const totalFiles = (this.jsonData.files || []).length;
-
-        if (!totalFiles) {
-            tbody.innerHTML = '';
-            empty.classList.remove('hidden');
-            countLabel.textContent = '';
-            if (showMoreBtn) showMoreBtn.classList.add('hidden');
-            return;
-        }
-        empty.classList.add('hidden');
-
-        const cap = this.filesState.renderCap;
-        const showAll = this.filesState.showAll;
-        const rows = showAll ? allFiltered : allFiltered.slice(0, cap);
-
-        tbody.innerHTML = rows
-            .map(f => `
-                <tr>
-                    <td class="file-path-cell" title="${this.escapeHtml(f.path)}">${this.escapeHtml(f.path)}</td>
-                    <td><span class="lang-badge">${this.escapeHtml(f.language || '?')}</span></td>
-                    <td>${this.formatNumber(f.codeLines)}</td>
-                    <td>${this.renderComplexitySparkline(f.cyclomaticComplexity)}</td>
-                    <td>${this.formatNumber(f.maxNestingDepth)}</td>
-                    <td>${this.formatNumber(f.functionCount)}</td>
-                    <td>${this.formatNumber(f.issues)}</td>
-                </tr>
-            `)
-            .join('');
-
-        countLabel.textContent = allFiltered.length === totalFiles
-            ? `${this.formatNumber(totalFiles)} file(s)`
-            : `${this.formatNumber(allFiltered.length)} of ${this.formatNumber(totalFiles)} file(s)`;
-
-        if (showMoreBtn) {
-            const hiddenCount = allFiltered.length - rows.length;
-            if (hiddenCount > 0) {
-                showMoreBtn.textContent = `Show all files (${this.formatNumber(hiddenCount)} more)`;
-                showMoreBtn.classList.remove('hidden');
-            } else {
-                showMoreBtn.classList.add('hidden');
-            }
-        }
-
-        document.querySelectorAll('.files-table thead th[data-sort]').forEach(th => {
-            const isSorted = th.dataset.sort === this.filesState.sortKey;
-            th.classList.toggle('sorted', isSorted);
-            th.classList.toggle('asc', isSorted && this.filesState.sortDir === 'asc');
-        });
-    }
-
-    bindFilesToolbar() {
-        const searchInput = this.$('files-search');
-        const langSelect = this.$('files-lang-filter');
-        const showMoreBtn = this.$('files-show-more');
-        const headers = document.querySelectorAll('.files-table thead th[data-sort]');
-
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                if (!this.filesState) return;
-                this.filesState.search = searchInput.value;
-                this.renderFilesTable();
-            });
-        }
-        if (langSelect) {
-            langSelect.addEventListener('change', () => {
-                if (!this.filesState) return;
-                this.filesState.lang = langSelect.value;
-                this.renderFilesTable();
-            });
-        }
-        if (showMoreBtn) {
-            showMoreBtn.addEventListener('click', () => {
-                if (!this.filesState) return;
-                this.filesState.showAll = true;
-                this.renderFilesTable();
-            });
-        }
-        headers.forEach(th => {
-            th.addEventListener('click', () => {
-                if (!this.filesState) return;
-                const key = th.dataset.sort;
-                if (this.filesState.sortKey === key) {
-                    this.filesState.sortDir = this.filesState.sortDir === 'asc' ? 'desc' : 'asc';
-                } else {
-                    this.filesState.sortKey = key;
-                    this.filesState.sortDir = 'desc';
-                }
-                this.renderFilesTable();
-            });
-        });
-    }
-
-    /* -----------------------------------------------------------------
-       Duplication tab (Phase 6b) -- table over the scan JSON's
-       duplication.matches[] array (Phase 6a analyser output). Reuses the
-       Files tab's table/toolbar/empty-state CSS classes as-is -- no new
-       CSS needed. Sorted by tokenCount descending (biggest duplicate
-       blocks first); no interactive column sort like Files has, since
-       match lists are typically far shorter and a fixed "worst first"
-       order is the actionable default.
-       ----------------------------------------------------------------- */
-    populateDuplicationTab() {
-        const dup = this.jsonData.duplication;
-        this.duplicationState = { search: '', renderCap: 300, showAll: false };
-
-        const pctEl = this.$('duplication-pct');
-        const lineCountEl = this.$('duplication-line-count');
-        const matchCountEl = this.$('duplication-match-count');
-        const subEl = this.$('duplication-summary-sub');
-        const matches = (dup && dup.matches) || [];
-
-        if (pctEl) pctEl.textContent = dup ? `${(dup.duplicatePercentage || 0).toFixed(1)}%` : '\u2014';
-        if (lineCountEl) lineCountEl.textContent = dup ? this.formatNumber(dup.duplicateLineCount) : '\u2014';
-        if (matchCountEl) matchCountEl.textContent = this.formatNumber(matches.length);
-        if (subEl) subEl.textContent = dup ? 'across the whole project' : 'not available for this scan';
-
-        this.renderDuplicationTable();
-    }
-
-    getFilteredSortedDuplicationMatches() {
-        const matches = (this.jsonData.duplication && this.jsonData.duplication.matches) || [];
-        const search = ((this.duplicationState || {}).search || '').toLowerCase();
-
-        let rows = matches;
-        if (search) {
-            rows = rows.filter(m =>
-                m.pathA.toLowerCase().includes(search) || m.pathB.toLowerCase().includes(search)
-            );
-        }
-
-        return rows.slice().sort((a, b) => (b.tokenCount || 0) - (a.tokenCount || 0));
-    }
-
-    renderDuplicationTable() {
-        const tbody = this.$('duplication-table-body');
-        const empty = this.$('duplication-empty');
-        const countLabel = this.$('duplication-count-label');
-        const showMoreBtn = this.$('duplication-show-more');
-        if (!tbody || !empty || !countLabel) return;
-
-        const totalMatches = ((this.jsonData.duplication && this.jsonData.duplication.matches) || []).length;
-        const allFiltered = this.getFilteredSortedDuplicationMatches();
-
-        if (!totalMatches) {
-            tbody.innerHTML = '';
-            empty.classList.remove('hidden');
-            empty.textContent = 'No duplicate blocks detected in this scan.';
-            countLabel.textContent = '';
-            if (showMoreBtn) showMoreBtn.classList.add('hidden');
-            return;
-        }
-        empty.classList.add('hidden');
-
-        const state = this.duplicationState || {};
-        const rows = state.showAll ? allFiltered : allFiltered.slice(0, state.renderCap || 300);
-
-        tbody.innerHTML = rows
-            .map(m => `
-                <tr>
-                    <td class="file-path-cell" title="${this.escapeHtml(m.pathA)}">${this.escapeHtml(m.pathA)}</td>
-                    <td>${this.formatNumber(m.lineStartA)}-${this.formatNumber(m.lineEndA)}</td>
-                    <td class="file-path-cell" title="${this.escapeHtml(m.pathB)}">${this.escapeHtml(m.pathB)}</td>
-                    <td>${this.formatNumber(m.lineStartB)}-${this.formatNumber(m.lineEndB)}</td>
-                    <td>${this.formatNumber(m.tokenCount)}</td>
-                </tr>
-            `)
-            .join('');
-
-        countLabel.textContent = allFiltered.length === totalMatches
-            ? `${this.formatNumber(totalMatches)} match(es)`
-            : `${this.formatNumber(allFiltered.length)} of ${this.formatNumber(totalMatches)} match(es)`;
-
-        if (showMoreBtn) {
-            const hiddenCount = allFiltered.length - rows.length;
-            if (hiddenCount > 0) {
-                showMoreBtn.textContent = `Show all matches (${this.formatNumber(hiddenCount)} more)`;
-                showMoreBtn.classList.remove('hidden');
-            } else {
-                showMoreBtn.classList.add('hidden');
-            }
-        }
-    }
-
-    bindDuplicationToolbar() {
-        const searchInput = this.$('duplication-search');
-        const showMoreBtn = this.$('duplication-show-more');
-
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                if (!this.duplicationState) return;
-                this.duplicationState.search = searchInput.value;
-                this.renderDuplicationTable();
-            });
-        }
-        if (showMoreBtn) {
-            showMoreBtn.addEventListener('click', () => {
-                if (!this.duplicationState) return;
-                this.duplicationState.showAll = true;
-                this.renderDuplicationTable();
-            });
-        }
-    }
-
-    /* -----------------------------------------------------------------
-       Security tab (Phase 6c) -- table over violations[] filtered to
-       category="security" (Phase 6c analyser output; same array the
-       Files tab's per-file issue counts already draw from). Reuses the
-       Duplication tab's table/toolbar/empty-state CSS classes as-is --
-       no new CSS needed. Sorted "warning" findings first (most actionable),
-       then by file path; no interactive column sort, same rationale as
-       Duplication -- finding lists are typically short and a fixed
-       worst-first order is the actionable default. Purely informational:
-       does not affect HealthScore, matching Q5's decision for this phase.
-       ----------------------------------------------------------------- */
-    populateSecurityTab() {
-        const findings = (this.jsonData.violations || []).filter(v => v.category === 'security');
-        this.securityState = { search: '', renderCap: 300, showAll: false };
-
-        const findingCountEl = this.$('security-finding-count');
-        const fileCountEl = this.$('security-file-count');
-        const warningCountEl = this.$('security-warning-count');
-        const subEl = this.$('security-summary-sub');
-
-        const fileCount = new Set(findings.map(v => v.path)).size;
-        const warningCount = findings.filter(v => v.severity === 'warning').length;
-
-        if (findingCountEl) findingCountEl.textContent = this.formatNumber(findings.length);
-        if (fileCountEl) fileCountEl.textContent = this.formatNumber(fileCount);
-        if (warningCountEl) warningCountEl.textContent = this.formatNumber(warningCount);
-        if (subEl) subEl.textContent = 'across the whole project';
-
-        this.renderSecurityTable();
-    }
-
-    getFilteredSortedSecurityFindings() {
-        const findings = (this.jsonData.violations || []).filter(v => v.category === 'security');
-        const search = ((this.securityState || {}).search || '').toLowerCase();
-
-        let rows = findings;
-        if (search) {
-            rows = rows.filter(v =>
-                (v.path || '').toLowerCase().includes(search) ||
-                (v.ruleId || '').toLowerCase().includes(search) ||
-                (v.message || '').toLowerCase().includes(search)
-            );
-        }
-
-        const severityRank = s => (s === 'warning' ? 0 : 1);
-        return rows.slice().sort((a, b) => {
-            const bySeverity = severityRank(a.severity) - severityRank(b.severity);
-            return bySeverity !== 0 ? bySeverity : (a.path || '').localeCompare(b.path || '');
-        });
-    }
-
-    // "Explain this finding" (AI features, first cut) only makes sense for
-    // repo-based scans -- it re-fetches the flagged file from GitHub by
-    // owner/repo/branch, which a paste/upload single-file scan has no
-    // concept of, and older scans recorded before this field existed
-    // won't have it either. Missing any of the three -> hide the button
-    // entirely rather than showing something that will just 401/404.
-    canExplainFindings() {
-        const d = this.jsonData || {};
-        return !!(d.repoOwner && d.repoName && d.repoBranch);
-    }
-
-    renderSecurityTable() {
-        const tbody = this.$('security-table-body');
-        const empty = this.$('security-empty');
-        const countLabel = this.$('security-count-label');
-        const showMoreBtn = this.$('security-show-more');
-        if (!tbody || !empty || !countLabel) return;
-
-        const totalFindings = (this.jsonData.violations || []).filter(v => v.category === 'security').length;
-        const allFiltered = this.getFilteredSortedSecurityFindings();
-
-        if (!totalFindings) {
-            tbody.innerHTML = '';
-            empty.classList.remove('hidden');
-            empty.textContent = 'No security findings detected in this scan.';
-            countLabel.textContent = '';
-            if (showMoreBtn) showMoreBtn.classList.add('hidden');
-            return;
-        }
-        empty.classList.add('hidden');
-
-        const state = this.securityState || {};
-        const rows = state.showAll ? allFiltered : allFiltered.slice(0, state.renderCap || 300);
-        // Stashed so the delegated Explain-button click handler (bound
-        // once on tbody in bindSecurityToolbar) can look a finding back
-        // up by its row index without re-parsing the DOM or re-encoding
-        // the whole violation into data-attributes.
-        this._securityRenderedFindings = rows;
-        const canExplain = this.canExplainFindings();
-
-        tbody.innerHTML = rows
-            .map((v, idx) => `
-                <tr data-finding-idx="${idx}">
-                    <td class="file-path-cell" title="${this.escapeHtml(v.path)}">${this.escapeHtml(v.path)}</td>
-                    <td>${this.formatNumber(v.line)}</td>
-                    <td>${this.escapeHtml(v.ruleId)}</td>
-                    <td>${this.escapeHtml(v.severity)}</td>
-                    <td>${this.escapeHtml(v.message)}</td>
-                    <td>${canExplain
-                        ? `<button type="button" class="btn-ghost btn-explain" data-finding-idx="${idx}">Explain</button>`
-                        : ''}</td>
-                </tr>
-            `)
-            .join('');
-
-        countLabel.textContent = allFiltered.length === totalFindings
-            ? `${this.formatNumber(totalFindings)} finding(s)`
-            : `${this.formatNumber(allFiltered.length)} of ${this.formatNumber(totalFindings)} finding(s)`;
-
-        if (showMoreBtn) {
-            const hiddenCount = allFiltered.length - rows.length;
-            if (hiddenCount > 0) {
-                showMoreBtn.textContent = `Show all findings (${this.formatNumber(hiddenCount)} more)`;
-                showMoreBtn.classList.remove('hidden');
-            } else {
-                showMoreBtn.classList.add('hidden');
-            }
-        }
-    }
-
-    bindSecurityToolbar() {
-        const searchInput = this.$('security-search');
-        const showMoreBtn = this.$('security-show-more');
-        const tbody = this.$('security-table-body');
-
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                if (!this.securityState) return;
-                this.securityState.search = searchInput.value;
-                this.renderSecurityTable();
-            });
-        }
-        if (showMoreBtn) {
-            showMoreBtn.addEventListener('click', () => {
-                if (!this.securityState) return;
-                this.securityState.showAll = true;
-                this.renderSecurityTable();
-            });
-        }
-        // Delegated (bound once on the static tbody element, not per-row)
-        // since renderSecurityTable() replaces tbody.innerHTML on every
-        // search/sort/show-more -- per-row listeners would need
-        // re-binding on every render and are easy to leak.
-        if (tbody) {
-            tbody.addEventListener('click', e => {
-                const btn = e.target.closest('.btn-explain');
-                if (!btn) return;
-                this.handleExplainClick(parseInt(btn.dataset.findingIdx, 10), btn);
-            });
-        }
-    }
-
-    // Toggles an inline explanation row directly under the clicked
-    // finding. Second click on an already-open row collapses it instead
-    // of re-fetching -- cheap UX win, and avoids burning a second call
-    // against the shared free-tier rate limit for something already on
-    // screen.
-    async handleExplainClick(idx, btn) {
-        const finding = (this._securityRenderedFindings || [])[idx];
-        const row = btn.closest('tr');
-        if (!finding || !row) return;
-
-        const existing = row.nextElementSibling;
-        if (existing && existing.classList.contains('explain-row')) {
-            existing.remove();
-            return;
-        }
-        // Only one explanation open at a time keeps the table from
-        // growing unbounded if someone clicks several findings in a row.
-        this.$('security-table-body')?.querySelectorAll('.explain-row').forEach(el => el.remove());
-
-        const colCount = row.children.length;
-        const explainRow = document.createElement('tr');
-        explainRow.className = 'explain-row';
-        explainRow.innerHTML = `<td colspan="${colCount}"><div class="explain-body">Asking the AI about this one\u2026</div></td>`;
-        row.after(explainRow);
-
-        const bodyEl = explainRow.querySelector('.explain-body');
-        const d = this.jsonData || {};
-
-        try {
-            const headers = await this.getAuthHeaders();
-            const res = await fetch('/api/explain-finding', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    repoOwner: d.repoOwner,
-                    repoName: d.repoName,
-                    repoBranch: d.repoBranch,
-                    path: finding.path,
-                    line: finding.line,
-                    ruleId: finding.ruleId,
-                    language: finding.language,
-                    message: finding.message,
-                    severity: finding.severity,
-                    category: finding.category,
-                }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                bodyEl.classList.add('explain-error');
-                bodyEl.textContent = res.status === 401
-                    ? 'Sign in to use AI explanations.'
-                    : (data.error || 'Could not generate an explanation.');
-                return;
-            }
-            bodyEl.textContent = data.explanation || 'No explanation returned.';
-        } catch (_) {
-            bodyEl.classList.add('explain-error');
-            bodyEl.textContent = 'Network error reaching the explanation service.';
-        }
-    }
-
-    /* -----------------------------------------------------------------
-       Coverage tab (Phase 6d) -- table over files[] entries that carry a
-       .coverage field (attached server-side by api/_lib/coverage.js when
-       an LCOV report was submitted with the scan; see that module's
-       header comment for why REPO-SIGHT never runs the repo's own tests
-       itself). Reuses the Duplication/Security tabs' table/toolbar/
-       empty-state CSS classes as-is -- no new CSS needed. Sorted
-       worst-coverage-first, same "most actionable first" rationale as
-       Security's severity-first sort. Purely informational: does not
-       affect HealthScore.
-       ----------------------------------------------------------------- */
-    getCoveredFiles() {
-        return (this.jsonData.files || []).filter(f => f.coverage);
-    }
-
-    populateCoverageTab() {
-        const cov = this.jsonData.coverageSummary;
-        this.coverageState = { search: '', renderCap: 300, showAll: false };
-
-        const overallPctEl = this.$('coverage-overall-pct');
-        const linesHitEl = this.$('coverage-lines-hit');
-        const filesMatchedEl = this.$('coverage-files-matched');
-        const subEl = this.$('coverage-summary-sub');
-
-        if (!cov || !cov.available) {
-            if (overallPctEl) overallPctEl.textContent = '\u2014';
-            if (linesHitEl) linesHitEl.textContent = '\u2014';
-            if (filesMatchedEl) filesMatchedEl.textContent = '\u2014';
-            if (subEl) subEl.textContent = '';
-            this.renderCoverageTable();
-            return;
-        }
-
-        if (overallPctEl) overallPctEl.textContent = `${cov.overallPct.toFixed(1)}%`;
-        if (linesHitEl) linesHitEl.textContent = `${this.formatNumber(cov.linesHit)} / ${this.formatNumber(cov.linesFound)}`;
-        if (filesMatchedEl) filesMatchedEl.textContent = this.formatNumber(cov.filesMatched);
-        if (subEl) {
-            subEl.textContent = (cov.unmatchedFiles && cov.unmatchedFiles.length)
-                ? `${this.formatNumber(cov.unmatchedFiles.length)} file(s) in the report couldn't be matched`
-                : 'from the uploaded LCOV report';
-        }
-
-        this.renderCoverageTable();
-    }
-
-    getFilteredSortedCoverageFiles() {
-        const files = this.getCoveredFiles();
-        const search = ((this.coverageState || {}).search || '').toLowerCase();
-
-        let rows = files;
-        if (search) {
-            rows = rows.filter(f => (f.path || '').toLowerCase().includes(search));
-        }
-
-        return rows.slice().sort((a, b) => {
-            const byPct = a.coverage.coveragePct - b.coverage.coveragePct;
-            return byPct !== 0 ? byPct : (a.path || '').localeCompare(b.path || '');
-        });
-    }
-
-    formatUncoveredLines(lines) {
-        if (!lines || !lines.length) return '\u2014';
-        const MAX_SHOWN = 6;
-        const shown = lines.slice(0, MAX_SHOWN).join(', ');
-        const extra = lines.length - MAX_SHOWN;
-        return extra > 0 ? `${shown} (+${this.formatNumber(extra)} more)` : shown;
-    }
-
-    renderCoverageTable() {
-        const tbody = this.$('coverage-table-body');
-        const empty = this.$('coverage-empty');
-        const countLabel = this.$('coverage-count-label');
-        const showMoreBtn = this.$('coverage-show-more');
-        if (!tbody || !empty || !countLabel) return;
-
-        const cov = this.jsonData.coverageSummary;
-
-        // Two distinct empty states, not one generic one -- "nothing was
-        // uploaded" and "something was uploaded but nothing matched" call
-        // for different messages (same UX principle as the Files tab's
-        // unanalyzed-languages pointer).
-        if (!cov || !cov.available) {
-            tbody.innerHTML = '';
-            empty.textContent = 'No coverage report was uploaded for this scan.';
-            empty.classList.remove('hidden');
-            countLabel.textContent = '';
-            if (showMoreBtn) showMoreBtn.classList.add('hidden');
-            return;
-        }
-
-        const totalFiles = this.getCoveredFiles().length;
-        const allFiltered = this.getFilteredSortedCoverageFiles();
-
-        if (!totalFiles) {
-            tbody.innerHTML = '';
-            empty.textContent = "Coverage report was uploaded, but none of its files matched a scanned source file.";
-            empty.classList.remove('hidden');
-            countLabel.textContent = '';
-            if (showMoreBtn) showMoreBtn.classList.add('hidden');
-            return;
-        }
-        empty.classList.add('hidden');
-
-        const state = this.coverageState || {};
-        const rows = state.showAll ? allFiltered : allFiltered.slice(0, state.renderCap || 300);
-
-        tbody.innerHTML = rows
-            .map(f => `
-                <tr>
-                    <td class="file-path-cell" title="${this.escapeHtml(f.path)}">${this.escapeHtml(f.path)}</td>
-                    <td>${f.coverage.coveragePct.toFixed(1)}%</td>
-                    <td>${this.formatNumber(f.coverage.linesHit)} / ${this.formatNumber(f.coverage.linesFound)}</td>
-                    <td>${this.escapeHtml(this.formatUncoveredLines(f.coverage.uncoveredLines))}</td>
-                </tr>
-            `)
-            .join('');
-
-        countLabel.textContent = allFiltered.length === totalFiles
-            ? `${this.formatNumber(totalFiles)} file(s)`
-            : `${this.formatNumber(allFiltered.length)} of ${this.formatNumber(totalFiles)} file(s)`;
-
-        if (showMoreBtn) {
-            const hiddenCount = allFiltered.length - rows.length;
-            if (hiddenCount > 0) {
-                showMoreBtn.textContent = `Show all files (${this.formatNumber(hiddenCount)} more)`;
-                showMoreBtn.classList.remove('hidden');
-            } else {
-                showMoreBtn.classList.add('hidden');
-            }
-        }
-    }
-
-    bindCoverageToolbar() {
-        const searchInput = this.$('coverage-search');
-        const showMoreBtn = this.$('coverage-show-more');
-
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                if (!this.coverageState) return;
-                this.coverageState.search = searchInput.value;
-                this.renderCoverageTable();
-            });
-        }
-        if (showMoreBtn) {
-            showMoreBtn.addEventListener('click', () => {
-                if (!this.coverageState) return;
-                this.coverageState.showAll = true;
-                this.renderCoverageTable();
-            });
-        }
-    }
-
-    /* -----------------------------------------------------------------
-       Scoring tab -- the five weighted components behind the health
-       score (SCORE_COMPONENTS, mirroring HealthScore.cpp exactly), each
-       as a bar with a plain-language "why" and "how to improve", plus a
-       quick-wins list ranked by how many of the 100 points each
-       component is actually costing the project right now.
-       ----------------------------------------------------------------- */
-    populateScoring() {
-        const project = this.jsonData.project || {};
-        const breakdown = project.scoreBreakdown;
-        const barsEl = this.$('score-bars');
-        const quickWinsEl = this.$('quick-wins-list');
-        if (!barsEl || !quickWinsEl) return;
-
-        this.setText('scoring-grade-big', project.healthGrade || '\u2014');
-        this.setText('scoring-score-big', `${Math.round(project.healthScore || 0)} / 100`);
-
-        if (!breakdown) {
-            barsEl.innerHTML = '<p style="color: var(--text-faint); font-size: 12.5px;">Score breakdown isn\u2019t available for this scan.</p>';
-            quickWinsEl.innerHTML = '';
-            return;
-        }
-
-        const scored = SCORE_COMPONENTS.map(c => {
-            const subScore = breakdown[c.key] != null ? breakdown[c.key] : 0;
-            const rawValue = c.valueOf(project);
-            const lostPoints = c.weight * (100 - subScore);
-            return { ...c, subScore, rawValue, lostPoints };
-        });
-
-        barsEl.innerHTML = scored
-            .map(c => {
-                const barClass = c.subScore >= 80 ? 'good' : c.subScore >= 50 ? 'mid' : 'bad';
-                return `
-                    <div class="score-bar-row">
-                        <div class="score-bar-head">
-                            <span class="score-bar-title">${this.escapeHtml(c.title)}</span>
-                            <span class="score-bar-weight">${Math.round(c.subScore)}/100 \u00b7 weight ${(c.weight * 100).toFixed(0)}%</span>
-                        </div>
-                        <div class="score-bar-track"><div class="score-bar-fill ${barClass}" style="width: ${Math.max(2, c.subScore)}%"></div></div>
-                        <div class="score-bar-detail">${c.detail(c.rawValue, c.goodRef)}</div>
-                    </div>
-                `;
-            })
-            .join('');
-
-        const quickWins = scored
-            .filter(c => c.lostPoints > 0.5)
-            .sort((a, b) => b.lostPoints - a.lostPoints)
-            .slice(0, 3);
-
-        quickWinsEl.innerHTML = quickWins.length
-            ? quickWins
-                  .map(c => `<li><span><b>${this.escapeHtml(c.tip)}</b><span class="quick-wins-impact">${c.title} \u2014 costing about ${c.lostPoints.toFixed(1)} of 100 points</span></span></li>`)
-                  .join('')
-            : '<li><span>Nothing stands out \u2014 all five components are already close to their targets.</span></li>';
-    }
-
-    updateTopbarMeta() {
-        const project = this.jsonData.project || {};
-        if (this.meta.projectName) {
-            document.title = `${this.meta.projectName} \u2014 REPO-SIGHT`;
-        }
-        this.setText('dash-project', this.meta.projectName || '\u2014');
-        this.setText('dash-scan', this.meta.scanId ? `scan ${this.meta.scanId.slice(0, 8)}` : '');
-        this.setText(
-            'page-subtitle',
-            `${this.formatNumber(project.filesAnalyzed)} files \u00b7 ${this.formatNumber(project.totalLines)} lines analyzed`
-        );
-    }
-
-    populateOverview(project) {
-        const healthScore = Math.round(project.healthScore || 0);
-        const healthGrade = project.healthGrade || 'F';
-
-        this.setGauge(healthScore, healthGrade);
-        this.setText('health-score-value', `${healthScore}`);
-        this.setText('health-grade', `GRADE ${healthGrade}`);
-
-        const violations = this.jsonData.violations || [];
-        const bySeverity = sev => violations.filter(v => v.severity === sev).length;
-
-        this.setText('count-warning', bySeverity('warning'));
-        this.setText('count-info', bySeverity('info'));
-
-        this.setText('function-count', project.functionCount || 0);
-        this.setText('complexity-count', project.cyclomaticComplexity || 0);
-        this.setText('todo-count', project.todoCount || 0);
-        this.setText('nesting-depth', project.maxNestingDepth || 0);
-
-        // Size & shape
-        this.setText('m-total-lines', this.formatNumber(project.totalLines || 0));
-        this.setText('m-code-lines', this.formatNumber(project.codeLines || 0));
-        this.setText('m-comment-lines', this.formatNumber(project.commentLines || 0));
-        this.setText('m-blank-lines', this.formatNumber(project.blankLines || 0));
-
-        // Structure
-        this.setText('m-class-count', this.formatNumber(project.classCount || 0));
-        this.setText('m-variable-count', this.formatNumber(project.variableCount || 0));
-        this.setText('m-include-count', this.formatNumber(project.includeCount || 0));
-
-        // Complexity detail
-        this.setText('m-loop-count', this.formatNumber(project.loopCount || 0));
-        this.setText('m-condition-count', this.formatNumber(project.conditionCount || 0));
-        this.setText('m-trycatch-count', this.formatNumber(project.tryCatchCount || 0));
-
-        const longestName = project.longestFunctionName || '\u2014';
-        const longestLines = project.longestFunctionLines || 0;
-        this.setText('longest-fn-name', longestName);
-        this.setText('longest-fn-lines', longestLines ? `${longestLines} lines` : '');
-        const bar = this.$('longest-fn-bar');
-        if (bar) {
-            const pct = Math.max(0, Math.min(100, (longestLines / LONG_FUNCTION_THRESHOLD) * 100));
-            bar.style.width = `${pct}%`;
-        }
-    }
-
-    setGauge(score, grade) {
-        const fill = this.$('gauge-fill');
-        if (!fill) return;
-        const pct = Math.max(0, Math.min(100, score)) / 100;
-        fill.style.strokeDasharray = `${GAUGE_CIRCUMFERENCE}`;
-        fill.style.strokeDashoffset = `${GAUGE_CIRCUMFERENCE * (1 - pct)}`;
-        fill.style.stroke = GRADE_COLOR[grade] || GRADE_COLOR.F;
-    }
-
-    /* -----------------------------------------------------------------
-       Streak
-       ----------------------------------------------------------------- */
-    updateStreak() {
-        const today = new Date().toISOString().slice(0, 10);
-        if (this.lastAnalysisDate !== today) {
-            this.analysisStreak = this.lastAnalysisDate ? this.analysisStreak + 1 : 1;
-            this.lastAnalysisDate = today;
-            localStorage.setItem('rs-last-analysis', today);
-            localStorage.setItem('rs-streak', String(this.analysisStreak));
-        }
-        this.updateStreakDisplay();
-    }
-
-    // Milestone flavor for the streak strip -- plain count through day 2
-    // (nothing to riff on yet), escalating dry commentary past that. Same
-    // scoping logic as LOADING_TIPS: this is UI chrome around the tool,
-    // not report content, so it's the safe place for humor.
-    streakFlavorText(n) {
-        if (n < 3) return `You've analyzed code ${n} ${n === 1 ? 'day' : 'days'} in a row!`;
-        if (n < 7) return `${n} days in a row. Suspicious levels of diligence.`;
-        if (n < 14) return `${n} days straight. At this point it's a personality trait.`;
-        if (n < 30) return `${n} days. Your code doesn't know what hit it.`;
-        return `${n} days in a row. Genuinely, are you okay?`;
-    }
-
-    updateStreakDisplay() {
-        const msg = this.$('streak-message');
-        const vis = this.$('streak-visual');
-        if (!msg || !vis) return;
-        if (this.analysisStreak > 0) {
-            msg.textContent = this.streakFlavorText(this.analysisStreak);
-            vis.textContent = '\u{1F525}'.repeat(Math.min(this.analysisStreak, 5));
-        }
-    }
-
-    /* -----------------------------------------------------------------
-       Phase 5 -- Auth (GitHub OAuth + email magic link) and per-user
-       scan history.
-
-       window.supabaseClient is created by the module script in
-       index.html's <head>. Module scripts are guaranteed to finish
-       running before DOMContentLoaded fires, and this class is only ever
-       constructed inside a DOMContentLoaded handler, so the client is
-       always available here -- except if the CDN request itself failed
-       (offline, ad-blocker, etc.), which is exactly why every method
-       below checks for it and degrades to "auth just isn't available"
-       rather than throwing. Anonymous scanning must never break because
-       a third-party script didn't load.
-
-       Writes (insert + 5-scan-cap eviction) happen server-side in
-       api/_lib/supabase.js using the service-role key. The frontend only
-       ever reads user_scans, filtered automatically by the "select own
-       scans" RLS policy applied to the signed-in user's own session --
-       there is no path for the browser to write or delete a row.
-       ----------------------------------------------------------------- */
-    bindAuth() {
-        this.authWidgets = Array.from(document.querySelectorAll('.auth-widget'));
-        const supabase = window.supabaseClient;
-        if (!supabase || !this.authWidgets.length) return;
-
-        this.authWidgets.forEach(widget => {
-            widget.querySelector('.auth-signin-btn')?.addEventListener('click', () => this.openAuthModal());
-            widget.querySelector('.auth-account-btn')?.addEventListener('click', () => this.toggleAccountMenu(widget));
-            widget.querySelector('.auth-myscans-btn')?.addEventListener('click', () => {
-                this.closeAccountMenus();
-                this.openMyScansModal();
-            });
-            widget.querySelector('.auth-signout-btn')?.addEventListener('click', () => {
-                this.closeAccountMenus();
-                supabase.auth.signOut();
-            });
-        });
-
-        // Click-outside closes any open account dropdown.
-        document.addEventListener('click', e => {
-            if (!e.target.closest('.auth-account')) this.closeAccountMenus();
-        });
-        // Escape closes whichever modal (if any) is open.
-        document.addEventListener('keydown', e => {
-            if (e.key !== 'Escape') return;
-            this.closeAuthModal();
-            this.closeMyScansModal();
-        });
-
-        this.bindAuthModal();
-        this.bindMyScansModal();
-
-        supabase.auth.onAuthStateChange((_event, session) => this.renderAuthState(session));
-        supabase.auth.getSession()
-            .then(({ data }) => this.renderAuthState(data?.session || null))
-            .catch(() => this.renderAuthState(null));
-    }
-
-    closeAccountMenus() {
-        document.querySelectorAll('.auth-menu').forEach(m => m.classList.add('hidden'));
-    }
-
-    toggleAccountMenu(widget) {
-        const menu = widget.querySelector('.auth-menu');
-        if (!menu) return;
-        const willOpen = menu.classList.contains('hidden');
-        this.closeAccountMenus();
-        if (willOpen) menu.classList.remove('hidden');
-    }
-
-    renderAuthState(session) {
-        const user = session?.user || null;
-        (this.authWidgets || []).forEach(widget => {
-            const signinBtn = widget.querySelector('.auth-signin-btn');
-            const account = widget.querySelector('.auth-account');
-            const emailEl = widget.querySelector('.auth-email');
-            const avatarEl = widget.querySelector('.auth-avatar');
-            if (!signinBtn || !account) return;
-
-            signinBtn.classList.toggle('hidden', !!user);
-            account.classList.toggle('hidden', !user);
-            if (user) {
-                const email = user.email || '';
-                if (emailEl) emailEl.textContent = email;
-                if (avatarEl) avatarEl.textContent = (email.charAt(0) || '?').toUpperCase();
-            }
-        });
-    }
-
-    currentRedirectUrl() {
-        return window.location.origin + window.location.pathname + window.location.search;
-    }
-
-    openAuthModal() {
-        const backdrop = this.$('auth-modal-backdrop');
-        if (!backdrop) return;
-        this.$('auth-modal-status')?.classList.add('hidden');
-        this.$('auth-modal-error')?.classList.add('hidden');
-        backdrop.classList.remove('hidden');
-    }
-
-    closeAuthModal() {
-        this.$('auth-modal-backdrop')?.classList.add('hidden');
-    }
-
-    bindAuthModal() {
-        const supabase = window.supabaseClient;
-        const backdrop = this.$('auth-modal-backdrop');
-        const closeBtn = this.$('auth-modal-close');
-        const githubBtn = this.$('auth-github-btn');
-        const magicForm = this.$('auth-magic-form');
-        const statusEl = this.$('auth-modal-status');
-        const errorEl = this.$('auth-modal-error');
-        if (!backdrop) return;
-
-        closeBtn?.addEventListener('click', () => this.closeAuthModal());
-        backdrop.addEventListener('click', e => {
-            if (e.target === backdrop) this.closeAuthModal();
-        });
-
-        githubBtn?.addEventListener('click', async () => {
-            errorEl?.classList.add('hidden');
-            this.track('auth_signin_attempt', { method: 'github' });
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'github',
-                options: { redirectTo: this.currentRedirectUrl() },
-            });
-            if (error && errorEl) {
-                errorEl.textContent = error.message || 'Could not start GitHub sign-in.';
-                errorEl.classList.remove('hidden');
-            }
-        });
-
-        magicForm?.addEventListener('submit', async e => {
-            e.preventDefault();
-            const emailInput = this.$('auth-magic-email');
-            const submitBtn = this.$('auth-magic-submit');
-            const email = emailInput?.value.trim();
-            if (!email) return;
-
-            errorEl?.classList.add('hidden');
-            statusEl?.classList.add('hidden');
-            if (submitBtn) submitBtn.disabled = true;
-            this.track('auth_signin_attempt', { method: 'magic_link' });
-
-            const { error } = await supabase.auth.signInWithOtp({
-                email,
-                options: { emailRedirectTo: this.currentRedirectUrl() },
-            });
-
-            if (submitBtn) submitBtn.disabled = false;
-            if (error) {
-                if (errorEl) {
-                    errorEl.textContent = error.message || 'Could not send the sign-in link. Please try again in a moment.';
-                    errorEl.classList.remove('hidden');
-                }
-            } else if (statusEl) {
-                statusEl.textContent = `Check ${email} for a sign-in link.`;
-                statusEl.classList.remove('hidden');
-            }
-        });
-    }
-
-    openMyScansModal() {
-        const backdrop = this.$('myscans-modal-backdrop');
-        if (!backdrop) return;
-        backdrop.classList.remove('hidden');
-        this.loadMyScans();
-    }
-
-    closeMyScansModal() {
-        this.$('myscans-modal-backdrop')?.classList.add('hidden');
-    }
-
-    bindMyScansModal() {
-        const backdrop = this.$('myscans-modal-backdrop');
-        const closeBtn = this.$('myscans-modal-close');
-        if (!backdrop) return;
-        closeBtn?.addEventListener('click', () => this.closeMyScansModal());
-        backdrop.addEventListener('click', e => {
-            if (e.target === backdrop) this.closeMyScansModal();
-        });
-    }
-
-    async loadMyScans() {
-        const supabase = window.supabaseClient;
-        const listEl = this.$('myscans-list');
-        const errorEl = this.$('myscans-error');
-        if (!supabase || !listEl) return;
-
-        listEl.innerHTML = '<p class="myscans-empty">Loading\u2026</p>';
-        errorEl?.classList.add('hidden');
-
-        const { data, error } = await supabase
-            .from('user_scans')
-            .select('scan_id, project_name, health_score, health_grade, scanned_at')
-            .order('scanned_at', { ascending: false });
-
-        if (error) {
-            listEl.innerHTML = '';
-            if (errorEl) {
-                errorEl.textContent = 'Could not load your scan history right now.';
-                errorEl.classList.remove('hidden');
-            }
-            return;
-        }
-
-        if (!data || !data.length) {
-            listEl.innerHTML = '<p class="myscans-empty">No scans yet \u2014 run one while signed in and it\u2019ll show up here.</p>';
-            return;
-        }
-
-        listEl.innerHTML = data
-            .map(row => `
-                <a class="myscans-row" href="?scan=${encodeURIComponent(row.scan_id)}">
-                    <span class="myscans-row-name">${this.escapeHtml(row.project_name)}</span>
-                    <span class="myscans-row-meta">
-                        <span>${this.escapeHtml(row.health_grade || '\u2014')}</span>
-                        <span>${new Date(row.scanned_at).toLocaleDateString()}</span>
-                    </span>
-                </a>
-            `)
-            .join('');
-    }
-
-    // Used by both scan-submission fetches (repo + file). Anonymous
-    // requests get back the plain JSON content-type header, unchanged
-    // from Phases 0-4 -- an auth hiccup here must never block a scan.
-    async getAuthHeaders() {
-        const headers = { 'Content-Type': 'application/json' };
-        const supabase = window.supabaseClient;
-        if (!supabase) return headers;
-        try {
-            const { data } = await supabase.auth.getSession();
-            const token = data?.session?.access_token;
-            if (token) headers.Authorization = `Bearer ${token}`;
-        } catch (_) {
-            // Fall through as anonymous.
-        }
-        return headers;
-    }
-}
-
-/* -----------------------------------------------------------------
-   Bootstrap
-   ----------------------------------------------------------------- */
-document.addEventListener('DOMContentLoaded', () => {
-    window.repoSightDashboard = new RepoSightDashboard();
-});
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { RepoSightDashboard, computeScanDelta };
-}
+            <span class="brand-name">REPO-SIGHT</span>
+          </div>
+          <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Product</h4>
+          <a href="#analyze">Analyze a repo</a>
+          <a href="#pipeline">How it works</a>
+          <a href="#features">What you get</a>
+        </div>
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <a href="/learn/">Browse all articles</a>
+          <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+          <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <a href="/about.html">About</a>
+          <a href="/privacy.html">Privacy Policy</a>
+          <a href="/terms.html">Terms of Use</a>
+          <span class="footer-static">Apache 2.0 License</span>
+        </div>
+        <div class="footer-col">
+          <h4>Contact</h4>
+          <a href="/contact.html">Contact page</a>
+          <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+        </div>
+
+           <!-- LaunchBuff badge -->
+        <div class="footer-col launchbuff-badge">
+          <a
+            href="https://launchbuff.com/products/reposight-phem8v"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Featured on LaunchBuff"
+          >
+            <img
+              src="https://launchbuff.com/badge-featured-dark.svg"
+              alt="Featured on LaunchBuff"
+              width="256"
+              height="80"
+            />
+          </a>
+        </div>
+        <div class="footer-col">
+          <h4>Follow</h4>
+          <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+          <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ==================================================================
+       Dashboard shell (shown when the URL has ?scan=<id>). A single
+       Overview report -- no tab navigation -- so the topbar only needs
+       to carry the brand, which scan is showing, and the two actions
+       (start a different scan, or re-run this one).
+       ================================================================== -->
+  <header class="dash-topbar hidden">
+    <div class="dash-topbar-inner">
+      <a class="brand" href="/">
+                <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9.5" />
+            <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <div class="dash-meta">
+        <span class="dash-meta-project" id="dash-project">—</span>
+        <span class="dash-meta-scan" id="dash-scan"></span>
+        <span class="dash-sample-badge hidden" id="dash-sample-badge">Sample report</span>
+      </div>
+      <div class="dash-actions">
+        <a href="/" class="btn-ghost">Analyze another repo</a>
+        <button class="btn-primary" id="rerun-btn">Re-run analysis</button>
+        <div class="auth-widget">
+          <button type="button" class="btn-ghost auth-signin-btn">Sign in</button>
+          <div class="auth-account hidden">
+            <button type="button" class="auth-account-btn">
+              <span class="auth-avatar" aria-hidden="true"></span>
+              <span class="auth-email"></span>
+            </button>
+            <div class="auth-menu hidden">
+              <button type="button" class="auth-menu-item auth-myscans-btn">My Scans</button>
+              <button type="button" class="auth-menu-item auth-signout-btn">Sign out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="hidden">
+    <!-- Loading state -->
+    <div id="loading-state">
+      <div class="spinner"></div>
+      <p id="loading-message">Starting analysis…</p>
+      <p id="loading-progress"></p>
+      <p id="loading-tip"></p>
+    </div>
+
+    <!-- Report content -->
+    <section id="report-content" class="hidden">
+      <div class="page-header">
+        <div>
+          <h1 id="page-header-title">Overview</h1>
+          <p id="page-subtitle">— files · — lines analyzed</p>
+        </div>
+      </div>
+
+      <!-- Phase 4 tab navigation -- Overview / By Language / Files / Scoring
+           (v2 plan Section 7.4). Content stays broad-to-narrow: headline,
+           then which part of the stack, then which file, then why/what to
+           do about it. -->
+      <nav class="rs-tabs" role="tablist" aria-label="Report sections">
+        <button type="button" class="rs-tab active" data-tab="overview" role="tab" aria-selected="true" id="rs-tab-overview">Overview</button>
+        <button type="button" class="rs-tab" data-tab="bylang" role="tab" aria-selected="false" id="rs-tab-bylang">By Language</button>
+        <button type="button" class="rs-tab" data-tab="files" role="tab" aria-selected="false" id="rs-tab-files">Files</button>
+        <button type="button" class="rs-tab" data-tab="scoring" role="tab" aria-selected="false" id="rs-tab-scoring">Scoring</button>
+        <button type="button" class="rs-tab" data-tab="duplication" role="tab" aria-selected="false" id="rs-tab-duplication">Duplication</button>
+        <button type="button" class="rs-tab" data-tab="security" role="tab" aria-selected="false" id="rs-tab-security">Security</button>
+        <button type="button" class="rs-tab" data-tab="coverage" role="tab" aria-selected="false" id="rs-tab-coverage">Coverage</button>
+      </nav>
+
+      <div class="tab-panel" data-tab-panel="overview">
+        <!-- Trend callout -- regression tracking against the signed-in
+             user's previous scan of the same repo (rough-plan ask: "is it
+             improving or not"). No API cost, pure diff of two already-
+             stored scans. Populated asynchronously after sign-in + a
+             prior scan of this repo are both confirmed to exist; hidden
+             (stays hidden) for anonymous viewers, first-time scans of a
+             repo, or scans predating the repoOwner/repoName fields. -->
+        <div class="callout hidden" id="trend-callout">
+          <div>
+            <div class="callout-title">Since your last scan</div>
+            <div id="trend-callout-body"></div>
+          </div>
+        </div>
+
+        <!-- Unanalyzed-languages callout -- only shown if the scan skipped
+             any files REPO-SIGHT doesn't have a front-end for yet. -->
+        <div class="callout callout-warning hidden" id="unanalyzed-callout">
+          <div>
+            <div class="callout-title">Some files weren't analyzed</div>
+            <div id="unanalyzed-callout-body"></div>
+          </div>
+        </div>
+
+        <!-- Duplication callout -- Phase 6a (analyser) data surfaced in the
+             UI for the first time here (Phase 6b). Only shown when the scan
+             actually found duplicate blocks; points at the dedicated
+             Duplication tab rather than listing matches inline. -->
+        <div class="callout callout-warning hidden" id="duplication-callout">
+          <div>
+            <div class="callout-title">Duplicate code detected</div>
+            <div id="duplication-callout-body"></div>
+          </div>
+        </div>
+
+        <!-- Security callout -- Phase 6c. Only shown when the scan actually
+             found security-hotspot violations (category="security" on the
+             existing violations[] array); points at the dedicated Security
+             tab rather than listing findings inline. Purely informational,
+             same as Duplication -- does not affect HealthScore. -->
+        <div class="callout callout-warning hidden" id="security-callout">
+          <div>
+            <div class="callout-title">Security findings detected</div>
+            <div id="security-callout-body"></div>
+          </div>
+        </div>
+
+        <!-- Coverage callout -- Phase 6d. Neutral (non-warning) styling
+             deliberately -- unlike Duplication/Security this isn't a
+             detected problem, it's just informational, so it doesn't use
+             .callout-warning's amber accent. Silent when no coverage
+             report was uploaded for this scan (coverageSummary.available
+             === false), same policy as the other callouts being silent
+             when there's nothing to report. -->
+        <div class="callout hidden" id="coverage-callout">
+          <div>
+            <div class="callout-title">Coverage report attached</div>
+            <div id="coverage-callout-body"></div>
+          </div>
+        </div>
+
+        <div class="overview-top">
+        <div class="health-card">
+          <div class="health-gauge">
+            <svg width="140" height="140" viewBox="0 0 140 140">
+              <circle class="health-gauge-track" cx="70" cy="70" r="54" />
+              <circle class="health-gauge-fill" id="gauge-fill" cx="70" cy="70" r="54" />
+            </svg>
+            <div class="health-gauge-label">
+              <div class="health-gauge-score" id="health-score-value">—</div>
+              <div class="health-gauge-grade" id="health-grade">GRADE —</div>
+            </div>
+          </div>
+          <div>
+            <div class="health-meta-label">Code Health</div>
+            <div class="health-meta-desc">
+              Weighted from complexity density, avg function length, comment ratio, TODO density, and nesting depth.
+            </div>
+            <div class="severity-counts" style="display:none">
+              <div>
+                <div class="severity-count-value" id="count-warning" style="color: var(--warning)">0</div>
+                <div class="severity-count-label">warning</div>
+              </div>
+              <div>
+                <div class="severity-count-value" id="count-info" style="color: var(--info)">0</div>
+                <div class="severity-count-label">info</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-card-head">
+              <span class="stat-card-label">Functions</span>
+              <div class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg></div>
+            </div>
+            <div class="stat-card-value" id="function-count">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-head">
+              <span class="stat-card-label">Cyclomatic</span>
+              <div class="icon-chip amber"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M13 2L4 14h6l-1 8 9-12h-6z" /></svg></div>
+            </div>
+            <div class="stat-card-value" id="complexity-count">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-head">
+              <span class="stat-card-label">TODOs</span>
+              <div class="icon-chip brick"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 3l9 16H3z" /><path d="M12 10v4" /><path d="M12 17h.01" /></svg></div>
+            </div>
+            <div class="stat-card-value" id="todo-count">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-head">
+              <span class="stat-card-label">Max Nesting</span>
+              <div class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg></div>
+            </div>
+            <div class="stat-card-value" id="nesting-depth">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tear-rule" role="presentation"></div>
+
+      <!-- Size/structure/complexity detail -- same project-level fields the
+           engine already returns, just not previously surfaced anywhere
+           in the Overview panel. -->
+      <div class="metric-panel-grid">
+        <div class="panel metric-panel">
+          <div class="panel-head">Size &amp; shape</div>
+          <div class="metric-row">
+            <div class="metric-item"><span class="metric-value" id="m-total-lines">—</span><span class="metric-label">Total lines</span></div>
+            <div class="metric-item"><span class="metric-value" id="m-code-lines">—</span><span class="metric-label">Code lines</span></div>
+            <div class="metric-item"><span class="metric-value" id="m-comment-lines">—</span><span class="metric-label">Comment lines</span></div>
+            <div class="metric-item"><span class="metric-value" id="m-blank-lines">—</span><span class="metric-label">Blank lines</span></div>
+          </div>
+        </div>
+        <div class="panel metric-panel">
+          <div class="panel-head">Structure</div>
+          <div class="metric-row">
+            <div class="metric-item"><span class="metric-value" id="m-class-count">—</span><span class="metric-label">Classes</span></div>
+            <div class="metric-item"><span class="metric-value" id="m-variable-count">—</span><span class="metric-label">Variables</span></div>
+            <div class="metric-item"><span class="metric-value" id="m-include-count">—</span><span class="metric-label">Includes / imports</span></div>
+          </div>
+        </div>
+        <div class="panel metric-panel">
+          <div class="panel-head">Complexity detail</div>
+          <div class="metric-row">
+            <div class="metric-item"><span class="metric-value" id="m-loop-count">—</span><span class="metric-label">Loops</span></div>
+            <div class="metric-item"><span class="metric-value" id="m-condition-count">—</span><span class="metric-label">Conditions</span></div>
+            <div class="metric-item"><span class="metric-value" id="m-trycatch-count">—</span><span class="metric-label">Try/catch blocks</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="longest-fn-panel">
+        <div class="panel-head">Longest function</div>
+        <div class="panel-body">
+          <span class="longest-fn-name" id="longest-fn-name">—</span>
+          <span class="longest-fn-lines" id="longest-fn-lines"></span>
+          <div class="progress-track">
+            <div class="progress-fill" id="longest-fn-bar" style="width: 0%"></div>
+          </div>
+          <div class="progress-caption">flagged at 100 lines (long-function rule)</div>
+        </div>
+      </div>
+
+        <!-- Hotspots -- complexity x recent git churn (Section 7.4:
+             Overview shows "top 3-5 hotspots"). Falls back to a plain
+             note when git history isn't available for this scan rather
+             than showing an empty panel. -->
+        <div class="panel" id="hotspots-panel" style="margin-top: 24px">
+          <div class="panel-head">Hotspots — complexity &times; recent churn</div>
+          <div class="panel-body">
+            <ul class="hotspot-list hidden" id="hotspot-list"></ul>
+            <p id="hotspots-unavailable-note" class="hidden" style="color: var(--text-faint); font-size: 12.5px;">
+              Git history isn't available for this scan, so hotspot ranking (complexity &times; recent churn) can't be computed. Complexity metrics elsewhere in this report aren't affected.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- By Language tab (v2 plan Section 7.4: "where does the complexity
+           live?"). One corner-bracket card per language, populated from
+           the scan JSON's byLanguage[] array. -->
+      <div class="tab-panel hidden" data-tab-panel="bylang">
+        <div class="bylang-grid" id="bylang-grid"></div>
+        <p class="files-empty hidden" id="bylang-empty">No per-language breakdown is available for this scan.</p>
+      </div>
+
+      <!-- Files tab (v2 plan Section 7.4: "which specific file do I fix
+           first?"). Sortable/filterable table from the scan JSON's
+           files[] array. -->
+      <div class="tab-panel hidden" data-tab-panel="files">
+        <div class="files-toolbar">
+          <input type="search" id="files-search" placeholder="Filter by file path&hellip;" aria-label="Filter files by path" />
+          <select id="files-lang-filter" aria-label="Filter files by language">
+            <option value="">All languages</option>
+          </select>
+          <span class="files-count" id="files-count-label"></span>
+        </div>
+        <div class="files-table-wrap">
+          <table class="files-table" id="files-table">
+            <thead>
+              <tr>
+                <th data-sort="path">File</th>
+                <th data-sort="language">Language</th>
+                <th data-sort="codeLines">Lines</th>
+                <th data-sort="cyclomaticComplexity">Complexity</th>
+                <th data-sort="maxNestingDepth">Nesting</th>
+                <th data-sort="functionCount">Functions</th>
+                <th data-sort="issues">Issues</th>
+              </tr>
+            </thead>
+            <tbody id="files-table-body"></tbody>
+          </table>
+        </div>
+        <p class="files-empty hidden" id="files-empty">No recognized-language files were found in this scan &mdash; check the Overview tab for files that were skipped.</p>
+        <button type="button" class="btn-ghost files-show-more hidden" id="files-show-more">Show all files</button>
+      </div>
+
+      <!-- Scoring tab (v2 plan Section 7.4: "why did I get this grade, and
+           what do I do about it?"). Surfaces the s1-s5 component scores
+           HealthScore.cpp already computes, plus a quick-wins list ranked
+           by how many points each component is costing the overall score. -->
+      <div class="tab-panel hidden" data-tab-panel="scoring">
+        <div class="scoring-hero">
+          <div class="scoring-grade-big" id="scoring-grade-big">&mdash;</div>
+          <div class="scoring-score-big" id="scoring-score-big">&mdash; / 100</div>
+        </div>
+        <div id="score-bars"></div>
+        <div class="panel" style="margin-top: 24px">
+          <div class="panel-head">Quick wins &mdash; fix these first</div>
+          <div class="panel-body">
+            <ol class="quick-wins-list" id="quick-wins-list"></ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Duplication tab (Phase 6b) -- table over the scan JSON's
+           duplication.matches[] array, which Phase 6a's analyser work
+           already computes and stores but no UI ever surfaced. Reuses the
+           Files tab's metric-card / files-table / files-toolbar chrome
+           as-is, so no new CSS was needed for this tab. -->
+      <div class="tab-panel hidden" data-tab-panel="duplication">
+        <div class="metric-card" style="margin-bottom: 20px;">
+          <div class="metric-card-head">
+            <span class="metric-card-title">Duplication</span>
+            <span class="metric-card-sub" id="duplication-summary-sub"></span>
+          </div>
+          <div class="metric-card-row">
+            <div class="metric-item"><span class="metric-value" id="duplication-pct">&mdash;</span><span class="metric-label">% of code lines</span></div>
+            <div class="metric-item"><span class="metric-value" id="duplication-line-count">&mdash;</span><span class="metric-label">Duplicate lines</span></div>
+            <div class="metric-item"><span class="metric-value" id="duplication-match-count">&mdash;</span><span class="metric-label">Match pairs</span></div>
+          </div>
+        </div>
+
+        <div class="files-toolbar">
+          <input type="search" id="duplication-search" placeholder="Filter by file path&hellip;" aria-label="Filter duplicate matches by path" />
+          <span class="files-count" id="duplication-count-label"></span>
+        </div>
+        <div class="files-table-wrap">
+          <table class="files-table" id="duplication-table">
+            <thead>
+              <tr>
+                <th>File A</th>
+                <th>Lines A</th>
+                <th>File B</th>
+                <th>Lines B</th>
+                <th>Tokens</th>
+              </tr>
+            </thead>
+            <tbody id="duplication-table-body"></tbody>
+          </table>
+        </div>
+        <p class="files-empty hidden" id="duplication-empty">No duplicate blocks detected in this scan.</p>
+        <button type="button" class="btn-ghost files-show-more hidden" id="duplication-show-more">Show all matches</button>
+      </div>
+
+      <!-- Security tab -- Phase 6c. Reuses the Files/Duplication tabs' own
+           metric-card / files-table / files-toolbar chrome as-is, so no new
+           CSS was needed for this tab either. Sourced from the existing
+           violations[] array, filtered client-side to category="security" --
+           there is no separate top-level JSON key for this. -->
+      <div class="tab-panel hidden" data-tab-panel="security">
+        <div class="metric-card" style="margin-bottom: 20px;">
+          <div class="metric-card-head">
+            <span class="metric-card-title">Security</span>
+            <span class="metric-card-sub" id="security-summary-sub"></span>
+          </div>
+          <div class="metric-card-row">
+            <div class="metric-item"><span class="metric-value" id="security-finding-count">&mdash;</span><span class="metric-label">Findings</span></div>
+            <div class="metric-item"><span class="metric-value" id="security-file-count">&mdash;</span><span class="metric-label">Files affected</span></div>
+            <div class="metric-item"><span class="metric-value" id="security-warning-count">&mdash;</span><span class="metric-label">Needs review</span></div>
+          </div>
+        </div>
+
+        <div class="files-toolbar">
+          <input type="search" id="security-search" placeholder="Filter by file path or rule&hellip;" aria-label="Filter security findings by path or rule" />
+          <span class="files-count" id="security-count-label"></span>
+        </div>
+        <div class="files-table-wrap">
+          <table class="files-table" id="security-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Line</th>
+                <th>Rule</th>
+                <th>Severity</th>
+                <th>Finding</th>
+                <th>AI</th>
+              </tr>
+            </thead>
+            <tbody id="security-table-body"></tbody>
+          </table>
+        </div>
+        <p class="files-empty hidden" id="security-empty">No security findings detected in this scan.</p>
+        <button type="button" class="btn-ghost files-show-more hidden" id="security-show-more">Show all findings</button>
+      </div>
+
+      <!-- Coverage tab -- Phase 6d. REPO-SIGHT does not run the repo's own
+           tests (no secure sandbox in this stack); this table renders
+           whatever LCOV report the user attached at scan time, merged
+           into files[] server-side (api/_lib/coverage.js). Reuses the
+           Duplication/Security tabs' metric-card / files-table /
+           files-toolbar chrome as-is -- no new CSS needed. -->
+      <div class="tab-panel hidden" data-tab-panel="coverage">
+        <div class="metric-card" style="margin-bottom: 20px;">
+          <div class="metric-card-head">
+            <span class="metric-card-title">Coverage</span>
+            <span class="metric-card-sub" id="coverage-summary-sub"></span>
+          </div>
+          <div class="metric-card-row">
+            <div class="metric-item"><span class="metric-value" id="coverage-overall-pct">&mdash;</span><span class="metric-label">Overall coverage</span></div>
+            <div class="metric-item"><span class="metric-value" id="coverage-lines-hit">&mdash;</span><span class="metric-label">Lines hit</span></div>
+            <div class="metric-item"><span class="metric-value" id="coverage-files-matched">&mdash;</span><span class="metric-label">Files matched</span></div>
+          </div>
+        </div>
+
+        <div class="files-toolbar">
+          <input type="search" id="coverage-search" placeholder="Filter by file path&hellip;" aria-label="Filter coverage by path" />
+          <span class="files-count" id="coverage-count-label"></span>
+        </div>
+        <div class="files-table-wrap">
+          <table class="files-table" id="coverage-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Coverage</th>
+                <th>Lines hit / found</th>
+                <th>Uncovered lines</th>
+              </tr>
+            </thead>
+            <tbody id="coverage-table-body"></tbody>
+          </table>
+        </div>
+        <p class="files-empty hidden" id="coverage-empty">No coverage report was uploaded for this scan.</p>
+        <button type="button" class="btn-ghost files-show-more hidden" id="coverage-show-more">Show all files</button>
+      </div>
+
+      <div class="streak-strip">
+        <span id="streak-message">Start analyzing to build your streak!</span>
+        <span id="streak-visual"></span>
+      </div>
+
+      <!-- Feedback widget -- shown after a real scan so the ask lands right
+           when someone has just gotten value (or not) from the report.
+           dashboard.js swaps #feedback-form-state out for
+           #feedback-thanks-state once a rating is submitted. -->
+      <div class="panel feedback-widget" id="feedback-widget">
+        <div class="panel-head">Rate this report</div>
+            <div class="panel-body" id="feedback-form-state">
+          <p class="feedback-prompt">Was REPO-SIGHT useful? A quick rating helps shape what gets built next.</p>
+          <div class="feedback-stars" id="feedback-stars" role="radiogroup" aria-label="Rate this report from 1 to 5 stars">
+            <button type="button" class="feedback-star" data-value="1" role="radio" aria-checked="false" aria-label="1 star">&#9733;</button>
+            <button type="button" class="feedback-star" data-value="2" role="radio" aria-checked="false" aria-label="2 stars">&#9733;</button>
+            <button type="button" class="feedback-star" data-value="3" role="radio" aria-checked="false" aria-label="3 stars">&#9733;</button>
+            <button type="button" class="feedback-star" data-value="4" role="radio" aria-checked="false" aria-label="4 stars">&#9733;</button>
+            <button type="button" class="feedback-star" data-value="5" role="radio" aria-checked="false" aria-label="5 stars">&#9733;</button>
+          </div>
+          <textarea id="feedback-message" class="feedback-textarea" maxlength="1000" placeholder="What worked, or what didn't? (optional)"></textarea>
+          <!-- Honeypot -- hidden from real users via CSS, never touched by
+               them. A filled-in value marks the submission as a bot. -->
+          <input type="text" id="feedback-company" name="company" class="feedback-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          <div class="feedback-actions">
+            <button type="button" class="btn-primary" id="feedback-submit" disabled>Send feedback</button>
+            <span class="feedback-status" id="feedback-status"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Auth modals (Phase 5) -- single shared instance regardless of which
+       header (landing or dashboard) triggered them. Each renders in
+       whichever theme is active on body at the moment it opens. -->
+  <div class="auth-modal-backdrop hidden" id="auth-modal-backdrop">
+    <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <button type="button" class="auth-modal-close" id="auth-modal-close" aria-label="Close">&times;</button>
+      <h2 id="auth-modal-title">Sign in to REPO-SIGHT</h2>
+      <p class="auth-modal-sub">Keep your last 5 scans. No password, ever.</p>
+      <button type="button" class="btn-primary auth-github-btn" id="auth-github-btn">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        Continue with GitHub
+      </button>
+      <div class="auth-modal-divider"><span>or</span></div>
+      <form id="auth-magic-form" class="auth-magic-form">
+        <input type="email" id="auth-magic-email" placeholder="you@example.com" required autocomplete="email" aria-label="Email address" />
+        <button type="submit" class="btn-primary" id="auth-magic-submit">Email me a sign-in link</button>
+      </form>
+      <p class="auth-modal-status hidden" id="auth-modal-status"></p>
+      <p class="auth-modal-error hidden" id="auth-modal-error"></p>
+    </div>
+  </div>
+
+  <div class="auth-modal-backdrop hidden" id="myscans-modal-backdrop">
+    <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="myscans-modal-title">
+      <button type="button" class="auth-modal-close" id="myscans-modal-close" aria-label="Close">&times;</button>
+      <h2 id="myscans-modal-title">My Scans</h2>
+      <p class="auth-modal-sub">Your last 5 scans. Signing in again keeps this list.</p>
+      <div id="myscans-list"></div>
+      <p class="auth-modal-error hidden" id="myscans-error"></p>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
