@@ -203,6 +203,20 @@ input {
   color: var(--text-faint);
 }
 
+.dash-sample-badge {
+  align-self: flex-start;
+  margin-top: 2px;
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: var(--accent-dim);
+  color: var(--accent-ink);
+}
+
 .dash-actions {
   display: flex;
   align-items: center;
@@ -1715,6 +1729,21 @@ main {
   font-size: 12px;
   color: var(--text-faint);
   margin: 14px 0 0;
+}
+
+.hero-sample-link {
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+.hero-sample-link a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.hero-sample-link a:hover {
+  text-decoration: underline;
 }
 
 #new-scan-coverage-row {
