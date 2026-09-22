@@ -137,6 +137,16 @@ body {
   line-height: 1.5;
 }
 
+html {
+  /* Safety net: nothing on the page is meant to exceed viewport width --
+     wide content (tables, code blocks) scrolls inside its own container
+     (.files-table-wrap, .legal-main pre, etc.), never the document. This
+     just guarantees a stray/oversized element can't force a page-level
+     horizontal scrollbar. Doesn't affect position:sticky, which sticks
+     relative to whichever ancestor is the nearest scrolling container. */
+  overflow-x: hidden;
+}
+
 .hidden {
   display: none !important;
 }
@@ -1610,6 +1620,28 @@ main {
   border-color: var(--accent);
 }
 
+/* Hamburger menu toggle -- hidden on desktop, shown only under the
+   640px breakpoint where .site-nav collapses into a dropdown panel.
+   Wired up in js/site-enhancements.js#initNavToggle(). */
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.nav-toggle svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--text-primary);
+}
+
 .btn-nav-cta {
   text-decoration: none;
 }
@@ -2285,8 +2317,30 @@ main {
     padding: 8px 12px;
     font-size: 13px;
   }
+  .nav-toggle {
+    display: inline-flex;
+  }
   .site-nav {
     display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 4px 20px 12px;
+  }
+  .site-nav.is-open {
+    display: flex;
+  }
+  .site-nav a {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .site-nav a:last-child {
+    border-bottom: none;
   }
   .hero {
     padding: 48px 20px 64px;
