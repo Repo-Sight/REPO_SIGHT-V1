@@ -93,6 +93,47 @@
   }
 
   /* ---------------------------------------------------------------- */
+  /* Mobile nav toggle (hamburger)                                      */
+  /* ---------------------------------------------------------------- */
+
+  function initNavToggle() {
+    var btn = document.querySelector(".nav-toggle");
+    var nav = document.querySelector(".site-nav");
+    if (!btn || !nav) return; // page has no nav to collapse
+
+    function closeMenu() {
+      nav.classList.remove("is-open");
+      btn.setAttribute("aria-expanded", "false");
+    }
+
+    btn.addEventListener("click", function (event) {
+      event.stopPropagation();
+      var isOpen = nav.classList.toggle("is-open");
+      btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    });
+
+    // Tapping a link inside the panel should close it, not leave it
+    // open behind whatever page loads next (or the in-page anchor jump).
+    nav.addEventListener("click", function (event) {
+      if (event.target.closest("a")) closeMenu();
+    });
+
+    // Tapping anywhere outside the open panel closes it.
+    document.addEventListener("click", function (event) {
+      if (!nav.classList.contains("is-open")) return;
+      if (nav.contains(event.target) || btn.contains(event.target)) return;
+      closeMenu();
+    });
+
+    // Resizing past the mobile breakpoint (e.g. rotating a tablet)
+    // shouldn't leave the panel stuck open once it's back to a desktop
+    // layout where .site-nav is a normal inline row again.
+    window.addEventListener("resize", function () {
+      if (window.innerWidth > 640) closeMenu();
+    });
+  }
+
+  /* ---------------------------------------------------------------- */
   /* Boot                                                               */
   /* ---------------------------------------------------------------- */
 
@@ -103,6 +144,7 @@
       // the sticky bar under, so it can engage immediately.
       initStickyCta();
     }
+    initNavToggle();
   }
 
   if (document.readyState === "loading") {
