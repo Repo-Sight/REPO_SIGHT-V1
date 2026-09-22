@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <link rel="icon" type="image/png" href="/favicon-32.png" />
-  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="google-adsense-account" content="ca-pub-9503894064247817">
@@ -40,12 +40,19 @@
         </span>
         <span class="brand-name">REPO-SIGHT</span>
       </a>
-      <nav class="site-nav">
+      <nav class="site-nav" id="site-nav">
         <a href="/#pipeline">How it works</a>
         <a href="/#features">What you get</a>
         <a href="/#learn">Learn</a>
       </nav>
       <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+      <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round">
+          <line x1="3" y1="7" x2="21" y2="7" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="17" x2="21" y2="17" />
+        </svg>
+      </button>
     </div>
   </header>
 
@@ -63,7 +70,7 @@
       <li><strong>Test coverage</strong> &mdash; the percentage of code exercised by an automated test suite. Says nothing about whether the tests are actually good, only that the lines were executed at least once.</li>
       <li><strong>Duplication percentage</strong> &mdash; how much of the codebase is copy-pasted rather than shared. Rising duplication is one of the clearest early signals of a codebase getting harder to change safely.</li>
       <li><strong>Defect density</strong> &mdash; bugs found per thousand lines of code, usually tracked after the fact from a bug tracker. The most direct proxy for real-world quality, and the hardest one to get before shipping.</li>
-      <li><strong>Maintainability index</strong> &mdash; a composite formula (originally from a 1992 paper, popularized by Microsoft's Visual Studio metrics) that blends complexity, size, and comment ratio into one number, conceptually similar to what REPO-SIGHT's health score does for C++, Python, and Java.</li>
+      <li><strong>Maintainability index</strong> &mdash; a composite formula (originally from a 1992 paper, popularized by Microsoft's Visual Studio metrics) that blends complexity, size, and comment ratio into one number, conceptually similar to what REPO-SIGHT's health score does across all six of its supported languages.</li>
     </ul>
 
     <h2>What a single static scan can and can't tell you</h2>
@@ -86,7 +93,7 @@
           </span>
           <span class="brand-name">REPO-SIGHT</span>
         </div>
-        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+        <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
       </div>
       <div class="footer-col">
         <h4>Product</h4>
