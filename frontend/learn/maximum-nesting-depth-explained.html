@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <link rel="icon" type="image/png" href="/favicon-32.png" />
-  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="google-adsense-account" content="ca-pub-9503894064247817">
@@ -40,12 +40,19 @@
         </span>
         <span class="brand-name">REPO-SIGHT</span>
       </a>
-      <nav class="site-nav">
+      <nav class="site-nav" id="site-nav">
         <a href="/#pipeline">How it works</a>
         <a href="/#features">What you get</a>
         <a href="/#learn">Learn</a>
       </nav>
       <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+      <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round">
+          <line x1="3" y1="7" x2="21" y2="7" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="17" x2="21" y2="17" />
+        </svg>
+      </button>
     </div>
   </header>
 
@@ -84,7 +91,7 @@
     <p>Nothing about what the function does changed. Every condition still gets checked. Flattening the early exits with guard clauses (<code>return</code> and <code>continue</code>) instead of wrapping the rest of the function in more <code>if</code> blocks removes two full levels of nesting a reader would otherwise have to track.</p>
 
     <h2>How deep is too deep</h2>
-    <p>REPO-SIGHT flags a file once its deepest function passes a nesting depth of 6 (<code>cpp-deep-nesting</code>, <code>py-deep-nesting</code>, <code>java-deep-nesting</code> &mdash; same threshold across all three supported languages). In the health score, nesting depth is scored against a &quot;good&quot; reference of 3 and a &quot;bad&quot; reference of 8, at a 10% weight. It's a smaller slice of the overall grade than complexity density, but it's often the fastest single thing to fix once you spot it.</p>
+    <p>REPO-SIGHT flags a file once its deepest function passes a nesting depth of 6 (<code>cpp-deep-nesting</code>, <code>py-deep-nesting</code>, <code>java-deep-nesting</code>, <code>ts-deep-nesting</code>, <code>js-deep-nesting</code>, <code>csharp-deep-nesting</code> &mdash; same threshold across all six supported languages). In the health score, nesting depth is scored against a &quot;good&quot; reference of 3 and a &quot;bad&quot; reference of 8, at a 10% weight. It's a smaller slice of the overall grade than complexity density, but it's often the fastest single thing to fix once you spot it.</p>
 
     <h2>The fix pattern</h2>
     <ul>
@@ -104,7 +111,7 @@
           </span>
           <span class="brand-name">REPO-SIGHT</span>
         </div>
-        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+        <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
       </div>
       <div class="footer-col">
         <h4>Product</h4>
