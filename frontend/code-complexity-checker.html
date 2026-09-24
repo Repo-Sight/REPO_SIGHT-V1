@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>Code Complexity Checker &mdash; Cyclomatic Complexity &amp; Nesting Depth | REPO-SIGHT</title>
+  <meta name="description" content="Free cyclomatic complexity and nesting-depth checker for C++, Python, Java, TypeScript, JavaScript, and C#. Paste a GitHub URL, no signup." />
+  <link rel="canonical" href="https://www.repo-sight.com/code-complexity-checker.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Code Complexity Checker &mdash; Cyclomatic Complexity &amp; Nesting Depth | REPO-SIGHT" />
+  <meta property="og:description" content="Free cyclomatic complexity and nesting-depth checker for C++, Python, Java, TypeScript, JavaScript, and C#. Paste a GitHub URL, no signup." />
+  <meta property="og:url" content="https://www.repo-sight.com/code-complexity-checker.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="twitter:title" content="Code Complexity Checker &mdash; Cyclomatic Complexity &amp; Nesting Depth | REPO-SIGHT" />
+  <meta name="twitter:description" content="Free cyclomatic complexity and nesting-depth checker for C++, Python, Java, TypeScript, JavaScript, and C#. Paste a GitHub URL, no signup." />
+  <meta name="robots" content="index, follow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&family=Zilla+Slab:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/js/site-enhancements.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav" id="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+      <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round">
+          <line x1="3" y1="7" x2="21" y2="7" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="17" x2="21" y2="17" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="tool-hero">
+      <h1>Code Complexity Checker</h1>
+      <p class="section-sub">Cyclomatic complexity and nesting depth, computed per function and rolled up per file &mdash; across C++, Python, Java, TypeScript, JavaScript, and C#.</p>
+      <div class="tool-hero-ctas">
+        <a href="/#analyze" class="btn-primary">Analyze a repo free</a>
+      </div>
+    </section>
+
+    <section class="features">
+      <h2>What &quot;complexity&quot; means in your report</h2>
+      <p class="section-sub">Two numbers, the same thresholds in every supported language.</p>
+      <div class="features-grid features-grid--three">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+          </div>
+          <h3>Cyclomatic complexity</h3>
+          <p>Counts independent decision paths through a function &mdash; every <code>if</code>, loop, and branch adds one. It's the single largest factor in the health score, at a 35% weight.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <h3>Nesting depth</h3>
+          <p>How many levels deep a function's blocks go. REPO-SIGHT flags a file once its deepest function passes 6 levels, the same threshold across all six languages.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l5-5M9 19l7-11M16 19l4-15"/></svg>
+          </div>
+          <h3>Function length</h3>
+          <p>Functions over 100 lines are flagged for every language &mdash; often the easiest complexity signal to act on, since splitting a function is usually mechanical.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M4 4h4v4H4zM10 10h4v10h-4zM16 6h4v14h-4z"/></svg>
+          </div>
+          <h3>Project-wide rollup</h3>
+          <p>Complexity is computed per function, then rolled up per file and per language, so you can see whether it's one bad file or a pattern across the codebase.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tool-faq">
+      <h2>Frequently asked questions</h2>
+      <details class="faq-item">
+        <summary>What's a &quot;good&quot; complexity density?</summary>
+        <p>The health score scores complexity density (cyclomatic complexity relative to lines of code) against a reference of 0.15 for healthy code and 0.50 for code that needs attention &mdash; it's the biggest single factor in the overall grade, at 35%.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Why does nesting depth matter separately from complexity?</summary>
+        <p>A function can have modest cyclomatic complexity but still nest 6+ levels deep, which is its own readability problem &mdash; that's why REPO-SIGHT scores it separately, at a 10% weight, with a good/bad reference of 3 and 8.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Does complexity scoring work the same across all six languages?</summary>
+        <p>Yes &mdash; the nesting-depth threshold (6) and function-length threshold (100 lines) are identical in every supported language, so complexity numbers are comparable across a polyglot repo.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How do I actually reduce a high complexity score?</summary>
+        <p>Splitting long functions and flattening deep conditionals (early returns instead of nested <code>if</code>/<code>else</code>) are usually the fastest wins &mdash; both map directly to the two metrics above.</p>
+      </details>
+    </section>
+
+    <section class="tool-crosslinks">
+      <h2>Related reading</h2>
+      <div class="tool-crosslinks-grid">
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity explained</a>
+        <a href="/learn/maximum-nesting-depth-explained.html">Maximum nesting depth explained</a>
+        <a href="/learn/what-is-code-complexity.html">What is code complexity?</a>
+      </div>
+    </section>
+
+    <section class="tool-crosslinks">
+      <h2>By language</h2>
+      <div class="tool-crosslinks-grid">
+        <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+        <a href="/python-code-analyzer.html">Python analyzer</a>
+        <a href="/java-code-analyzer.html">Java analyzer</a>
+        <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+        <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
+      </div>
+    </section>
+
+    <section class="cta-band">
+      <div class="cta-band-inner">
+        <div>
+          <h2>Free is the whole plan.</h2>
+          <p>No tiers, no paywalled metrics. A small amount of advertising keeps it free instead of a paywall &mdash; analyze without an account any time.</p>
+        </div>
+        <a href="/#analyze" class="btn-primary btn-cta-band">Analyze a repo now</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Tools</h4>
+        <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+        <a href="/python-code-analyzer.html">Python analyzer</a>
+        <a href="/java-code-analyzer.html">Java analyzer</a>
+        <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+        <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+        <a href="/learn/reading-a-code-health-score.html">Reading a health score</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        <a href="mailto:ronak.reposight@gmail.com">ronak.reposight@gmail.com</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
