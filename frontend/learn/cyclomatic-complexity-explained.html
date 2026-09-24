@@ -6,19 +6,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="google-adsense-account" content="ca-pub-9503894064247817">
-  <title>Cyclomatic Complexity, Explained | REPO-SIGHT</title>
-  <meta name="description" content="What cyclomatic complexity actually counts, why high scores predict bugs, and practical ways to bring a function's complexity down." />
-  <link rel="canonical" href="https://www.repo-sight.com/learn/cyclomatic-complexity-explained.html" />
+  <title>Code Quality Checklist for Students | REPO-SIGHT</title>
+  <meta name="description" content="A practical pre-submission and portfolio checklist for CS students: what to check before a project goes on your resume or into a job application, and how to check it in minutes." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/code-quality-checklist-for-students.html" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Cyclomatic Complexity, Explained | REPO-SIGHT" />
-  <meta property="og:description" content="What cyclomatic complexity actually counts, why high scores predict bugs, and practical ways to bring a function's complexity down." />
-  <meta property="og:url" content="https://www.repo-sight.com/learn/cyclomatic-complexity-explained.html" />
+  <meta property="og:title" content="Code Quality Checklist for Students | REPO-SIGHT" />
+  <meta property="og:description" content="A practical pre-submission and portfolio checklist for CS students: what to check before a project goes on your resume or into a job application, and how to check it in minutes." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/code-quality-checklist-for-students.html" />
   <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Cyclomatic Complexity, Explained | REPO-SIGHT" />
-  <meta name="twitter:description" content="What cyclomatic complexity actually counts, why high scores predict bugs, and practical ways to bring a function's complexity down." />
+  <meta name="twitter:title" content="Code Quality Checklist for Students | REPO-SIGHT" />
+  <meta name="twitter:description" content="A practical pre-submission and portfolio checklist for CS students: what to check before a project goes on your resume or into a job application, and how to check it in minutes." />
   <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
   <meta name="robots" content="index, follow" />
   <link rel="stylesheet" href="../css/styles.css" />
@@ -35,8 +35,7 @@
       <a class="brand" href="/">
         <span class="brand-mark">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9.5" />
-            <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
+            <circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
           </svg>
         </span>
         <span class="brand-name">REPO-SIGHT</span>
@@ -58,31 +57,41 @@
   </header>
 
   <main class="legal-main">
-    <h1>Cyclomatic complexity, explained</h1>
+    <h1>Code quality checklist for students</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
-    <p>Cyclomatic complexity is a count of the independent paths through a function's logic. It was introduced by Thomas McCabe in 1976 as a way to put a number on something programmers already sensed intuitively: some functions are simple to reason about, and some are a tangle.</p>
 
-    <h2>What actually gets counted</h2>
-    <p>Every function starts at a baseline of 1 &mdash; one straight-line path with no branching. From there, the count goes up by one for every point where execution can fork: an <code>if</code>, a loop (<code>for</code>, <code>while</code>), a <code>case</code> in a switch, a <code>catch</code> block, a ternary <code>?:</code>, and short-circuit boolean operators like <code>&amp;&amp;</code> and <code>||</code>. Each of these represents a decision point &mdash; a place where the function can take one of at least two routes.</p>
-    <p>The result is a rough measure of how many distinct paths a test suite would need to exercise every branch at least once. A function with a complexity of 1 has exactly one path. A function with a complexity of 12 has at least 12 meaningfully different routes through it.</p>
+    <p>A class project graded on whether it runs is a different bar than a GitHub repo you're linking from your resume. Here's a practical checklist for the second case &mdash; the one a recruiter or a hiring manager might actually open.</p>
 
-    <h2>Why it correlates with bugs</h2>
-    <p>Complexity isn't inherently bad &mdash; some problems are genuinely branchy. But high complexity in practice tends to mean a few things at once: the function is doing more than one job, it's harder for a reader to hold the whole thing in their head, and it's harder to test thoroughly because the number of paths to cover grows fast. Research going back to McCabe's original work has repeatedly found a correlation between high cyclomatic complexity and higher defect rates &mdash; not because the number itself causes bugs, but because it's a proxy for exactly the kind of tangled logic that's easy to get wrong and hard to review.</p>
-
-    <h2>What counts as "too high"</h2>
-    <p>There's no universal cutoff, but common conventions treat single-digit complexity as comfortable, 10&ndash;20 as worth a second look, and anything higher as a strong candidate for refactoring. The number matters less in isolation than relative to the rest of your codebase &mdash; a function that's a clear outlier compared to its neighbors is usually the one worth investigating first, regardless of the exact threshold you use.</p>
-
-    <h2>Bringing it down</h2>
+    <h2>Before you link a repo on your resume</h2>
     <ul>
-      <li><strong>Extract sub-functions.</strong> Pulling a branchy block out into its own well-named function doesn't remove the complexity from the codebase, but it isolates it and makes the caller's path count drop.</li>
-      <li><strong>Replace nested conditionals with early returns.</strong> Guard clauses that exit early often reduce nesting depth even when the branch count stays the same, which makes the remaining logic easier to follow.</li>
-      <li><strong>Replace long if/else or switch chains with a lookup.</strong> A dictionary or map from condition to behavior can replace many branches with one lookup plus a call.</li>
-      <li><strong>Split functions that do two things.</strong> High complexity often means a function is validating, transforming, and reporting all at once &mdash; separating those responsibilities usually collapses the path count in each piece.</li>
+      <li><strong>Does it have a README?</strong> One paragraph on what the project does and how to run it. An empty or default README is one of the fastest ways to look unfinished.</li>
+      <li><strong>Is there a LICENSE file?</strong> Doesn't need to be complicated &mdash; MIT or Apache 2.0 is fine &mdash; but an unlicensed public repo technically has no clear terms for anyone to reuse it.</li>
+      <li><strong>Are commit messages readable?</strong> A history of &quot;fix&quot;, &quot;fix2&quot;, &quot;asdf&quot; is a minor thing individually and a pattern reviewers notice collectively.</li>
+      <li><strong>Does the longest function fit on one screen?</strong> A 300-line function is a specific, checkable red flag &mdash; not a vague impression, an actual number you can look up.</li>
+      <li><strong>Are there any bare <code>except:</code> blocks or empty <code>catch</code> blocks?</strong> These are exactly the kind of thing an interviewer skimming your code will notice, because they're a known anti-pattern taught in most CS courses.</li>
+      <li><strong>Is there at least one test?</strong> Doesn't need full coverage &mdash; one test file signals you know testing exists as a practice.</li>
     </ul>
 
-    <h2>How REPO-SIGHT reports it</h2>
-    <p>REPO-SIGHT's parser walks the token stream of each C++, Python, Java, TypeScript, JavaScript, or C# file and increments a per-function counter at every branch point &mdash; loops, conditionals, case labels, catch blocks, ternaries, and short-circuit operators &mdash; the same decision points described above. Per-function totals roll up into a project-wide cyclomatic complexity figure, and complexity density (complexity relative to code volume) feeds into the overall health score at a 35% weight, the single largest factor in the grade. <a href="/#analyze">Run it on a repo</a> to see your own numbers.</p>
+    <h2>Common mistakes that stand out for the wrong reasons</h2>
+    <ul>
+      <li>Hardcoded credentials or API keys committed to the repo &mdash; an instant red flag for any technical reviewer, independent of code quality.</li>
+      <li>A single 1000-line file holding the entire project, with no separation between logic, I/O, and configuration.</li>
+      <li>Copy-pasted boilerplate left in from a tutorial, including the tutorial's own comments and variable names.</li>
+      <li>No <code>.gitignore</code> &mdash; a repo with <code>node_modules/</code> or a virtual environment committed directly signals unfamiliarity with basic tooling.</li>
+    </ul>
+
+    <h2>A five-minute pre-submission routine</h2>
+    <ol style="margin:8px 0 8px 20px; color:var(--text-muted); font-family:var(--sans); line-height:1.65;">
+      <li>Read the README as if you'd never seen the project before. Does it actually explain what to do?</li>
+      <li><a href="/#analyze">Run the repo through REPO-SIGHT</a> &mdash; no signup, no install. Look at the grade and the single longest function it finds.</li>
+      <li>Fix the worst one or two things it flags. You don't need a perfect score &mdash; you need to not have an obvious, fixable outlier sitting in a repo someone's about to open.</li>
+      <li>Re-run it once, confirm the grade moved, and move on. Don't chase a perfect score on a student project &mdash; a clean, honest B is more convincing than a suspiciously perfect A on something that was clearly never really tested.</li>
+    </ol>
+
+    <h2>Why this matters more than it seems</h2>
+    <p>A recruiter or interviewer who opens your linked repo is spending maybe two or three minutes there. They're not going to read every file &mdash; they're forming an impression from the README, the file structure, and whichever function they happen to click into first. A five-minute pass before you submit is genuinely cheap insurance against that impression being the wrong one.</p>
+
   </main>
 
   <footer class="site-footer">
@@ -90,8 +99,7 @@
       <div class="footer-brand">
         <div class="brand">
           <span class="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" />
-            <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
           </span>
           <span class="brand-name">REPO-SIGHT</span>
         </div>
@@ -102,6 +110,14 @@
         <a href="/#analyze">Analyze a repo</a>
         <a href="/#pipeline">How it works</a>
         <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Tools</h4>
+        <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+        <a href="/python-code-analyzer.html">Python analyzer</a>
+        <a href="/java-code-analyzer.html">Java analyzer</a>
+        <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+        <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
       </div>
       <div class="footer-col">
         <h4>Resources</h4>
@@ -121,11 +137,11 @@
         <a href="/contact.html">Contact page</a>
         <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
       </div>
-       <div class="footer-col">
-          <h4>Follow</h4>
-          <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
-          <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-        </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
     </div>
   </footer>
 </body>
