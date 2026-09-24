@@ -2222,7 +2222,7 @@ main {
   margin: 0 auto;
   padding: 56px 24px 64px;
   display: grid;
-  grid-template-columns: 1.6fr repeat(4, 1fr);
+  grid-template-columns: 1.6fr repeat(5, 1fr);
   gap: 32px;
 }
 
@@ -2521,6 +2521,141 @@ main {
 
 .legal-main .callout p {
   margin: 0;
+}
+
+/* ==========================================================================
+   Tool landing pages (/cpp-code-analyzer.html etc.) -- narrow text hero +
+   FAQ + example-finding card. The rule/metric grids on these pages reuse
+   .features/.features-grid/.feature-card as-is; this block only covers the
+   three things those don't already style.
+   ========================================================================== */
+
+.tool-hero {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 64px 24px 40px;
+  text-align: center;
+}
+
+.tool-hero h1 {
+  font-family: var(--display);
+  font-size: 2.2rem;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.tool-hero .section-sub {
+  margin: 0 auto 28px;
+  max-width: 56ch;
+}
+
+.tool-hero-ctas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tool-example {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 24px 64px;
+}
+
+.tool-example-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+}
+
+.tool-example-card .finding-severity {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.tool-example-card pre {
+  overflow-x: auto;
+  background: var(--bg-surface);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 10px 0;
+}
+
+.tool-example-card .finding-note {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--text-faint);
+  margin: 8px 0 0;
+}
+
+.tool-faq {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 24px 72px;
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--border);
+  padding: 16px 0;
+}
+
+.faq-item summary {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.faq-item p {
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 10px 0 0;
+}
+
+.tool-crosslinks {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px 72px;
+}
+
+.tool-crosslinks h2 {
+  font-size: 1.1rem;
+}
+
+.tool-crosslinks-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tool-crosslinks-grid a {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 16px;
+}
+
+.tool-crosslinks-grid a:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .tool-hero h1 {
+    font-size: 1.7rem;
+  }
 }
 
 /* ==========================================================================
