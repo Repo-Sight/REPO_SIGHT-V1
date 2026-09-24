@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-9503894064247817">
+  <title>C++ Code Analyzer &mdash; Free Static Analysis | REPO-SIGHT</title>
+  <meta name="description" content="Paste a public GitHub URL and get real static analysis for your C++ code: cyclomatic complexity, nesting depth, RAII patterns, and 13 rules built for C++. Free, no signup." />
+  <link rel="canonical" href="https://www.repo-sight.com/cpp-code-analyzer.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="C++ Code Analyzer &mdash; Free Static Analysis | REPO-SIGHT" />
+  <meta property="og:description" content="Paste a public GitHub URL and get real static analysis for your C++ code: cyclomatic complexity, nesting depth, RAII patterns, and 13 rules built for C++. Free, no signup." />
+  <meta property="og:url" content="https://www.repo-sight.com/cpp-code-analyzer.html" />
+  <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
+  <meta name="twitter:title" content="C++ Code Analyzer &mdash; Free Static Analysis | REPO-SIGHT" />
+  <meta name="twitter:description" content="Paste a public GitHub URL and get real static analysis for your C++ code: cyclomatic complexity, nesting depth, RAII patterns, and 13 rules built for C++. Free, no signup." />
+  <meta name="robots" content="index, follow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&family=Zilla+Slab:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/js/site-enhancements.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
+          </svg>
+        </span>
+        <span class="brand-name">REPO-SIGHT</span>
+      </a>
+      <nav class="site-nav" id="site-nav">
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+        <a href="/#learn">Learn</a>
+      </nav>
+      <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+      <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round">
+          <line x1="3" y1="7" x2="21" y2="7" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="17" x2="21" y2="17" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="tool-hero">
+      <h1>C++ Code Analyzer</h1>
+      <p class="section-sub">Paste a public GitHub URL and REPO-SIGHT reads your C++ source directly &mdash; complexity, nesting depth, manual memory-management patterns, and 13 rules built specifically for C++. Free, no signup.</p>
+      <div class="tool-hero-ctas">
+        <a href="/#analyze" class="btn-primary">Analyze a repo free</a>
+      </div>
+    </section>
+
+    <section class="features">
+      <h2>What REPO-SIGHT checks in your C++ code</h2>
+      <p class="section-sub">13 rules, tuned for C++ &mdash; 6 of them security-specific.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+          </div>
+          <h3>Complexity &amp; structure</h3>
+          <p>Cyclomatic complexity, max nesting depth (flagged past 6 levels), and functions over 100 lines &mdash; the same thresholds used in the health score.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <h3>Manual memory management</h3>
+          <p><code>cpp-raw-new-delete</code> flags direct <code>new</code>/<code>delete</code> where RAII or a smart pointer would remove a whole class of leaks.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <h3>Broad exception handling</h3>
+          <p><code>cpp-catch-all-ellipsis</code> flags <code>catch (...)</code> blocks that swallow every exception, including ones you didn't expect.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M4 4h4v4H4zM10 10h4v10h-4zM16 6h4v14h-4z"/></svg>
+          </div>
+          <h3>Magic numbers &amp; namespace pollution</h3>
+          <p><code>cpp-magic-number-literal</code> and <code>cpp-using-namespace-std-header</code> catch two habits that make headers harder to reuse.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-2-2M16 6l2-2M12 7v2M9 9h6a3 3 0 013 3v3a6 6 0 01-12 0v-3a3 3 0 013-3z"/></svg>
+          </div>
+          <h3>Security hotspots</h3>
+          <p>Hardcoded secrets, <code>system()</code>/<code>popen()</code> calls, unsafe buffer functions, weak hashes, and weak random &mdash; 6 checks in total.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="10" height="10" rx="1.5"/><rect x="10" y="10" width="10" height="10" rx="1.5"/></svg>
+          </div>
+          <h3>Duplication &amp; debt</h3>
+          <p>Token-based clone detection across the whole repo, plus every TODO/FIXME counted &mdash; <code>cpp-todo-without-ticket</code> flags the ones with no ticket reference.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tool-example">
+      <div class="tool-example-card">
+        <span class="finding-severity">High &middot; example finding</span>
+        <pre><code>try {
+    parseConfig(path);
+} catch (...) {
+    // ignored
+}</code></pre>
+        <p class="finding-note">Illustrative example. <code>cpp-catch-all-ellipsis</code>: this swallows every exception, including ones from unrelated code paths &mdash; a specific catch clause (or at least a log line) makes failures visible instead of silent.</p>
+      </div>
+    </section>
+
+    <section class="tool-faq">
+      <h2>Frequently asked questions</h2>
+      <details class="faq-item">
+        <summary>Does REPO-SIGHT compile my C++ code?</summary>
+        <p>No. It's a static analyzer &mdash; a real lexer and parser walk the source, but nothing is compiled or executed. That's also what makes it safe to run against any public repo.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Which C++ standard does it support?</summary>
+        <p>The parser handles standard C++ syntax &mdash; classes, templates, namespaces &mdash; without gating on a specific standard version. It's a metrics and rules engine, not a full compiler front-end, so unusually macro-heavy preprocessor tricks can occasionally trip up any static parser, C++'s included.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How is this different from clang-tidy or cppcheck?</summary>
+        <p>Those need a local install and a build/compile setup. REPO-SIGHT runs from a GitHub URL alone, in your browser, in seconds, and rolls everything into a single project health score instead of a raw diagnostic list.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Is my code stored?</summary>
+        <p>Scan results are stored so you can revisit the report link; scanning is anonymous by default. See the <a href="/privacy.html">privacy policy</a> for specifics, including what changes if you sign in.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Is it actually free?</summary>
+        <p>Yes &mdash; no tiers, no paywalled metrics. A small amount of advertising covers hosting instead of a paid plan.</p>
+      </details>
+    </section>
+
+    <section class="tool-crosslinks">
+      <h2>Other languages</h2>
+      <div class="tool-crosslinks-grid">
+        <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+        <a href="/python-code-analyzer.html">Python analyzer</a>
+        <a href="/java-code-analyzer.html">Java analyzer</a>
+        <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+        <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
+        <a href="/free-static-code-analyzer.html">Free static code analyzer</a>
+      </div>
+    </section>
+
+    <section class="tool-crosslinks">
+      <h2>Related reading</h2>
+      <div class="tool-crosslinks-grid">
+        <a href="/learn/improve-cpp-code-quality.html">Improve C++ code quality</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity explained</a>
+        <a href="/learn/maximum-nesting-depth-explained.html">Maximum nesting depth explained</a>
+      </div>
+    </section>
+
+    <section class="cta-band">
+      <div class="cta-band-inner">
+        <div>
+          <h2>Free is the whole plan.</h2>
+          <p>No tiers, no paywalled metrics. A small amount of advertising keeps it free instead of a paywall &mdash; analyze without an account any time.</p>
+        </div>
+        <a href="/#analyze" class="btn-primary btn-cta-band">Analyze a repo now</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
+          </span>
+          <span class="brand-name">REPO-SIGHT</span>
+        </div>
+        <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="/#analyze">Analyze a repo</a>
+        <a href="/#pipeline">How it works</a>
+        <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Tools</h4>
+        <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+        <a href="/python-code-analyzer.html">Python analyzer</a>
+        <a href="/java-code-analyzer.html">Java analyzer</a>
+        <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+        <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="/learn/">Browse all articles</a>
+        <a href="/learn/what-is-static-analysis.html">What is static analysis?</a>
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>
+        <a href="/learn/reading-a-code-health-score.html">Reading a health score</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Use</a>
+        <span class="footer-static">Apache 2.0 License</span>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="/contact.html">Contact page</a>
+        <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        <a href="mailto:ronak.reposight@gmail.com">ronak.reposight@gmail.com</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
