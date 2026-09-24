@@ -6,19 +6,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="google-adsense-account" content="ca-pub-9503894064247817">
-  <title>How to Improve Python Code Quality | REPO-SIGHT</title>
-  <meta name="description" content="Practical fixes for the Python patterns that most often cause real bugs: bare except, mutable default arguments, mutable class attributes, and wildcard imports, with before/after code." />
-  <link rel="canonical" href="https://www.repo-sight.com/learn/improve-python-code-quality.html" />
+  <title>How to Improve Java Code Quality | REPO-SIGHT</title>
+  <meta name="description" content="Practical fixes for common Java risk patterns: empty catch blocks, public fields breaking encapsulation, printStackTrace in production, and raw generic types, with before/after code." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/improve-java-code-quality.html" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="How to Improve Python Code Quality | REPO-SIGHT" />
-  <meta property="og:description" content="Practical fixes for the Python patterns that most often cause real bugs: bare except, mutable default arguments, mutable class attributes, and wildcard imports, with before/after code." />
-  <meta property="og:url" content="https://www.repo-sight.com/learn/improve-python-code-quality.html" />
+  <meta property="og:title" content="How to Improve Java Code Quality | REPO-SIGHT" />
+  <meta property="og:description" content="Practical fixes for common Java risk patterns: empty catch blocks, public fields breaking encapsulation, printStackTrace in production, and raw generic types, with before/after code." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/improve-java-code-quality.html" />
   <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="How to Improve Python Code Quality | REPO-SIGHT" />
-  <meta name="twitter:description" content="Practical fixes for the Python patterns that most often cause real bugs: bare except, mutable default arguments, mutable class attributes, and wildcard imports, with before/after code." />
+  <meta name="twitter:title" content="How to Improve Java Code Quality | REPO-SIGHT" />
+  <meta name="twitter:description" content="Practical fixes for common Java risk patterns: empty catch blocks, public fields breaking encapsulation, printStackTrace in production, and raw generic types, with before/after code." />
   <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
   <meta name="robots" content="index, follow" />
   <link rel="stylesheet" href="../css/styles.css" />
@@ -57,82 +57,88 @@
   </header>
 
   <main class="legal-main">
-    <h1>How to improve Python code quality</h1>
+    <h1>How to improve Java code quality</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
 
-    <p>Most Python quality problems aren't exotic &mdash; they're a small, repeatable set of patterns that look harmless when you write them and cause a confusing bug months later. Here are the ones worth fixing first, with real before/after code for each.</p>
+    <p>Java's quality problems tend to cluster around encapsulation and error handling &mdash; patterns that compile cleanly and pass a quick glance, but cause real maintenance pain later. Here are the four worth fixing first.</p>
 
-    <h2>Bare <code>except:</code> blocks</h2>
-    <p>A bare <code>except:</code> catches everything &mdash; including <code>KeyboardInterrupt</code> and <code>SystemExit</code>, which almost never should be silently swallowed. It also hides the actual error, making the real bug harder to find later.</p>
+    <h2>Empty catch blocks</h2>
+    <p>An empty <code>catch</code> block compiles fine and silently discards the exception, which means a real failure produces no signal anywhere &mdash; no log line, no stack trace, nothing to search for when something downstream breaks.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; failure vanishes silently</p>
+        <pre><code>try {
+    connection.send(payload);
+} catch (IOException e) {
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; failure is visible</p>
+        <pre><code>try {
+    connection.send(payload);
+} catch (IOException e) {
+    logger.error("send failed", e);
+}</code></pre>
+      </div>
+    </div>
+
+    <h2>Public fields</h2>
+    <p>A public field lets any caller mutate it directly, with no chance to validate the new value or react to the change &mdash; the entire point of encapsulation is to prevent exactly this.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; anyone can set a negative balance</p>
+        <pre><code>public class Account {
+    public double balance;
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; validated on the way in</p>
+        <pre><code>public class Account {
+    private double balance;
+
+    public void setBalance(double value) {
+        if (value < 0) throw new IllegalArgumentException();
+        this.balance = value;
+    }
+}</code></pre>
+      </div>
+    </div>
+
+    <h2><code>printStackTrace()</code> in production paths</h2>
+    <p><code>printStackTrace()</code> writes straight to stderr, which is easy to lose entirely in a production environment with real log aggregation &mdash; a proper logger routes the same information somewhere it can actually be searched later.</p>
     <div class="code-compare">
       <div>
         <p class="code-label label-bad">Before</p>
-        <pre><code>try:
-    result = risky_call()
-except:
-    result = None</code></pre>
+        <pre><code>catch (Exception e) {
+    e.printStackTrace();
+}</code></pre>
       </div>
       <div>
         <p class="code-label label-good">After</p>
-        <pre><code>try:
-    result = risky_call()
-except (ValueError, KeyError) as exc:
-    log.warning("risky_call failed: %s", exc)
-    result = None</code></pre>
+        <pre><code>catch (Exception e) {
+    logger.error("operation failed", e);
+}</code></pre>
       </div>
     </div>
 
-    <h2>Mutable default arguments</h2>
-    <p>Default argument values are evaluated once, when the function is defined &mdash; not once per call. A mutable default like <code>[]</code> or <code>{}</code> is silently shared and mutated across every call that doesn't pass its own value, producing state that leaks between unrelated calls.</p>
+    <h2>Raw generic types</h2>
+    <p>Using a generic type without its type parameter (a &quot;raw type&quot;) throws away the compile-time type checking generics exist to provide, pushing what should be a compile error into a runtime <code>ClassCastException</code> instead.</p>
     <div class="code-compare">
       <div>
-        <p class="code-label label-bad">Before &mdash; the list is shared across calls</p>
-        <pre><code>def add_item(item, items=[]):
-    items.append(item)
-    return items</code></pre>
-      </div>
-      <div>
-        <p class="code-label label-good">After &mdash; a fresh list every call</p>
-        <pre><code>def add_item(item, items=None):
-    if items is None:
-        items = []
-    items.append(item)
-    return items</code></pre>
-      </div>
-    </div>
-
-    <h2>Mutable class attributes</h2>
-    <p>The same sharing problem, one level up: a mutable value assigned at the class level is one single object shared by every instance, not a fresh copy per instance.</p>
-    <div class="code-compare">
-      <div>
-        <p class="code-label label-bad">Before &mdash; every instance shares one list</p>
-        <pre><code>class Cart:
-    items = []</code></pre>
-      </div>
-      <div>
-        <p class="code-label label-good">After &mdash; initialized per instance</p>
-        <pre><code>class Cart:
-    def __init__(self):
-        self.items = []</code></pre>
-      </div>
-    </div>
-
-    <h2>Wildcard imports</h2>
-    <p><code>from module import *</code> pollutes the current namespace with everything the module exports, and hides exactly where any given name came from &mdash; both for readers and for tools trying to statically trace where a symbol is defined.</p>
-    <div class="code-compare">
-      <div>
-        <p class="code-label label-bad">Before</p>
-        <pre><code>from utils import *</code></pre>
+        <p class="code-label label-bad">Before &mdash; no compile-time safety</p>
+        <pre><code>List names = new ArrayList();
+names.add("Ada");</code></pre>
       </div>
       <div>
         <p class="code-label label-good">After</p>
-        <pre><code>from utils import normalize, slugify</code></pre>
+        <pre><code>List&lt;String&gt; names = new ArrayList&lt;&gt;();
+names.add("Ada");</code></pre>
       </div>
     </div>
 
     <h2>How REPO-SIGHT checks for these</h2>
-    <p>All four patterns above are REPO-SIGHT's actual Python rules &mdash; <code>py-bare-except</code>, <code>py-mutable-default-arg</code>, <code>py-mutable-class-attribute</code>, and <code>py-wildcard-import</code>, alongside long-function, deep-nesting, and TODO-without-ticket checks. <a href="/#analyze">Run it on a Python repository</a> to see which of these actually show up in your own code.</p>
+    <p>These four are REPO-SIGHT's actual Java rules &mdash; <code>java-empty-catch-block</code>, <code>java-public-field</code>, <code>java-printstacktrace</code>, and <code>java-raw-type-usage</code> &mdash; alongside long-method, deep-nesting, and TODO-without-ticket checks. <a href="/#analyze">Run it on a Java repository</a> to see which of these show up in yours.</p>
 
   </main>
 
@@ -152,6 +158,14 @@ except (ValueError, KeyError) as exc:
         <a href="/#analyze">Analyze a repo</a>
         <a href="/#pipeline">How it works</a>
         <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Tools</h4>
+        <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+        <a href="/python-code-analyzer.html">Python analyzer</a>
+        <a href="/java-code-analyzer.html">Java analyzer</a>
+        <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+        <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
       </div>
       <div class="footer-col">
         <h4>Resources</h4>
