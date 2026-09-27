@@ -6,19 +6,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="google-adsense-account" content="ca-pub-9503894064247817">
-  <title>Learn — Static Analysis Articles | REPO-SIGHT</title>
-  <meta name="description" content="15 practical, no-fluff explainers on static code analysis, code metrics, and language-specific quality fixes across C++, Python, Java, TypeScript, JavaScript, and C#." />
-<link rel="canonical" href="https://www.repo-sight.com/learn/" />
+  <title>How to Improve Java Code Quality | REPO-SIGHT</title>
+  <meta name="description" content="Practical fixes for common Java risk patterns: empty catch blocks, public fields breaking encapsulation, printStackTrace in production, and raw generic types, with before/after code." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/improve-java-code-quality.html" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Learn — Static Analysis Articles | REPO-SIGHT" />
-  <meta property="og:description" content="15 practical, no-fluff explainers on static code analysis, code metrics, and language-specific quality fixes across C++, Python, Java, TypeScript, JavaScript, and C#." />
-  <meta property="og:url" content="https://www.repo-sight.com/learn/" />
+  <meta property="og:title" content="How to Improve Java Code Quality | REPO-SIGHT" />
+  <meta property="og:description" content="Practical fixes for common Java risk patterns: empty catch blocks, public fields breaking encapsulation, printStackTrace in production, and raw generic types, with before/after code." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/improve-java-code-quality.html" />
   <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Learn — Static Analysis Articles | REPO-SIGHT" />
-  <meta name="twitter:description" content="15 practical, no-fluff explainers on static code analysis, code metrics, and language-specific quality fixes across C++, Python, Java, TypeScript, JavaScript, and C#." />
+  <meta name="twitter:title" content="How to Improve Java Code Quality | REPO-SIGHT" />
+  <meta name="twitter:description" content="Practical fixes for common Java risk patterns: empty catch blocks, public fields breaking encapsulation, printStackTrace in production, and raw generic types, with before/after code." />
   <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
   <meta name="robots" content="index, follow" />
   <link rel="stylesheet" href="../css/styles.css" />
@@ -33,12 +33,7 @@
   <header class="site-header">
     <div class="site-header-inner">
       <a class="brand" href="/">
-        <span class="brand-mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9.5" />
-            <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
-          </svg>
-        </span>
+        <span class="brand-mark"><img src="/apple-touch-icon.png" width="36" height="36" alt="REPO-SIGHT" decoding="async"></span>
         <span class="brand-name">REPO-SIGHT</span>
       </a>
       <nav class="site-nav" id="site-nav">
@@ -58,54 +53,96 @@
   </header>
 
   <main class="legal-main">
-    <h1>Learn</h1>
-    <p class="legal-updated">Static analysis, explained plainly</p>
+    <h1>How to improve Java code quality</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
-    <p>These are short explainers on the metrics REPO-SIGHT reports and the ideas behind them — written for developers who want the "why," not a textbook.</p>
 
-    <h2>Static analysis fundamentals</h2>
-    <ul>
-      <li><strong><a href="/learn/what-is-static-analysis.html">What is static code analysis?</a></strong> — how reading source without running it catches problems early, and what it can't catch.</li>
-      <li><strong><a href="/learn/static-analysis-vs-dynamic-analysis.html">Static analysis vs. dynamic analysis</a></strong> — two fundamentally different ways to find problems, and why real pipelines use both.</li>
-      <li><strong><a href="/learn/benefits-of-static-code-analysis.html">The benefits of static code analysis</a></strong> — speed, consistency, and a shared vocabulary for describing code health.</li>
-      <li><strong><a href="/learn/static-code-analysis-for-beginners.html">Static code analysis for beginners</a></strong> — the three layers of tooling, and how to read your first report without panicking.</li>
-      <li><strong><a href="/learn/static-analysis-vs-code-review.html">Static analysis vs. code review</a></strong> — what a human catches that a tool can't, and vice versa.</li>
-    </ul>
+    <p>Java's quality problems tend to cluster around encapsulation and error handling &mdash; patterns that compile cleanly and pass a quick glance, but cause real maintenance pain later. Here are the four worth fixing first.</p>
 
-    <h2>Metrics, explained</h2>
-    <ul>
-      <li><strong><a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity, explained</a></strong> — what the number actually counts and how to bring a function back down.</li>
-      <li><strong><a href="/learn/what-is-code-complexity.html">What is code complexity?</a></strong> — cyclomatic complexity, cognitive complexity, and coupling are three different things.</li>
-      <li><strong><a href="/learn/maximum-nesting-depth-explained.html">What is maximum nesting depth?</a></strong> — why deep nesting is one of the fastest ways to make code unreadable.</li>
-      <li><strong><a href="/learn/reading-a-code-health-score.html">How to read a code health score</a></strong> — what REPO-SIGHT's A&ndash;F grade weighs and what to fix first.</li>
-      <li><strong><a href="/learn/how-to-measure-code-quality.html">How to measure code quality</a></strong> — quality isn't one number; here's what the common proxy metrics actually capture.</li>
-      <li><strong><a href="/learn/what-is-technical-debt.html">What is technical debt?</a></strong> — the financial metaphor, and why it's a sharper risk for AI-generated code.</li>
-    </ul>
+    <h2>Empty catch blocks</h2>
+    <p>An empty <code>catch</code> block compiles fine and silently discards the exception, which means a real failure produces no signal anywhere &mdash; no log line, no stack trace, nothing to search for when something downstream breaks.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; failure vanishes silently</p>
+        <pre><code>try {
+    connection.send(payload);
+} catch (IOException e) {
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; failure is visible</p>
+        <pre><code>try {
+    connection.send(payload);
+} catch (IOException e) {
+    logger.error("send failed", e);
+}</code></pre>
+      </div>
+    </div>
 
-    <h2>Language-specific fixes</h2>
-    <ul>
-      <li><strong><a href="/learn/improve-python-code-quality.html">How to improve Python code quality</a></strong> — bare except, mutable defaults, wildcard imports, with before/after code.</li>
-      <li><strong><a href="/learn/improve-cpp-code-quality.html">How to improve C++ code quality</a></strong> — raw new/delete, catch(...), magic numbers, with before/after code.</li>
-      <li><strong><a href="/learn/improve-java-code-quality.html">How to improve Java code quality</a></strong> — empty catch blocks, public fields, raw types, with before/after code.</li>
-    </ul>
+    <h2>Public fields</h2>
+    <p>A public field lets any caller mutate it directly, with no chance to validate the new value or react to the change &mdash; the entire point of encapsulation is to prevent exactly this.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; anyone can set a negative balance</p>
+        <pre><code>public class Account {
+    public double balance;
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; validated on the way in</p>
+        <pre><code>public class Account {
+    private double balance;
 
-    <h2>For students &amp; job seekers</h2>
-    <ul>
-      <li><strong><a href="/learn/code-quality-checklist-for-students.html">Code quality checklist for students</a></strong> — what to check before a project goes on your resume.</li>
-    </ul>
+    public void setBalance(double value) {
+        if (value < 0) throw new IllegalArgumentException();
+        this.balance = value;
+    }
+}</code></pre>
+      </div>
+    </div>
 
-    <h2>Try it on your own code</h2>
-    <p>Every metric described here is one REPO-SIGHT computes automatically. <a href="/#analyze">Paste a public GitHub URL</a> and get a full report in seconds — no signup required.</p>
+    <h2><code>printStackTrace()</code> in production paths</h2>
+    <p><code>printStackTrace()</code> writes straight to stderr, which is easy to lose entirely in a production environment with real log aggregation &mdash; a proper logger routes the same information somewhere it can actually be searched later.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>catch (Exception e) {
+    e.printStackTrace();
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>catch (Exception e) {
+    logger.error("operation failed", e);
+}</code></pre>
+      </div>
+    </div>
+
+    <h2>Raw generic types</h2>
+    <p>Using a generic type without its type parameter (a &quot;raw type&quot;) throws away the compile-time type checking generics exist to provide, pushing what should be a compile error into a runtime <code>ClassCastException</code> instead.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; no compile-time safety</p>
+        <pre><code>List names = new ArrayList();
+names.add("Ada");</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>List&lt;String&gt; names = new ArrayList&lt;&gt;();
+names.add("Ada");</code></pre>
+      </div>
+    </div>
+
+    <h2>How REPO-SIGHT checks for these</h2>
+    <p>These four are REPO-SIGHT's actual Java rules &mdash; <code>java-empty-catch-block</code>, <code>java-public-field</code>, <code>java-printstacktrace</code>, and <code>java-raw-type-usage</code> &mdash; alongside long-method, deep-nesting, and TODO-without-ticket checks. <a href="/#analyze">Run it on a Java repository</a> to see which of these show up in yours.</p>
+
   </main>
 
   <footer class="site-footer">
     <div class="site-footer-inner">
       <div class="footer-brand">
         <div class="brand">
-          <span class="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" />
-            <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
-          </span>
+          <span class="brand-mark"><img src="/apple-touch-icon.png" width="36" height="36" alt="REPO-SIGHT" decoding="async"></span>
           <span class="brand-name">REPO-SIGHT</span>
         </div>
         <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
@@ -142,11 +179,11 @@
         <a href="/contact.html">Contact page</a>
         <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>
       </div>
-       <div class="footer-col">
-          <h4>Follow</h4>
-          <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
-          <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-        </div>
+      <div class="footer-col">
+        <h4>Follow</h4>
+        <a href="https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&amp;utm_source=ig_contact_invite" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.linkedin.com/company/reposight/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
     </div>
   </footer>
 </body>
