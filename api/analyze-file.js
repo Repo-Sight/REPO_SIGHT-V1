@@ -21,6 +21,7 @@ import { mkdir, readFile, rm, readdir, stat, writeFile } from "node:fs/promises"
 import { join, basename } from "node:path";
 import { randomUUID } from "node:crypto";
 import { getSupabase, getUserFromRequest, recordUserScan } from "./_lib/supabase.js";
+import { enrichReport } from "./_lib/enrich.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -136,6 +137,8 @@ async function runPipeline({ filePath, reportPath, scanId, supabase, displayName
   void cmaResult;
 
   const report = JSON.parse(await readFile(reportPath, "utf8"));
+  // Schema v3 (additive): tier/confidence per violation + ranked fixFirst.
+  enrichReport(report);
 
   const payload = {
     status: "COMPLETED",

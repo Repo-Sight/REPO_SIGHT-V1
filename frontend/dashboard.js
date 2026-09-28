@@ -329,10 +329,20 @@ class RepoSightDashboard {
        new scan" form.
        ----------------------------------------------------------------- */
     loadReport() {
-        const scanId = new URLSearchParams(window.location.search).get('scan');
+        const params = new URLSearchParams(window.location.search);
+        const scanId = params.get('scan');
         if (!scanId) {
             this.renderLandingPage();
             return;
+        }
+
+        // A permanently-pinned scanId used for the marketing "See a sample
+        // report" link (frontend/index.html) -- no new API/schema needed,
+        // this just labels an ordinary report as a sample so viewers don't
+        // mistake it for someone's private repo.
+        if (params.get('sample') === '1') {
+            this.meta.isSample = true;
+            this.$('dash-sample-badge')?.classList.remove('hidden');
         }
 
         // Landing page (#landing-page) is the default-visible markup so
@@ -535,6 +545,7 @@ class RepoSightDashboard {
         const fileTabBtn = this.$('hero-mode-file');
         const repoForm = this.$('new-scan-form');
         const repoFineprint = this.$('hero-repo-fineprint');
+        const sampleLink = this.$('hero-sample-link');
         const filePanels = this.$('hero-file-panels');
         const fileFineprint = this.$('hero-file-fineprint');
         const fileErrorEl = this.$('file-scan-error');
@@ -547,6 +558,7 @@ class RepoSightDashboard {
                 fileTabBtn.setAttribute('aria-selected', 'false');
                 repoForm.classList.remove('hidden');
                 if (repoFineprint) repoFineprint.classList.remove('hidden');
+                if (sampleLink) sampleLink.classList.remove('hidden');
                 filePanels.classList.add('hidden');
                 if (fileFineprint) fileFineprint.classList.add('hidden');
                 if (fileErrorEl) fileErrorEl.classList.add('hidden');
@@ -560,6 +572,7 @@ class RepoSightDashboard {
                 if (fileFineprint) fileFineprint.classList.remove('hidden');
                 repoForm.classList.add('hidden');
                 if (repoFineprint) repoFineprint.classList.add('hidden');
+                if (sampleLink) sampleLink.classList.add('hidden');
                 this.$('new-scan-error')?.classList.add('hidden');
             };
             repoTabBtn.addEventListener('click', showRepoMode);

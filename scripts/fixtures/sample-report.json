@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 2,
+  "project": {
+    "filesAnalyzed": 2,
+    "totalLines": 16,
+    "blankLines": 2,
+    "commentLines": 1,
+    "codeLines": 13,
+    "functionCount": 2,
+    "classCount": 0,
+    "variableCount": 4,
+    "includeCount": 1,
+    "loopCount": 0,
+    "conditionCount": 1,
+    "tryCatchCount": 1,
+    "maxNestingDepth": 2,
+    "cyclomaticComplexity": 4,
+    "todoCount": 1,
+    "avgFunctionLength": 5.5,
+    "longestFunctionLines": 6,
+    "longestFunctionName": "load()",
+    "healthScore": 60.5556,
+    "healthGrade": "D",
+    "scoreBreakdown": {
+      "complexityDensity": 54.9451,
+      "avgFunctionLength": 100,
+      "commentCoverage": 31.6239,
+      "todoDensity": 0,
+      "nestingDepth": 100
+    }
+  },
+  "files": [
+    {
+      "path": "sample/app.js",
+      "language": "javascript",
+      "totalLines": 6,
+      "blankLines": 1,
+      "commentLines": 0,
+      "codeLines": 5,
+      "functionCount": 1,
+      "classCount": 0,
+      "variableCount": 2,
+      "includeCount": 0,
+      "loopCount": 0,
+      "conditionCount": 1,
+      "tryCatchCount": 0,
+      "maxNestingDepth": 2,
+      "cyclomaticComplexity": 2,
+      "todoCount": 0,
+      "functions": [
+        {"name": "run", "startLine": 1, "endLine": 5, "lineCount": 5}
+      ],
+      "classes": [],
+      "dependencies": {
+        "fanOut": 0,
+        "fanIn": 0,
+        "dependsOn": [],
+        "dependedOnBy": []
+      }
+    },
+    {
+      "path": "sample/auth.py",
+      "language": "python",
+      "totalLines": 10,
+      "blankLines": 1,
+      "commentLines": 1,
+      "codeLines": 8,
+      "functionCount": 1,
+      "classCount": 0,
+      "variableCount": 2,
+      "includeCount": 1,
+      "loopCount": 0,
+      "conditionCount": 0,
+      "tryCatchCount": 1,
+      "maxNestingDepth": 2,
+      "cyclomaticComplexity": 2,
+      "todoCount": 1,
+      "functions": [
+        {"name": "load", "startLine": 3, "endLine": 8, "lineCount": 6}
+      ],
+      "classes": [],
+      "dependencies": {
+        "fanOut": 0,
+        "fanIn": 0,
+        "dependsOn": [],
+        "dependedOnBy": []
+      }
+    }
+  ],
+  "byLanguage": [
+    {
+      "language": "python",
+      "fileCount": 1,
+      "totalLines": 10,
+      "blankLines": 1,
+      "commentLines": 1,
+      "codeLines": 8,
+      "functionCount": 1,
+      "classCount": 0,
+      "variableCount": 2,
+      "includeCount": 1,
+      "loopCount": 0,
+      "conditionCount": 0,
+      "tryCatchCount": 1,
+      "maxNestingDepth": 2,
+      "cyclomaticComplexity": 2,
+      "todoCount": 1,
+      "avgFunctionLength": 6,
+      "longestFunctionLines": 6,
+      "longestFunctionName": "load()"
+    },
+    {
+      "language": "javascript",
+      "fileCount": 1,
+      "totalLines": 6,
+      "blankLines": 1,
+      "commentLines": 0,
+      "codeLines": 5,
+      "functionCount": 1,
+      "classCount": 0,
+      "variableCount": 2,
+      "includeCount": 0,
+      "loopCount": 0,
+      "conditionCount": 1,
+      "tryCatchCount": 0,
+      "maxNestingDepth": 2,
+      "cyclomaticComplexity": 2,
+      "todoCount": 0,
+      "avgFunctionLength": 5,
+      "longestFunctionLines": 5,
+      "longestFunctionName": "run()"
+    }
+  ],
+  "unanalyzedLanguages": [],
+  "hotspots": {
+    "gitAvailable": false,
+    "topFiles": []
+  },
+  "violations": [
+    {
+      "path": "sample/app.js",
+      "line": 2,
+      "ruleId": "js-loose-equality",
+      "language": "javascript",
+      "message": "'==' performs type coercion -- prefer '===' for predictable comparisons",
+      "severity": "info",
+      "category": "style"
+    },
+    {
+      "path": "sample/app.js",
+      "line": 2,
+      "ruleId": "js-sec-eval",
+      "language": "javascript",
+      "message": "'eval(...)' executes a string as code -- review that no part of it is built from untrusted input",
+      "severity": "warning",
+      "category": "security"
+    },
+    {
+      "path": "sample/app.js",
+      "line": 3,
+      "ruleId": "js-sec-inner-html",
+      "language": "javascript",
+      "message": "Assigning to '.innerHTML' inserts raw HTML into the page -- review that the value is sanitized/escaped, or use textContent for plain text",
+      "severity": "warning",
+      "category": "security"
+    },
+    {
+      "path": "sample/app.js",
+      "line": 4,
+      "ruleId": "js-var-usage",
+      "language": "javascript",
+      "message": "'var' is function-scoped and hoisted -- prefer 'let' or 'const'",
+      "severity": "info",
+      "category": "style"
+    },
+    {
+      "path": "sample/auth.py",
+      "line": 2,
+      "ruleId": "py-sec-hardcoded-secret",
+      "language": "python",
+      "message": "'password' is assigned a string literal that looks like a credential -- review whether this should come from a secret store or environment variable instead",
+      "severity": "warning",
+      "category": "security"
+    },
+    {
+      "path": "sample/auth.py",
+      "line": 3,
+      "ruleId": "py-mutable-default-arg",
+      "language": "python",
+      "message": "Mutable default argument is shared across every call -- use None and create the default inside the function",
+      "severity": "warning",
+      "category": "style"
+    },
+    {
+      "path": "sample/auth.py",
+      "line": 5,
+      "ruleId": "py-sec-pickle-load",
+      "language": "python",
+      "message": "pickle.loads(...) can execute arbitrary code while deserializing -- only unpickle data from a source you fully trust",
+      "severity": "warning",
+      "category": "security"
+    },
+    {
+      "path": "sample/auth.py",
+      "line": 6,
+      "ruleId": "py-bare-except",
+      "language": "python",
+      "message": "Bare 'except:' catches every exception including KeyboardInterrupt/SystemExit -- catch a specific exception type",
+      "severity": "warning",
+      "category": "style"
+    },
+    {
+      "path": "sample/auth.py",
+      "line": 7,
+      "ruleId": "py-sec-os-system",
+      "language": "python",
+      "message": "os.system(...) runs a shell command -- review that no part of it is built from untrusted input; subprocess.run(...) without shell=True is usually safer",
+      "severity": "warning",
+      "category": "security"
+    },
+    {
+      "path": "sample/auth.py",
+      "line": 8,
+      "ruleId": "py-sec-weak-hash",
+      "language": "python",
+      "message": "hashlib.md5(...) is a broken/weak hash -- avoid it for passwords or integrity checks that need collision resistance",
+      "severity": "info",
+      "category": "security"
+    },
+    {
+      "path": "sample/auth.py",
+      "line": 9,
+      "ruleId": "py-todo-without-ticket",
+      "language": "python",
+      "message": "TODO/FIXME without a ticket reference (#123 or PROJ-123)",
+      "severity": "info",
+      "category": "style"
+    }
+  ],
+  "duplication": {
+    "duplicateLineCount": 0,
+    "duplicatePercentage": 0,
+    "matches": []
+  }
+}

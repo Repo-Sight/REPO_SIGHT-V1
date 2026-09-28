@@ -100,15 +100,10 @@
     <header class="site-header">
       <div class="site-header-inner">
         <a class="brand" href="/">
-          <span class="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="9.5" />
-              <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
-            </svg>
-          </span>
+          <span class="brand-mark"><img src="/apple-touch-icon.png" width="36" height="36" alt="REPO-SIGHT" decoding="async"></span>
           <span class="brand-name">REPO-SIGHT</span>
         </a>
-        <nav class="site-nav">
+        <nav class="site-nav" id="site-nav">
           <a href="#pipeline">How it works</a>
           <a href="#features">What you get</a>
           <a href="#learn">Learn</a>
@@ -127,6 +122,13 @@
             </div>
           </div>
         </div>
+        <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round">
+            <line x1="3" y1="7" x2="21" y2="7" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="17" x2="21" y2="17" />
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -139,7 +141,7 @@
             <span class="hero-underline">Free, in seconds.</span>
           </h1>
           <p class="hero-sub">
-            Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo: size,
+            See what's inside your codebase. Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo: size,
             structure, complexity, duplication, security hotspots, and rule violations, across C++,
             Python, Java, TypeScript, JavaScript, and C#.
           </p>
@@ -155,6 +157,7 @@
           </form>
           <p class="new-scan-error hidden" id="new-scan-error"></p>
           <p class="hero-fineprint" id="hero-repo-fineprint">Public repositories only &middot; best for repos that analyze in under a minute &middot; no account needed</p>
+          <p class="hero-sample-link" id="hero-sample-link"><a href="?scan=SAMPLE_SCAN_ID&amp;sample=1">See a sample report &rarr;</a></p>
 
           <!-- Phase 6d: optional LCOV coverage upload. REPO-SIGHT never runs
                a repo's own test suite (no secure sandbox exists in this
@@ -312,7 +315,7 @@ Health Grade            : <span class="t-accent">B+</span>
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-2-2M16 6l2-2M12 7v2M9 9h6a3 3 0 013 3v3a6 6 0 01-12 0v-3a3 3 0 013-3z"/></svg>
           </div>
           <h3>Security hotspots</h3>
-          <p>39 rules across all six languages flag risky patterns &mdash; rolled up by severity, not just line count.</p>
+          <p>80 rules across all six languages flag risky patterns &mdash; rolled up by severity, not just line count.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">
@@ -380,9 +383,7 @@ Health Grade            : <span class="t-accent">B+</span>
       <div class="site-footer-inner">
         <div class="footer-brand">
           <div class="brand">
-            <span class="brand-mark">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
-            </span>
+            <span class="brand-mark"><img src="/apple-touch-icon.png" width="36" height="36" alt="REPO-SIGHT" decoding="async"></span>
             <span class="brand-name">REPO-SIGHT</span>
           </div>
           <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
@@ -392,6 +393,14 @@ Health Grade            : <span class="t-accent">B+</span>
           <a href="#analyze">Analyze a repo</a>
           <a href="#pipeline">How it works</a>
           <a href="#features">What you get</a>
+        </div>
+        <div class="footer-col">
+          <h4>Tools</h4>
+          <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+          <a href="/python-code-analyzer.html">Python analyzer</a>
+          <a href="/java-code-analyzer.html">Java analyzer</a>
+          <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+          <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
         </div>
         <div class="footer-col">
           <h4>Resources</h4>
@@ -446,17 +455,13 @@ Health Grade            : <span class="t-accent">B+</span>
   <header class="dash-topbar hidden">
     <div class="dash-topbar-inner">
       <a class="brand" href="/">
-                <span class="brand-mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9.5" />
-            <polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
-          </svg>
-        </span>
+                <span class="brand-mark"><img src="/apple-touch-icon.png" width="36" height="36" alt="REPO-SIGHT" decoding="async"></span>
         <span class="brand-name">REPO-SIGHT</span>
       </a>
       <div class="dash-meta">
         <span class="dash-meta-project" id="dash-project">—</span>
         <span class="dash-meta-scan" id="dash-scan"></span>
+        <span class="dash-sample-badge hidden" id="dash-sample-badge">Sample report</span>
       </div>
       <div class="dash-actions">
         <a href="/" class="btn-ghost">Analyze another repo</a>

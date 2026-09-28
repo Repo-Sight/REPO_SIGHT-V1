@@ -2,23 +2,23 @@
 <html lang="en">
 <head>
   <link rel="icon" type="image/png" href="/favicon-32.png" />
-  <link rel="apple-touch-icon" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="google-adsense-account" content="ca-pub-9503894064247817">
-  <title>What Is Code Complexity? | REPO-SIGHT</title>
-  <meta name="description" content="Code complexity isn't one number. Cyclomatic complexity, cognitive complexity, and coupling each measure a different kind of difficulty, and REPO-SIGHT's health score blends more than one on purpose." />
-  <link rel="canonical" href="https://www.repo-sight.com/learn/what-is-code-complexity.html" />
+  <title>Static Code Analysis for Beginners | REPO-SIGHT</title>
+  <meta name="description" content="A beginner's introduction to static code analysis: the three layers of tooling, why your first report looks alarming, and how to actually use the results." />
+  <link rel="canonical" href="https://www.repo-sight.com/learn/static-code-analysis-for-beginners.html" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="What Is Code Complexity? | REPO-SIGHT" />
-  <meta property="og:description" content="Code complexity isn't one number. Cyclomatic complexity, cognitive complexity, and coupling each measure a different kind of difficulty, and REPO-SIGHT's health score blends more than one on purpose." />
-  <meta property="og:url" content="https://www.repo-sight.com/learn/what-is-code-complexity.html" />
+  <meta property="og:title" content="Static Code Analysis for Beginners | REPO-SIGHT" />
+  <meta property="og:description" content="A beginner's introduction to static code analysis: the three layers of tooling, why your first report looks alarming, and how to actually use the results." />
+  <meta property="og:url" content="https://www.repo-sight.com/learn/static-code-analysis-for-beginners.html" />
   <meta property="og:image" content="https://www.repo-sight.com/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="What Is Code Complexity? | REPO-SIGHT" />
-  <meta name="twitter:description" content="Code complexity isn't one number. Cyclomatic complexity, cognitive complexity, and coupling each measure a different kind of difficulty, and REPO-SIGHT's health score blends more than one on purpose." />
+  <meta name="twitter:title" content="Static Code Analysis for Beginners | REPO-SIGHT" />
+  <meta name="twitter:description" content="A beginner's introduction to static code analysis: the three layers of tooling, why your first report looks alarming, and how to actually use the results." />
   <meta name="twitter:image" content="https://www.repo-sight.com/og-image.png" />
   <meta name="robots" content="index, follow" />
   <link rel="stylesheet" href="../css/styles.css" />
@@ -33,64 +33,56 @@
   <header class="site-header">
     <div class="site-header-inner">
       <a class="brand" href="/">
-        <span class="brand-mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" />
-          </svg>
-        </span>
+        <span class="brand-mark"><img src="/apple-touch-icon.png" width="36" height="36" alt="REPO-SIGHT" decoding="async"></span>
         <span class="brand-name">REPO-SIGHT</span>
       </a>
-      <nav class="site-nav">
+      <nav class="site-nav" id="site-nav">
         <a href="/#pipeline">How it works</a>
         <a href="/#features">What you get</a>
         <a href="/#learn">Learn</a>
       </nav>
       <a href="/#analyze" class="btn-primary btn-nav-cta">Analyze a repo</a>
+      <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round">
+          <line x1="3" y1="7" x2="21" y2="7" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="17" x2="21" y2="17" />
+        </svg>
+      </button>
     </div>
   </header>
 
   <main class="legal-main">
-    <h1>What is code complexity?</h1>
+    <h1>Static code analysis for beginners</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
 
-    <p>&quot;Complexity&quot; gets used as if it's a single measurable thing. It isn't. At least three different, only loosely correlated properties get called complexity, and confusing them leads to fixing the wrong problem.</p>
+    <p>If you've ever seen a red squiggly underline in your editor before you even ran your code, you've already used static analysis. This is a plain-language introduction to what it is, how it's organized, and how to read your first real report without panicking.</p>
 
-    <h2>Cyclomatic complexity &mdash; how many paths</h2>
-    <p>Introduced by Thomas McCabe in 1976, this counts the number of independent paths through a function's logic: every <code>if</code>, loop, <code>case</code>, and <code>catch</code> adds one to a baseline of 1. It's a path count, nothing more &mdash; it treats a flat sequence of 10 independent <code>if</code> statements the same as 10 statements nested five levels deep, even though the second is much harder to read.</p>
+    <h2>You're already using a primitive version of it</h2>
+    <p>Your editor's linter, the red underline under an unused variable, the warning your compiler prints about an unused import &mdash; all of that is static analysis. It reads your code as text and structure, without running it, and flags things that look wrong. What REPO-SIGHT and similar tools do is the same idea, taken further: instead of one rule at a time in your editor, a whole engine's worth of rules and metrics run across your entire repository at once.</p>
 
-    <h2>Cognitive complexity &mdash; how hard to hold in your head</h2>
-    <p>A newer metric (introduced by SonarSource in 2016) built specifically to fix that blind spot. It penalizes nesting explicitly: a branch inside a branch inside a loop costs more than the same three branches laid out flat, because that's genuinely closer to how much harder the nested version is for a human to trace mentally. Two functions can have identical cyclomatic complexity and very different cognitive complexity, depending purely on how the branches are arranged.</p>
+    <h2>The three layers, from shallow to deep</h2>
+    <ul>
+      <li><strong>Style and formatting</strong> &mdash; indentation, line length, naming conventions. Tools like Prettier, Black, or gofmt live here. Not a correctness concern, just consistency.</li>
+      <li><strong>Structural bugs</strong> &mdash; a bare <code>except:</code> block, an empty <code>catch</code>, a mutable default argument. These are patterns known to cause real bugs, independent of style.</li>
+      <li><strong>Metrics and architecture</strong> &mdash; cyclomatic complexity, nesting depth, function length, coupling between files. This is where REPO-SIGHT lives: not &quot;is this line formatted right&quot; but &quot;is this codebase, as a whole, getting harder to work in.&quot;</li>
+    </ul>
+    <p>Beginners usually meet layer one first (their editor yells about formatting) and don't discover layers two and three until much later &mdash; often only once they've inherited someone else's large codebase.</p>
 
-    <h2>Structural complexity &mdash; how tangled the codebase is</h2>
-    <p>This one isn't about a single function at all. Fan-out (how many other files a file depends on) and fan-in (how many files depend on it) measure coupling: a file with high fan-in is risky to change because everything touches it; a file with high fan-out is fragile because it depends on a lot of moving parts elsewhere. A codebase can have simple, low-complexity individual functions and still be a nightmare to change if the coupling between files is bad.</p>
+    <h2>Your first report will look alarming. That's normal.</h2>
+    <p>Run a real-world repository through any static analysis tool for the first time and you'll typically see dozens of violations: long functions, missing docstrings, TODOs without a ticket number. This is completely normal for code that's never been scanned before &mdash; it doesn't mean the code is bad, it means nobody's looked at it through this particular lens yet. The mistake beginners make is trying to fix everything at once. Don't.</p>
 
-    <h2>A concrete comparison</h2>
-    <div class="code-compare">
-      <div>
-        <p class="code-label label-bad">High complexity, shallow nesting</p>
-        <pre><code>def classify(x):
-    if x == 1: return "a"
-    if x == 2: return "b"
-    if x == 3: return "c"
-    if x == 4: return "d"
-    if x == 5: return "e"
-    return "f"</code></pre>
-      </div>
-      <div>
-        <p class="code-label label-bad">Low complexity, deep nesting</p>
-        <pre><code>def process(items):
-    if items:
-        for i in items:
-            if i.valid:
-                if i.ready:
-                    i.run()</code></pre>
-      </div>
-    </div>
-    <p>The first function has higher cyclomatic complexity (six branches) but is trivial to read. The second has lower cyclomatic complexity (three branches) but is harder to trace because the reader has to track three nested conditions at once. Neither number alone tells the whole story.</p>
+    <h2>How to actually use it as a beginner</h2>
+    <ol style="margin:8px 0 8px 20px; color:var(--text-muted); font-family:var(--sans); line-height:1.65;">
+      <li>Look at the overall grade or score first, not the violation list.</li>
+      <li>Find the two or three worst outliers &mdash; the single longest function, the deepest nesting, not the 40th minor info-level note.</li>
+      <li>Fix those first. Re-run. Watch the number move.</li>
+      <li>Treat the rest as a backlog, not a checklist you need to clear today.</li>
+    </ol>
 
-    <h2>Why REPO-SIGHT's health score blends more than one number</h2>
-    <p>This is exactly why a single score shouldn't rely on cyclomatic complexity alone. REPO-SIGHT's health score weighs five components together &mdash; complexity density (35%), average function length (25%), comment density (20%), TODO density (10%), and max nesting depth (10%) &mdash; specifically because complexity by itself misses the nesting problem, and nesting by itself misses the sheer-size problem. <a href="/learn/reading-a-code-health-score.html">See the full breakdown of how the grade is calculated.</a></p>
+    <h2>A five-minute first run</h2>
+    <p>Pick any public GitHub repository &mdash; one of your own class projects is a good start &mdash; and <a href="/#analyze">paste the URL into REPO-SIGHT</a>. No signup, no install. Look at the grade, then look at the single longest function it found. That's usually the most honest five-minute introduction to what static analysis actually feels like in practice.</p>
 
   </main>
 
@@ -98,18 +90,24 @@
     <div class="site-footer-inner">
       <div class="footer-brand">
         <div class="brand">
-          <span class="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" /><polyline points="4.8,12 8,12 9.6,8.3 12,15 13.7,12 19.2,12" /></svg>
-          </span>
+          <span class="brand-mark"><img src="/apple-touch-icon.png" width="36" height="36" alt="REPO-SIGHT" decoding="async"></span>
           <span class="brand-name">REPO-SIGHT</span>
         </div>
-        <p>A free code metrics analyzer for C++, Python, and Java. Built for students, job seekers, and indie devs.</p>
+        <p>A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers, and indie devs.</p>
       </div>
       <div class="footer-col">
         <h4>Product</h4>
         <a href="/#analyze">Analyze a repo</a>
         <a href="/#pipeline">How it works</a>
         <a href="/#features">What you get</a>
+      </div>
+      <div class="footer-col">
+        <h4>Tools</h4>
+        <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+        <a href="/python-code-analyzer.html">Python analyzer</a>
+        <a href="/java-code-analyzer.html">Java analyzer</a>
+        <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+        <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
       </div>
       <div class="footer-col">
         <h4>Resources</h4>
