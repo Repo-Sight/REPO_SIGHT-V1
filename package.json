@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build:analyser": "echo 'using prebuilt binary' && chmod +x backend/bin/linux-x64-cma",
+    "test:api": "node --test scripts/api.test.mjs",
     "install:backend": "cd backend && npm install"
   },
   "dependencies": {
