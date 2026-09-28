@@ -15,6 +15,7 @@ import { Readable } from "node:stream";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { getSupabase, getUserFromRequest, recordUserScan } from "./_lib/supabase.js";
+import { enrichReport } from "./_lib/enrich.js";
 import {
   parseLcov,
   mergeCoverageIntoReport,
@@ -167,6 +168,10 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
   } else {
     report.coverageSummary = { available: false };
   }
+
+  // Schema v3 (additive): tier/confidence per violation + ranked fixFirst.
+  // Never throws; a ranking problem must not fail an otherwise good scan.
+  enrichReport(report);
 
   const payload = {
     status: "COMPLETED",
