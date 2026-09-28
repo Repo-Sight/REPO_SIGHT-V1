@@ -17,6 +17,9 @@
     "api/feedback.js": {
       "maxDuration": 10
     },
+    "api/rules.js": {
+      "maxDuration": 10
+    },
     "api/explain-finding.js": {
       "maxDuration": 25
     }
