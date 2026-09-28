@@ -6,6 +6,7 @@
 // (written by api/analyze.js) and returns it as-is.
 
 import { getSupabase } from "../_lib/supabase.js";
+import { enrichReport } from "../_lib/enrich.js";
 // analyze.js only ever names scan objects with crypto.randomUUID() (v4).
 // Validating that shape here means this endpoint can only ever look up
 // keys that our own analyze step could have created -- it can't be used
@@ -34,6 +35,9 @@ export default async function handler(req, res) {
 
     const text = await data.text();
     const payload = JSON.parse(text);
+    // Scans stored before schema v3 have no tier/confidence/fixFirst;
+    // derive them on read (idempotent -- v3 scans pass through untouched).
+    enrichReport(payload);
     res.status(200).json(payload);
   } catch (err) {
     console.error("Scan fetch error:", err);
