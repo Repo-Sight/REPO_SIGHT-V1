@@ -7,7 +7,7 @@ on:
     branches: [main, Version2]
 
 jobs:
-  build:
+  analyser:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,3 +15,25 @@ jobs:
         run: cmake -S analyser -B build
       - name: Build
         run: cmake --build build --config Release
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Vercel cannot compile C++, so production runs the PREBUILT binary in
+      # backend/bin -- it does not rebuild itself when analyser sources change.
+      # Fail if it disagrees with a binary built from these sources.
+      - name: Committed binary matches a fresh build
+        run: |
+          chmod +x backend/bin/linux-x64-cma
+          node scripts/check-binary-drift.mjs build/cma backend/bin/linux-x64-cma
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: API layer tests (rule catalog, enrichment, /api/rules)
+        run: npm run test:api
