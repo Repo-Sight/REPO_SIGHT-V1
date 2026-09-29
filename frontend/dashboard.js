@@ -135,6 +135,67 @@ const SCORE_COMPONENTS = [
     },
 ];
 
+/* -----------------------------------------------------------------
+   Private-repo scanning (Phase C) -- pure helpers, no DOM, unit-tested in
+   scripts/dashboard-private.test.mjs.
+
+   The user's GitHub access token (from the GitHub sign-in) is kept ONLY in
+   sessionStorage: never localStorage, never sent anywhere except our own
+   /api/analyze as an X-GitHub-Token header, and gone when the tab closes.
+   Supabase exposes it as session.provider_token, and only right after the
+   OAuth redirect -- it is not persisted or refreshed for us -- so it must be
+   captured at that moment or it is lost.
+   ----------------------------------------------------------------- */
+const GH_TOKEN_KEY = 'repoSight.githubToken';
+const PENDING_URL_KEY = 'repoSight.pendingRepoUrl';
+// Same shape check the server applies (api/_lib/github.js readGithubToken).
+const GH_TOKEN_RE = /^[A-Za-z0-9_-]{20,255}$/;
+
+function readGithubToken(storage) {
+    try {
+        const t = storage && storage.getItem(GH_TOKEN_KEY);
+        return t && GH_TOKEN_RE.test(t) ? t : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function writeGithubToken(storage, token) {
+    try {
+        if (storage && typeof token === 'string' && GH_TOKEN_RE.test(token)) {
+            storage.setItem(GH_TOKEN_KEY, token);
+            return true;
+        }
+    } catch (_) { /* storage unavailable -- private scans just won't work */ }
+    return false;
+}
+
+function clearGithubToken(storage) {
+    try { if (storage) storage.removeItem(GH_TOKEN_KEY); } catch (_) { /* ignore */ }
+}
+
+// What should the UI do after a failed POST /api/analyze?
+//   ctx.usedToken -- this response came from a request that carried the token
+//   ctx.hasToken  -- a token is available to try
+// Returns one of:
+//   'retry_with_token' -- public path found nothing; resend once WITH the token
+//   'connect_github'   -- nothing found and no token: offer GitHub connect
+//   'reconnect'        -- GitHub rejected the token (expired/revoked)
+//   'signin'           -- token sent but no REPO-SIGHT session
+//   'install_app'      -- token valid, repo not visible: app likely not installed
+//   'show'             -- just show the message
+function nextStepForAnalyzeFailure(status, data, ctx) {
+    const code = data && data.code;
+    if (code === 'signin_required') return 'signin';
+    if (code === 'github_reauth') return 'reconnect';
+    if (code === 'github_not_found') return 'install_app';
+    if (code === 'github_access_denied' || code === 'github_rate_limit') return 'show';
+    if (status === 404 && !(ctx && ctx.usedToken)) {
+        return ctx && ctx.hasToken ? 'retry_with_token' : 'connect_github';
+    }
+    return 'show';
+}
+
 class RepoSightDashboard {
     constructor() {
         this.jsonData = null;
@@ -370,7 +431,11 @@ class RepoSightDashboard {
     pollScan(scanId, attempt = 0) {
         const poll = async at => {
             try {
-                const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}`);
+                // Session goes along so the owner can open their own private
+                // report; anonymous callers send nothing extra.
+                const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}`, {
+                    headers: await this.getAuthHeaders(),
+                });
                 const data = await res.json().catch(() => ({}));
 
                 // The API always answers 200 (even "not found"), signalling
@@ -413,6 +478,16 @@ class RepoSightDashboard {
                     this.meta.projectName = data.projectName || '';
                     this.meta.createdAt = data.createdAt || '';
                     this.jsonData = {
+                        // Repo identity + scan id. Explain-finding and the
+                        // before/after trend callout both read these off
+                        // jsonData; they were never copied over, so both
+                        // features silently never rendered.
+                        scanId: data.scanId || scanId,
+                        projectName: data.projectName || '',
+                        repoOwner: data.repoOwner || '',
+                        repoName: data.repoName || '',
+                        repoBranch: data.repoBranch || '',
+                        visibility: data.visibility || 'public',
                         project: data.project || {},
                         violations: data.violations || [],
                         files: data.files || [],
@@ -420,6 +495,7 @@ class RepoSightDashboard {
                         unanalyzedLanguages: data.unanalyzedLanguages || [],
                         hotspots: data.hotspots || null,
                     };
+                    this.$('dash-private-badge')?.classList.toggle('hidden', data.visibility !== 'private');
                     this.track('scan_completed');
                     this.hideLoadingState();
                     this.populateReport();
@@ -492,6 +568,14 @@ class RepoSightDashboard {
             });
         }
 
+        // Coming back from "Connect GitHub": put the URL they had typed back.
+        try {
+            const store = this.sessionStore();
+            const pending = store && store.getItem(PENDING_URL_KEY);
+            if (pending && !urlInput.value) urlInput.value = pending;
+            if (store) store.removeItem(PENDING_URL_KEY);
+        } catch (_) { /* ignore */ }
+
         form.addEventListener('submit', async e => {
             e.preventDefault();
             const repoUrl = urlInput.value.trim();
@@ -507,22 +591,52 @@ class RepoSightDashboard {
                 const body = { repoUrl };
                 if (coverageReport) body.coverageReport = coverageReport;
 
-                const headers = await this.getAuthHeaders();
-                const res = await fetch('/api/analyze', {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify(body),
-                });
-                const data = await res.json().catch(() => ({}));
+                const send = async githubToken => {
+                    const headers = await this.getAuthHeaders();
+                    if (githubToken) headers['X-GitHub-Token'] = githubToken;
+                    const res = await fetch('/api/analyze', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify(body),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    return { res, data };
+                };
 
+                // Public path first, exactly as before -- no GitHub token on
+                // the wire for public repos. Only if that finds nothing AND
+                // the user has connected GitHub do we resend once with the
+                // token (private-repo path).
+                let attempt = await send(null);
+                let usedToken = false;
+                const storedToken = readGithubToken(this.sessionStore());
+                if (
+                    (!attempt.res.ok || !attempt.data.scanId) &&
+                    nextStepForAnalyzeFailure(attempt.res.status, attempt.data, {
+                        usedToken: false,
+                        hasToken: !!storedToken,
+                    }) === 'retry_with_token'
+                ) {
+                    submitBtn.textContent = 'Trying as a private repo\u2026';
+                    this.track('private_scan_retry');
+                    usedToken = true;
+                    attempt = await send(storedToken);
+                }
+
+                const { res, data } = attempt;
                 if (!res.ok || !data.scanId) {
-                    throw new Error(data.error || `HTTP ${res.status}`);
+                    const failure = new Error(data.error || `HTTP ${res.status}`);
+                    failure.step = nextStepForAnalyzeFailure(res.status, data, {
+                        usedToken,
+                        hasToken: !!storedToken,
+                    });
+                    throw failure;
                 }
 
                 window.location.search = `?scan=${encodeURIComponent(data.scanId)}`;
             } catch (err) {
                 this.track('scan_failed', { reason: 'submit_error' });
-                errorEl.textContent = err.message || 'Could not start analysis.';
+                this.showScanError(errorEl, err.message || 'Could not start analysis.', err.step, urlInput.value.trim());
                 errorEl.classList.remove('hidden');
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Analyze';
@@ -825,7 +939,9 @@ class RepoSightDashboard {
             .limit(1);
         if (error || !rows?.length) return;
 
-        const prevRes = await fetch(`/api/scans/${encodeURIComponent(rows[0].scan_id)}`).catch(() => null);
+        const prevRes = await fetch(`/api/scans/${encodeURIComponent(rows[0].scan_id)}`, {
+            headers: await this.getAuthHeaders(),
+        }).catch(() => null);
         if (!prevRes || !prevRes.ok) return;
         const previous = await prevRes.json().catch(() => null);
         if (!previous || previous.status === 'FAILED') return;
@@ -1427,7 +1543,30 @@ class RepoSightDashboard {
     // entirely rather than showing something that will just 401/404.
     canExplainFindings() {
         const d = this.jsonData || {};
+        // Never for private repos. The server can't read them anyway (it
+        // fetches unauthenticated raw files), so the button would only ever
+        // error -- and this keeps the promise on screen that private code
+        // is never sent to a third-party AI.
+        if (d.visibility === 'private') return false;
         return !!(d.repoOwner && d.repoName && d.repoBranch);
+    }
+
+    renderPrivateAiNote() {
+        const table = this.$('security-table-body')?.closest('table');
+        if (!table) return;
+        const isPrivate = (this.jsonData || {}).visibility === 'private';
+        let note = this.$('security-private-note');
+        if (!isPrivate) {
+            if (note) note.remove();
+            return;
+        }
+        if (!note) {
+            note = document.createElement('p');
+            note.id = 'security-private-note';
+            note.style.cssText = 'font-size:.85rem;opacity:.75;margin:.5rem 0;';
+            table.insertAdjacentElement('beforebegin', note);
+        }
+        note.textContent = 'AI explanations are turned off for private repositories \u2014 your code is never sent to a third-party AI.';
     }
 
     renderSecurityTable() {
@@ -1436,6 +1575,7 @@ class RepoSightDashboard {
         const countLabel = this.$('security-count-label');
         const showMoreBtn = this.$('security-show-more');
         if (!tbody || !empty || !countLabel) return;
+        this.renderPrivateAiNote();
 
         const totalFindings = (this.jsonData.violations || []).filter(v => v.category === 'security').length;
         const allFiltered = this.getFilteredSortedSecurityFindings();
@@ -1948,9 +2088,15 @@ class RepoSightDashboard {
         this.bindAuthModal();
         this.bindMyScansModal();
 
-        supabase.auth.onAuthStateChange((_event, session) => this.renderAuthState(session));
+        supabase.auth.onAuthStateChange((event, session) => {
+            this.captureGithubToken(event, session);
+            this.renderAuthState(session);
+        });
         supabase.auth.getSession()
-            .then(({ data }) => this.renderAuthState(data?.session || null))
+            .then(({ data }) => {
+                this.captureGithubToken('INITIAL_SESSION', data?.session || null);
+                this.renderAuthState(data?.session || null);
+            })
             .catch(() => this.renderAuthState(null));
     }
 
@@ -2121,6 +2267,92 @@ class RepoSightDashboard {
             .join('');
     }
 
+    sessionStore() {
+        try { return window.sessionStorage || null; } catch (_) { return null; }
+    }
+
+    // Supabase only hands over the provider (GitHub) token right after the
+    // OAuth redirect, and never again -- grab it then. Only GitHub OAuth is
+    // offered, so a provider_token is always a GitHub token; the shape check
+    // in writeGithubToken rejects anything else. Later events (token refresh)
+    // carry no provider_token and must not overwrite a good one.
+    captureGithubToken(event, session) {
+        const store = this.sessionStore();
+        if (!store) return;
+        if (event === 'SIGNED_OUT') {
+            clearGithubToken(store);
+            return;
+        }
+        const token = session && session.provider_token;
+        if (token && writeGithubToken(store, token)) {
+            this.track('github_connected');
+        }
+    }
+
+    async connectGithub(repoUrl) {
+        const supabase = window.supabaseClient;
+        if (!supabase) return;
+        try {
+            if (repoUrl) {
+                const store = this.sessionStore();
+                if (store) store.setItem(PENDING_URL_KEY, String(repoUrl).slice(0, 300));
+            }
+        } catch (_) { /* ignore */ }
+        this.track('github_connect_attempt');
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'github',
+            options: { redirectTo: this.currentRedirectUrl() },
+        });
+        if (error) {
+            const errorEl = this.$('new-scan-error');
+            if (errorEl) {
+                errorEl.textContent = error.message || 'Could not start GitHub sign-in.';
+                errorEl.classList.remove('hidden');
+            }
+        }
+    }
+
+    // Renders a scan-submit error plus, where useful, one action button.
+    showScanError(errorEl, message, step, repoUrl) {
+        errorEl.textContent = message;
+        if (!step || step === 'show') return;
+
+        const button = (label, onClick) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'btn-ghost scan-error-action';
+            b.style.marginTop = '.5rem';
+            b.textContent = label;
+            b.addEventListener('click', onClick);
+            return b;
+        };
+
+        if (step === 'connect_github' || step === 'reconnect') {
+            if (step === 'reconnect') clearGithubToken(this.sessionStore());
+            errorEl.appendChild(document.createElement('br'));
+            errorEl.appendChild(button(
+                step === 'reconnect' ? 'Reconnect GitHub' : 'Connect GitHub for private repos',
+                () => this.connectGithub(repoUrl)
+            ));
+        } else if (step === 'signin') {
+            errorEl.appendChild(document.createElement('br'));
+            errorEl.appendChild(button('Sign in', () => this.openAuthModal()));
+        } else if (step === 'install_app') {
+            const slug = window.repoSightConfig && window.repoSightConfig.githubAppSlug;
+            if (slug) {
+                errorEl.appendChild(document.createElement('br'));
+                const a = document.createElement('a');
+                a.className = 'btn-ghost scan-error-action';
+                a.style.marginTop = '.5rem';
+                a.href = `https://github.com/apps/${encodeURIComponent(slug)}/installations/new`;
+                a.target = '_blank';
+                a.rel = 'noopener';
+                a.textContent = 'Install the GitHub App';
+                errorEl.appendChild(a);
+            }
+        }
+    }
+
     // Used by both scan-submission fetches (repo + file). Anonymous
     // requests get back the plain JSON content-type header, unchanged
     // from Phases 0-4 -- an auth hiccup here must never block a scan.
@@ -2142,10 +2374,20 @@ class RepoSightDashboard {
 /* -----------------------------------------------------------------
    Bootstrap
    ----------------------------------------------------------------- */
-document.addEventListener('DOMContentLoaded', () => {
-    window.repoSightDashboard = new RepoSightDashboard();
-});
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.repoSightDashboard = new RepoSightDashboard();
+    });
+}
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { RepoSightDashboard, computeScanDelta };
+    module.exports = {
+        RepoSightDashboard,
+        computeScanDelta,
+        readGithubToken,
+        writeGithubToken,
+        clearGithubToken,
+        nextStepForAnalyzeFailure,
+        GH_TOKEN_KEY,
+    };
 }
