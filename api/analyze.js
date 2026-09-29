@@ -187,9 +187,16 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
     ...report,
   };
 
+  // Private reports live under a "private/" key prefix, not at the bucket
+  // root. Reason: every deployment (the production branch AND Version2
+  // previews) shares this one bucket, and older deployments serve any
+  // "<uuid>.json" root key with no visibility check. They validate the id
+  // as a bare UUID, so they can never build a "private/<uuid>.json" key --
+  // an owner-only report stays unreachable there even if its id leaks.
+  const blobKey = isPrivate ? `private/${scanId}.json` : `${scanId}.json`;
   const { error: uploadError } = await supabase.storage
     .from("scans")
-    .upload(`${scanId}.json`, JSON.stringify(payload), {
+    .upload(blobKey, JSON.stringify(payload), {
       contentType: "application/json",
       upsert: true,
     });
@@ -230,7 +237,9 @@ function classifyError(err) {
       status: 404,
       body: {
         code: "github_not_found",
-        error: "Repository not found, or your GitHub account doesn't have access to it.",
+        error:
+          "Repository not found. If it's private, the REPO-SIGHT GitHub App must be installed " +
+          "on it, and your GitHub account must have access to it.",
       },
     };
   }
