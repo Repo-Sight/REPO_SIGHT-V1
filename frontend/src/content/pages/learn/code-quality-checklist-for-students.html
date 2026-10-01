@@ -1,0 +1,34 @@
+    <h1>Code quality checklist for students</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>A class project graded on whether it runs is a different bar than a GitHub repo you're linking from your resume. Here's a practical checklist for the second case &mdash; the one a recruiter or a hiring manager might actually open.</p>
+
+    <h2>Before you link a repo on your resume</h2>
+    <ul>
+      <li><strong>Does it have a README?</strong> One paragraph on what the project does and how to run it. An empty or default README is one of the fastest ways to look unfinished.</li>
+      <li><strong>Is there a LICENSE file?</strong> Doesn't need to be complicated &mdash; MIT or Apache 2.0 is fine &mdash; but an unlicensed public repo technically has no clear terms for anyone to reuse it.</li>
+      <li><strong>Are commit messages readable?</strong> A history of &quot;fix&quot;, &quot;fix2&quot;, &quot;asdf&quot; is a minor thing individually and a pattern reviewers notice collectively.</li>
+      <li><strong>Does the longest function fit on one screen?</strong> A 300-line function is a specific, checkable red flag &mdash; not a vague impression, an actual number you can look up.</li>
+      <li><strong>Are there any bare <code>except:</code> blocks or empty <code>catch</code> blocks?</strong> These are exactly the kind of thing an interviewer skimming your code will notice, because they're a known anti-pattern taught in most CS courses.</li>
+      <li><strong>Is there at least one test?</strong> Doesn't need full coverage &mdash; one test file signals you know testing exists as a practice.</li>
+    </ul>
+
+    <h2>Common mistakes that stand out for the wrong reasons</h2>
+    <ul>
+      <li>Hardcoded credentials or API keys committed to the repo &mdash; an instant red flag for any technical reviewer, independent of code quality.</li>
+      <li>A single 1000-line file holding the entire project, with no separation between logic, I/O, and configuration.</li>
+      <li>Copy-pasted boilerplate left in from a tutorial, including the tutorial's own comments and variable names.</li>
+      <li>No <code>.gitignore</code> &mdash; a repo with <code>node_modules/</code> or a virtual environment committed directly signals unfamiliarity with basic tooling.</li>
+    </ul>
+
+    <h2>A five-minute pre-submission routine</h2>
+    <ol style="margin:8px 0 8px 20px; color:var(--text-muted); font-family:var(--sans); line-height:1.65;">
+      <li>Read the README as if you'd never seen the project before. Does it actually explain what to do?</li>
+      <li><a href="/#analyze">Run the repo through REPO-SIGHT</a> &mdash; no signup, no install. Look at the grade and the single longest function it finds.</li>
+      <li>Fix the worst one or two things it flags. You don't need a perfect score &mdash; you need to not have an obvious, fixable outlier sitting in a repo someone's about to open.</li>
+      <li>Re-run it once, confirm the grade moved, and move on. Don't chase a perfect score on a student project &mdash; a clean, honest B is more convincing than a suspiciously perfect A on something that was clearly never really tested.</li>
+    </ol>
+
+    <h2>Why this matters more than it seems</h2>
+    <p>A recruiter or interviewer who opens your linked repo is spending maybe two or three minutes there. They're not going to read every file &mdash; they're forming an impression from the README, the file structure, and whichever function they happen to click into first. A five-minute pass before you submit is genuinely cheap insurance against that impression being the wrong one.</p>

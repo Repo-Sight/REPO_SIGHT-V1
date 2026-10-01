@@ -1,0 +1,82 @@
+    <h1>How to improve C++ code quality</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>C++ gives you enough rope to write extremely fast code and enough rope to leak memory doing it. Most of the patterns worth fixing are about ownership and error handling &mdash; here are the ones that matter most, with real before/after code.</p>
+
+    <h2>Raw <code>new</code>/<code>delete</code></h2>
+    <p>Manual <code>new</code>/<code>delete</code> pairs are the single most common source of leaks and double-frees in C++: every path through the function &mdash; including early returns and thrown exceptions &mdash; has to reach the matching <code>delete</code>, and it's easy to miss one.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; leaks if validate() throws</p>
+        <pre><code>Widget* w = new Widget();
+w->validate();
+w->run();
+delete w;</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; freed automatically on every path</p>
+        <pre><code>auto w = std::make_unique&lt;Widget&gt;();
+w->validate();
+w->run();</code></pre>
+      </div>
+    </div>
+
+    <h2><code>using namespace std;</code> in a header</h2>
+    <p>Inside a <code>.cpp</code> file, this is a matter of taste. Inside a header, it pollutes the global namespace of every single translation unit that includes that header, which can cause subtle name collisions in files that never intended to opt into it.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; widget.h</p>
+        <pre><code>#include &lt;string&gt;
+using namespace std;
+
+string describe(int id);</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; widget.h</p>
+        <pre><code>#include &lt;string&gt;
+
+std::string describe(int id);</code></pre>
+      </div>
+    </div>
+
+    <h2>Catch-all <code>catch(...)</code></h2>
+    <p>An empty ellipsis catch block swallows every exception &mdash; including ones the code has no idea how to actually recover from &mdash; and discards the information about what went wrong, which makes the next debugging session much harder.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before &mdash; silent failure</p>
+        <pre><code>try {
+    process(request);
+} catch (...) {
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After &mdash; specific, logged</p>
+        <pre><code>try {
+    process(request);
+} catch (const std::exception& e) {
+    log_error(e.what());
+}</code></pre>
+      </div>
+    </div>
+
+    <h2>Magic numbers in conditions</h2>
+    <p>A bare literal in a comparison forces the reader to guess what it means and makes the value harder to find and change consistently later.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>if (retries > 3) {
+    giveUp();
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>constexpr int kMaxRetries = 3;
+if (retries > kMaxRetries) {
+    giveUp();
+}</code></pre>
+      </div>
+    </div>
+
+    <h2>How REPO-SIGHT checks for these</h2>
+    <p>These four are REPO-SIGHT's actual C++ rules &mdash; <code>cpp-raw-new-delete</code>, <code>cpp-using-namespace-std-header</code>, <code>cpp-catch-all-ellipsis</code>, and <code>cpp-magic-number-literal</code> &mdash; alongside long-function, deep-nesting, and TODO-without-ticket checks. <a href="/#analyze">Run it on a C++ repository</a> to see which show up in yours.</p>

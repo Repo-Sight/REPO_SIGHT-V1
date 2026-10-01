@@ -1,0 +1,30 @@
+    <h1>Static code analysis for beginners</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+
+    <p>If you've ever seen a red squiggly underline in your editor before you even ran your code, you've already used static analysis. This is a plain-language introduction to what it is, how it's organized, and how to read your first real report without panicking.</p>
+
+    <h2>You're already using a primitive version of it</h2>
+    <p>Your editor's linter, the red underline under an unused variable, the warning your compiler prints about an unused import &mdash; all of that is static analysis. It reads your code as text and structure, without running it, and flags things that look wrong. What REPO-SIGHT and similar tools do is the same idea, taken further: instead of one rule at a time in your editor, a whole engine's worth of rules and metrics run across your entire repository at once.</p>
+
+    <h2>The three layers, from shallow to deep</h2>
+    <ul>
+      <li><strong>Style and formatting</strong> &mdash; indentation, line length, naming conventions. Tools like Prettier, Black, or gofmt live here. Not a correctness concern, just consistency.</li>
+      <li><strong>Structural bugs</strong> &mdash; a bare <code>except:</code> block, an empty <code>catch</code>, a mutable default argument. These are patterns known to cause real bugs, independent of style.</li>
+      <li><strong>Metrics and architecture</strong> &mdash; cyclomatic complexity, nesting depth, function length, coupling between files. This is where REPO-SIGHT lives: not &quot;is this line formatted right&quot; but &quot;is this codebase, as a whole, getting harder to work in.&quot;</li>
+    </ul>
+    <p>Beginners usually meet layer one first (their editor yells about formatting) and don't discover layers two and three until much later &mdash; often only once they've inherited someone else's large codebase.</p>
+
+    <h2>Your first report will look alarming. That's normal.</h2>
+    <p>Run a real-world repository through any static analysis tool for the first time and you'll typically see dozens of violations: long functions, missing docstrings, TODOs without a ticket number. This is completely normal for code that's never been scanned before &mdash; it doesn't mean the code is bad, it means nobody's looked at it through this particular lens yet. The mistake beginners make is trying to fix everything at once. Don't.</p>
+
+    <h2>How to actually use it as a beginner</h2>
+    <ol style="margin:8px 0 8px 20px; color:var(--text-muted); font-family:var(--sans); line-height:1.65;">
+      <li>Look at the overall grade or score first, not the violation list.</li>
+      <li>Find the two or three worst outliers &mdash; the single longest function, the deepest nesting, not the 40th minor info-level note.</li>
+      <li>Fix those first. Re-run. Watch the number move.</li>
+      <li>Treat the rest as a backlog, not a checklist you need to clear today.</li>
+    </ol>
+
+    <h2>A five-minute first run</h2>
+    <p>Pick any public GitHub repository &mdash; one of your own class projects is a good start &mdash; and <a href="/#analyze">paste the URL into REPO-SIGHT</a>. No signup, no install. Look at the grade, then look at the single longest function it found. That's usually the most honest five-minute introduction to what static analysis actually feels like in practice.</p>
