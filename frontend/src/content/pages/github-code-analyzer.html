@@ -1,0 +1,92 @@
+    <section class="tool-hero">
+      <h1>GitHub Code Analyzer</h1>
+      <p class="section-sub">Paste any public GitHub URL. REPO-SIGHT clones it, parses the actual source, and reports real code-quality metrics &mdash; not a repo-activity score.</p>
+      <div class="tool-hero-ctas">
+        <a href="/#analyze" class="btn-primary">Analyze a repo free</a>
+      </div>
+    </section>
+
+    <section class="features">
+      <h2>What this isn't</h2>
+      <p class="section-sub">Some &quot;repository health&quot; tools score how active a GitHub repo looks: commit frequency, issue counts, README completeness, stars and forks. REPO-SIGHT does something different.</p>
+      <div class="features-grid features-grid--three">
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M4 4h4v4H4zM10 10h4v10h-4zM16 6h4v14h-4z"/></svg>
+          </div>
+          <h3>It reads the actual code</h3>
+          <p>A real lexer and parser walk your source files &mdash; the report is built from cyclomatic complexity, nesting depth, and rule violations, not GitHub API activity metadata.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="3.5"/></svg>
+          </div>
+          <h3>Five-stage pipeline</h3>
+          <p>Scan &rarr; lex &rarr; parse &rarr; aggregate &rarr; report. The same deterministic pipeline the underlying engine runs from the command line.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-2-2M16 6l2-2M12 7v2M9 9h6a3 3 0 013 3v3a6 6 0 01-12 0v-3a3 3 0 013-3z"/></svg>
+          </div>
+          <h3>No GitHub App, no OAuth required to scan</h3>
+          <p>Paste a URL and get a report &mdash; no app to install, no repository access to grant. Signing in is optional and only adds scan history.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l5-5M9 19l7-11M16 19l4-15"/></svg>
+          </div>
+          <h3>Every tab, one scan</h3>
+          <p>Overview, By Language, Files, Duplication, Coverage, Security, and Scoring &mdash; all from the same free pass over your repo.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tool-faq">
+      <h2>Frequently asked questions</h2>
+      <details class="faq-item">
+        <summary>Does it need a GitHub App installed on my account?</summary>
+        <p>No. Just paste a public repository URL &mdash; no app install, no permissions grant.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Does it use the GitHub API to score commit activity?</summary>
+        <p>No. REPO-SIGHT clones the repository and parses the source files directly; commit frequency, star count, and issue activity aren't part of the score.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Can I analyze a private repository?</summary>
+        <p>Not yet &mdash; only public repositories on the main/master branch are supported today.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How long does a scan take?</summary>
+        <p>Best for repositories that analyze in under a minute; very large repos can exceed the time budget and time out rather than return a partial report.</p>
+      </details>
+    </section>
+
+    <section class="tool-crosslinks">
+      <h2>By language</h2>
+      <div class="tool-crosslinks-grid">
+        <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+        <a href="/python-code-analyzer.html">Python analyzer</a>
+        <a href="/java-code-analyzer.html">Java analyzer</a>
+        <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+        <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
+      </div>
+    </section>
+
+    <section class="tool-crosslinks">
+      <h2>By use case</h2>
+      <div class="tool-crosslinks-grid">
+        <a href="/free-static-code-analyzer.html">Free static code analyzer</a>
+        <a href="/code-quality-checker.html">Code quality checker</a>
+        <a href="/code-security-scanner.html">Code security scanner</a>
+      </div>
+    </section>
+
+    <section class="cta-band">
+      <div class="cta-band-inner">
+        <div>
+          <h2>Free is the whole plan.</h2>
+          <p>No tiers, no paywalled metrics. A small amount of advertising keeps it free instead of a paywall &mdash; analyze without an account any time.</p>
+        </div>
+        <a href="/#analyze" class="btn-primary btn-cta-band">Analyze a repo now</a>
+      </div>
+    </section>

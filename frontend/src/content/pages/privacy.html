@@ -1,0 +1,46 @@
+    <h1>Privacy Policy</h1>
+    <p class="legal-updated">Last updated: September 21, 2026</p>
+
+    <p>REPO-SIGHT ("we," "us") operates repo-sight.com (the "Service"), a free static-analysis tool for public C++, Python, Java, TypeScript, JavaScript, and C# repositories. This policy explains what data the Service collects and how it's used.</p>
+
+    <h2>1. What we collect</h2>
+    <ul>
+      <li><strong>Repository URL you submit.</strong> Used only to fetch the repository's source for analysis.</li>
+      <li><strong>Analysis results.</strong> Metrics, health scores, and reports generated from your submission are stored (via Supabase Storage) so the report link stays accessible after the scan finishes.</li>
+      <li><strong>Feedback form input.</strong> If you use the feedback form, we store the text you submit.</li>
+      <li><strong>Standard server logs.</strong> IP address, user agent, and request timestamps, collected automatically by our hosting provider (Vercel) for operational and security purposes.</li>
+      <li><strong>Sign-in information (only if you choose to sign in).</strong> Signing in is optional and only used to keep a short history of your own past scans. Signing in with GitHub shares your GitHub email address and public profile info (username, avatar) with us via GitHub's OAuth flow; signing in by email link shares the email address you enter. We link your scan history to this identity so it's visible only to you.</li>
+      <li><strong>GitHub access (only if you scan a private repository).</strong> To read a private repository you choose to scan, you sign in with GitHub and install the REPO-SIGHT GitHub App on that repository. Your GitHub access token is kept in your browser's session storage and sent with the scan request so we can download that one repository from GitHub. We do not store it on our servers or write it to logs, and it is removed from your browser when you sign out or close the tab.</li>
+    </ul>
+    <p>An account is never required to scan a public repository — you can submit and view a scan anonymously. Scanning a private repository requires signing in with GitHub. We do not collect payment information, and we never sell your data.</p>
+
+    <h2>2. Advertising & cookies</h2>
+    <p>This site displays ads served by Google AdSense. Google, as a third-party vendor, uses cookies (including the DoubleClick DART cookie) to serve ads based on your visits to this and other sites. You can opt out of personalized advertising by visiting <a href="https://adssettings.google.com" target="_blank" rel="noopener">Google Ads Settings</a>. Google's use of advertising cookies enables it and its partners to serve ads based on your visit to this site and/or other sites on the Internet. For more detail on how Google uses data, see <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">How Google uses information from sites or apps that use our services</a>.</p>
+
+    <h2>3. Repository data</h2>
+    <p>For public repositories, we analyze only publicly accessible source code that you point us to. For private repositories, if you sign in with GitHub and install the REPO-SIGHT GitHub App, we read only the repository you choose, and only for the duration of the scan. Reports of private repositories are stored separately from public reports and can be opened only by the account that ran the scan; they are never sent to any third-party AI service. We do not execute, run, or install any code from the repositories we analyze — analysis is static (read-only source inspection). Repository content is processed to generate metrics and is not sold or shared with third parties beyond what's needed to run the Service (e.g., our storage and hosting providers).</p>
+
+    <h2>4. Data retention</h2>
+    <p>Scan reports are retained so their links remain usable. If you'd like a specific report or feedback submission removed, contact us using the details below.</p>
+
+    <h2>5. Third-party services</h2>
+    <ul>
+      <li><strong>Vercel</strong> — hosting and serverless function execution.</li>
+      <li><strong>Supabase</strong> — storage of scan results, and sign-in/account sessions for users who choose to sign in.</li>
+      <li><strong>GitHub</strong> — repository source is downloaded from GitHub for analysis, and GitHub's OAuth flow is used when you sign in with GitHub.</li>
+      <li><strong>Google (Gemini API)</strong> — used only if you are signed in and click "Explain" on a finding in a public repository: a short excerpt of the flagged file and the finding's details are sent to Google's Gemini API to generate the explanation. Never used for private repositories.</li>
+      <li><strong>Google AdSense</strong> — advertising, as described above.</li>
+    </ul>
+    <p>Each of these providers has its own privacy policy governing how it handles data.</p>
+
+    <h2>6. Children's privacy</h2>
+    <p>The Service is not directed at children under 13, and we do not knowingly collect personal information from children.</p>
+
+    <h2>7. Your rights</h2>
+    <p>Scanning anonymously leaves no profile to export or delete. If you signed in, you can ask us to delete your account and its associated scan history, or remove a specific scan report or feedback submission, at any time using the contact details below. If you're in a region with statutory data rights (e.g. GDPR or CCPA), those rights apply to the data described in Section 1, and requests can be sent the same way.</p>
+
+    <h2>8. Changes to this policy</h2>
+    <p>We may update this policy as the Service evolves. Material changes will be reflected by updating the date above.</p>
+
+    <h2>9. Contact</h2>
+    <p>Questions about this policy can be raised via the <a href="/contact.html">contact page</a> or by emailing <a href="mailto:contact.reposight@gmail.com">contact.reposight@gmail.com</a>.</p>
