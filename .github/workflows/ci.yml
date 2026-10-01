@@ -37,3 +37,22 @@ jobs:
           node-version: 22
       - name: API layer tests (rule catalog, enrichment, /api/rules)
         run: npm run test:api
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: npm install
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build (prerender every route)
+        run: npm run build
+      - name: SEO gate (h1, canonical, duplicates, sitemap)
+        run: npm run check
