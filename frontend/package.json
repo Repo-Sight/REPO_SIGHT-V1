@@ -1,0 +1,30 @@
+{
+  "name": "repo-sight-frontend",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "engines": { "node": ">=22.12" },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite-react-ssg build && node scripts/flatten-html.mjs",
+    "typecheck": "tsc --noEmit",
+    "check": "node scripts/check-prerender.mjs",
+    "check:parity": "node scripts/check-parity.mjs"
+  },
+  "dependencies": {
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "react-router-dom": "^6.30.0",
+    "vite-react-ssg": "0.9.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  }
+}
