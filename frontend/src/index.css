@@ -1,0 +1,489 @@
+@import "tailwindcss";
+
+@theme {
+  --color-parchment: #f4f3f0;
+  --color-chrome: #e9e7e1;
+  --color-ink: #1d1f21;
+  --color-signal: #f64900;
+  --color-signal-dark: #d63f00;
+  --color-ok: #27c93f;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --shadow-brutal-sm: 2px 2px 0 #000;
+  --shadow-brutal: 4px 4px 0 #000;
+  --shadow-brutal-lg: 6px 6px 0 #000;
+}
+
+@layer base {
+  html {
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--color-parchment);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--color-signal);
+    color: #fff;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-signal);
+    outline-offset: 2px;
+  }
+  [id] {
+    scroll-margin-top: 5.5rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+/* ---------- shared bits ---------- */
+
+.rs-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 60;
+  background: #fff;
+  border: 2px solid #000;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+.rs-skip:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+.rs-navlink {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.25rem 0.5rem;
+}
+.rs-navlink:hover {
+  background: var(--color-signal);
+  color: #000;
+}
+
+/* Primary button: black text on signal orange (5.9:1); white would only reach 3.6:1. */
+.rs-btn,
+.rs-prose .btn-primary {
+  display: inline-block;
+  background: var(--color-signal);
+  color: #000;
+  border: 2px solid #000;
+  box-shadow: var(--shadow-brutal);
+  padding: 0.55rem 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 80ms, box-shadow 80ms;
+}
+.rs-btn:hover,
+.rs-prose .btn-primary:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #000;
+  background: var(--color-signal-dark);
+  color: #000;
+}
+.rs-btn-ghost {
+  background: #fff;
+}
+.rs-btn-ghost:hover {
+  background: var(--color-chrome);
+}
+
+/* ---------- ads, cookie banner, sticky CTA ---------- */
+
+.rs-ad-slot {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.5rem 0;
+}
+.rs-ad-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(29 31 33 / 0.7);
+  margin-bottom: 0.25rem;
+}
+
+.rs-cookie-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: #fff;
+  border-top: 2px solid #000;
+  font-size: 0.875rem;
+}
+.rs-cookie-banner a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rs-cookie-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+@media (max-width: 420px) {
+  .rs-cookie-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .rs-cookie-actions {
+    justify-content: flex-end;
+  }
+}
+
+.rs-sticky-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 190;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border-top: 2px solid #000;
+  font-size: 0.85rem;
+  transform: translateY(100%);
+  transition: transform 200ms ease;
+}
+.rs-sticky-cta.is-visible {
+  transform: translateY(0);
+}
+@media (max-width: 640px) {
+  .rs-sticky-cta {
+    display: flex;
+  }
+}
+
+/* ---------- legacy page content (verbatim <main> markup from the old site) ---------- */
+
+.rs-prose {
+  line-height: 1.7;
+  font-size: 1rem;
+}
+.rs-legal {
+  max-width: 46rem;
+}
+
+.rs-prose h1 {
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.9rem;
+  text-wrap: balance;
+}
+.rs-prose h2 {
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 2.25rem 0 0.75rem;
+  text-wrap: balance;
+}
+.rs-prose h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0.25rem 0 0.4rem;
+}
+.rs-prose p,
+.rs-prose ul,
+.rs-prose ol {
+  margin: 0 0 1rem;
+}
+.rs-prose ul {
+  list-style: square;
+  padding-left: 1.4rem;
+}
+.rs-prose ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.rs-prose li {
+  margin-bottom: 0.4rem;
+}
+.rs-prose a {
+  text-decoration: underline;
+  text-decoration-color: var(--color-signal);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.rs-prose a:hover {
+  background: var(--color-signal);
+  text-decoration-color: #000;
+}
+.rs-prose a.btn-primary,
+.rs-prose a.feature-card-link,
+.rs-prose .tool-crosslinks-grid a {
+  text-decoration: none;
+}
+.rs-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: #fff;
+  border: 1px solid rgb(0 0 0 / 0.35);
+  padding: 0.05em 0.35em;
+  overflow-wrap: anywhere;
+}
+.rs-prose pre {
+  background: var(--color-ink);
+  color: var(--color-parchment);
+  border: 2px solid #000;
+  box-shadow: var(--shadow-brutal);
+  padding: 1rem;
+  margin: 0 0 1.25rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.rs-prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  overflow-wrap: normal;
+}
+
+.rs-prose .legal-updated {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: rgb(29 31 33 / 0.75);
+  margin-bottom: 1.5rem;
+}
+.rs-prose .section-sub {
+  color: rgb(29 31 33 / 0.8);
+  max-width: 44rem;
+}
+
+/* landing sections */
+.rs-prose .tool-hero {
+  padding-bottom: 1rem;
+}
+.rs-prose .tool-hero-ctas {
+  margin-top: 1.25rem;
+}
+.rs-prose .features,
+.rs-prose .pipeline,
+.rs-prose .tool-example,
+.rs-prose .tool-faq,
+.rs-prose .tool-crosslinks {
+  margin-top: 2.5rem;
+}
+.rs-prose .features > h2:first-child,
+.rs-prose .pipeline > h2:first-child,
+.rs-prose .tool-faq > h2:first-child,
+.rs-prose .tool-crosslinks > h2:first-child {
+  margin-top: 0;
+}
+
+.rs-prose .features-grid,
+.rs-prose .pipeline-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+.rs-prose .pipeline-grid {
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+@media (min-width: 1024px) {
+  .rs-prose .features-grid--three {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.rs-prose .feature-card,
+.rs-prose .pipeline-card,
+.rs-prose .tool-example-card {
+  background: #fff;
+  border: 2px solid #000;
+  box-shadow: var(--shadow-brutal);
+  padding: 1.15rem;
+}
+.rs-prose .feature-card p,
+.rs-prose .pipeline-card p {
+  margin-bottom: 0;
+  font-size: 0.95rem;
+}
+.rs-prose a.feature-card-link {
+  display: block;
+  color: inherit;
+  transition: transform 80ms, box-shadow 80ms;
+}
+.rs-prose a.feature-card-link:hover {
+  background: #fff;
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #000;
+}
+.rs-prose .feature-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  border: 2px solid #000;
+  background: var(--color-chrome);
+  margin-bottom: 0.75rem;
+}
+.rs-prose .feature-icon-accent {
+  background: var(--color-signal);
+}
+.rs-prose .feature-icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  stroke: #000;
+}
+.rs-prose .pipeline-num {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--color-signal-dark);
+}
+
+.rs-prose .tool-example-card .finding-severity {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #ffbd2e;
+  border: 2px solid #000;
+  padding: 0.1rem 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.rs-prose .finding-note {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.rs-prose .faq-item {
+  background: #fff;
+  border: 2px solid #000;
+  box-shadow: var(--shadow-brutal-sm);
+  margin: 0.75rem 0;
+}
+.rs-prose .faq-item summary {
+  cursor: pointer;
+  padding: 0.8rem 1rem;
+  font-weight: 700;
+}
+.rs-prose .faq-item[open] summary {
+  border-bottom: 2px solid #000;
+  background: var(--color-chrome);
+}
+.rs-prose .faq-item p {
+  padding: 0.85rem 1rem 0;
+}
+.rs-prose .faq-item p:last-child {
+  padding-bottom: 0.15rem;
+}
+
+.rs-prose .tool-crosslinks-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.rs-prose .tool-crosslinks-grid a {
+  background: #fff;
+  border: 2px solid #000;
+  box-shadow: var(--shadow-brutal-sm);
+  padding: 0.3rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.rs-prose .tool-crosslinks-grid a:hover {
+  background: var(--color-signal);
+}
+
+.rs-prose .code-compare {
+  display: grid;
+  gap: 1rem;
+  margin: 0.5rem 0 1.5rem;
+}
+@media (min-width: 720px) {
+  .rs-prose .code-compare {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.rs-prose .code-compare pre {
+  margin-bottom: 0;
+}
+.rs-prose .code-label {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+}
+.rs-prose .label-bad {
+  color: #b42318;
+}
+.rs-prose .label-good {
+  color: #166534;
+}
+
+.rs-prose .cta-band {
+  margin-top: 2.5rem;
+  background: var(--color-signal);
+  color: #000;
+  border: 2px solid #000;
+  box-shadow: var(--shadow-brutal-lg);
+  padding: 1.5rem;
+}
+.rs-prose .cta-band-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+.rs-prose .cta-band h2 {
+  margin-top: 0;
+}
+.rs-prose .cta-band p {
+  margin-bottom: 0;
+  max-width: 38rem;
+}
+.rs-prose .cta-band .btn-primary {
+  background: var(--color-ink);
+  color: #fff;
+}
+.rs-prose .cta-band .btn-primary:hover {
+  background: #000;
+  color: #fff;
+}
+
+/* 404 */
+.rs-notfound {
+  text-align: center;
+  padding: 2rem 0;
+}
