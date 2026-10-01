@@ -1,0 +1,40 @@
+{
+ "title": "REPO-SIGHT — Free static code analysis, graded in seconds",
+ "description": "REPO-SIGHT reads your C++, Python, Java, TypeScript, JavaScript, or C# repository and grades it — size, complexity, duplication, security hotspots, coverage, and rule violations. Paste a public GitHub URL, no signup required.",
+ "canonical": "https://www.repo-sight.com/",
+ "ogTitle": "REPO-SIGHT — Free static code analysis, graded in seconds",
+ "ogDescription": "Paste a public GitHub URL and get a graded code health report across 6 languages — complexity, duplication, security, coverage. No signup.",
+ "robots": "index, follow",
+ "h1Lead": "The audit you skip when you're solo.",
+ "h1Highlight": "Free, in seconds.",
+ "heroSub": "See what's inside your codebase. Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo: size, structure, complexity, duplication, security hotspots, and rule violations, across C++, Python, Java, TypeScript, JavaScript, and C#.",
+ "jsonLd": {
+  "@context": "https://schema.org",
+  "@graph": [
+   {
+    "@type": "SoftwareApplication",
+    "name": "REPO-SIGHT",
+    "url": "https://www.repo-sight.com/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Any (web-based)",
+    "description": "Free static code analysis for C++, Python, Java, TypeScript, JavaScript, and C#. Paste a public GitHub URL and get complexity, duplication, security hotspots, coverage, and a graded health score in seconds. No signup required.",
+    "offers": {
+     "@type": "Offer",
+     "price": "0",
+     "priceCurrency": "USD"
+    },
+    "author": {
+     "@type": "Person",
+     "name": "Ronak Arora"
+    }
+   },
+   {
+    "@type": "Organization",
+    "name": "REPO-SIGHT",
+    "url": "https://www.repo-sight.com/",
+    "logo": "https://www.repo-sight.com/apple-touch-icon.png",
+    "email": "contact.reposight@gmail.com"
+   }
+  ]
+ }
+}
