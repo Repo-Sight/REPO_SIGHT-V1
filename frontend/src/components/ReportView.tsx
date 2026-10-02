@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { ApiError, fetchScan } from "../lib/api";
+import { ApiError, explainFinding, fetchScan } from "../lib/api";
+import { useAuth } from "../lib/authContext";
+import { computeScanDelta, type ScanDelta } from "../lib/delta";
+import { findPreviousScanId } from "../lib/history";
 import {
   SCORE_COMPONENTS,
   TIERS,
@@ -163,6 +166,7 @@ function OverviewTab({ report }: { report: ScanReport }) {
 
   return (
     <div className="space-y-6">
+      <TrendCallout report={report} />
       <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
         <div className={`${card} flex items-center gap-4 p-4`}>
           <div className="border-2 border-black bg-signal px-5 py-2 font-mono text-5xl font-black" aria-label={`Grade ${p.healthGrade}`}>
@@ -426,7 +430,7 @@ function FilesTab({ report }: { report: ScanReport }) {
                     {findings.length === 0 ? (
                       <p className="text-sm">No findings in this file.</p>
                     ) : (
-                      <FindingList findings={findings} />
+                      <FindingList report={report} findings={findings} />
                     )}
                   </div>
                 ) : null}
@@ -445,7 +449,7 @@ function FilesTab({ report }: { report: ScanReport }) {
   );
 }
 
-function FindingList({ findings }: { findings: Violation[] }) {
+function FindingList({ report, findings }: { report: ScanReport; findings: Violation[] }) {
   const rank = (v: Violation) => (v.tier ? TIERS.indexOf(v.tier) : TIERS.length);
   const sorted = [...findings].sort((a, b) => rank(a) - rank(b) || a.line - b.line);
   return (
@@ -457,12 +461,128 @@ function FindingList({ findings }: { findings: Violation[] }) {
           <span className="font-mono text-xs text-ink/70">{v.ruleId}</span>
           {/* v.message derives from scanned source; React escapes it, never render as HTML. */}
           <span className="min-w-0 flex-1 basis-full sm:basis-auto">{v.message}</span>
+          <div className="basis-full">
+            <ExplainButton report={report} v={v} />
+          </div>
         </li>
       ))}
       {sorted.length > FINDINGS_PER_FILE ? (
         <li className="font-mono text-xs text-ink/70">+ {sorted.length - FINDINGS_PER_FILE} more in this file</li>
       ) : null}
     </ul>
+  );
+}
+
+/* ---------------------- before/after + AI explanation -------------------- */
+
+function TrendCallout({ report }: { report: ScanReport }) {
+  const { ready, user, openAccount } = useAuth();
+  const [delta, setDelta] = useState<ScanDelta | null>(null);
+  const userId = user?.id;
+  const isRepoScan = Boolean(report.repoOwner && report.projectName);
+
+  useEffect(() => {
+    setDelta(null);
+    if (!userId || !isRepoScan) return;
+    let cancelled = false;
+    (async () => {
+      const prevId = await findPreviousScanId(report.projectName ?? "", report.scanId, report.createdAt);
+      if (!prevId) return;
+      const previous = await fetchScan(prevId);
+      if (!cancelled) setDelta(computeScanDelta(report, previous));
+    })().catch(() => {
+      // Comparison is a bonus: never surface an error for it.
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, isRepoScan, report]);
+
+  if (delta) {
+    const d = delta;
+    const arrow = d.scoreDelta > 0 ? "up" : d.scoreDelta < 0 ? "down" : "unchanged";
+    const head =
+      d.scoreDelta === 0
+        ? `Health score unchanged at ${d.currentScore}/100 since your last scan`
+        : `Health score ${arrow} ${Math.abs(d.scoreDelta)} ${Math.abs(d.scoreDelta) === 1 ? "point" : "points"} (${d.previousScore} → ${d.currentScore}) since your last scan`;
+    const parts: string[] = [];
+    if (d.resolved > 0) parts.push(`${formatNumber(d.resolved)} ${d.resolved === 1 ? "finding" : "findings"} resolved`);
+    if (d.added > 0) parts.push(`${formatNumber(d.added)} new ${d.added === 1 ? "finding" : "findings"}`);
+    if (d.resolvedSecurity > 0) parts.push(`${formatNumber(d.resolvedSecurity)} security ${d.resolvedSecurity === 1 ? "issue" : "issues"} fixed`);
+    if (d.addedSecurity > 0) parts.push(`${formatNumber(d.addedSecurity)} new security ${d.addedSecurity === 1 ? "issue" : "issues"}`);
+    if (d.filesSimpler > 0) parts.push(`${formatNumber(d.filesSimpler)} ${d.filesSimpler === 1 ? "file" : "files"} simpler`);
+    if (d.filesMoreComplex > 0) parts.push(`${formatNumber(d.filesMoreComplex)} ${d.filesMoreComplex === 1 ? "file" : "files"} more complex`);
+    const worse = d.scoreDelta < 0 || d.added > d.resolved || d.addedSecurity > 0;
+    const prevDate = d.previousDate ? new Date(d.previousDate) : null;
+    return (
+      <section className={`border-2 border-black p-4 shadow-brutal-sm ${worse ? "bg-amber-100" : "bg-white"}`} aria-label="Change since your previous scan">
+        <h3 className="font-mono text-sm font-black">{worse ? "Heads up: since your last scan" : "Progress since your last scan"}</h3>
+        <p className="mt-1 text-sm">
+          {head}
+          {parts.length ? `: ${parts.join(", ")}` : ""}.
+          {prevDate && !Number.isNaN(prevDate.getTime()) ? ` Previous scan: ${prevDate.toLocaleDateString()}.` : ""}
+        </p>
+        {d.mostComplexFile ? (
+          <p className="mt-1 break-all font-mono text-xs">
+            Biggest complexity jump: {d.mostComplexFile.path} (+{d.mostComplexFile.delta})
+          </p>
+        ) : null}
+      </section>
+    );
+  }
+
+  if (ready && !user && isRepoScan) {
+    return (
+      <p className="border-2 border-dashed border-black p-3 text-sm">
+        Fixed some things? Rescan this repo while signed in and REPO-SIGHT shows what improved since this scan.{" "}
+        <button type="button" className="font-bold underline" onClick={openAccount}>
+          Sign in
+        </button>
+      </p>
+    );
+  }
+  return null;
+}
+
+type ExplainState = { kind: "idle" } | { kind: "loading" } | { kind: "done"; text: string } | { kind: "error"; message: string };
+
+/** Only offered for repo scans (the server re-reads the file from GitHub) and findings with a real line. */
+function ExplainButton({ report, v }: { report: ScanReport; v: Violation }) {
+  const { user, openAccount } = useAuth();
+  const [state, setState] = useState<ExplainState>({ kind: "idle" });
+  const { repoOwner, repoName, repoBranch } = report;
+  if (!repoOwner || !repoName || !repoBranch || v.line < 1) return null;
+
+  async function run() {
+    if (!user) {
+      openAccount();
+      return;
+    }
+    setState({ kind: "loading" });
+    try {
+      const text = await explainFinding({ repoOwner: repoOwner!, repoName: repoName!, repoBranch: repoBranch! }, v, relPath(v.path));
+      setState({ kind: "done", text });
+    } catch (err) {
+      setState({ kind: "error", message: err instanceof ApiError ? err.message : "Could not generate an explanation." });
+    }
+  }
+
+  return (
+    <div className="mt-1 font-sans">
+      {state.kind === "idle" || state.kind === "error" ? (
+        <button type="button" className="border-2 border-black bg-white px-2 py-0.5 font-mono text-[11px] font-bold hover:bg-chrome" onClick={run}>
+          {user ? "Explain this finding" : "Sign in to explain"}
+        </button>
+      ) : null}
+      <div aria-live="polite">
+        {state.kind === "loading" ? <p className="font-mono text-xs">Asking for an explanation…</p> : null}
+        {/* Model output is untrusted text: rendered as plain text, never as HTML. */}
+        {state.kind === "done" ? (
+          <p className="mt-1 whitespace-pre-wrap border-2 border-black bg-chrome p-2 text-xs leading-relaxed">{state.text}</p>
+        ) : null}
+        {state.kind === "error" ? <p className="mt-1 text-xs font-semibold">{state.message}</p> : null}
+      </div>
+    </div>
   );
 }
 
@@ -527,6 +647,7 @@ function SecurityTab({ report }: { report: ScanReport }) {
                 <li key={`${v.path}-${v.line}-${i}`} className="break-all">
                   {relPath(v.path)}
                   {v.line > 0 ? `:${v.line}` : ""}
+                  <ExplainButton report={report} v={v} />
                 </li>
               ))}
               {g.items.length > LOCATIONS_PER_RULE ? (
