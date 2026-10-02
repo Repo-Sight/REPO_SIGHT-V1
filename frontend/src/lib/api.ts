@@ -1,4 +1,5 @@
-import type { ScanReport } from "./report";
+import type { ScanReport, Violation } from "./report";
+import { authHeaders } from "./supabase";
 
 /** Error from our own /api routes. `message` is already safe to show to the user. */
 export class ApiError extends Error {
@@ -32,7 +33,7 @@ async function postForScanId(url: string, body: Record<string, string>): Promise
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify(body),
     });
   } catch {
@@ -59,7 +60,7 @@ export const analyzeFile = (filename: string, content: string) =>
 export async function fetchScan(scanId: string): Promise<ScanReport> {
   let res: Response;
   try {
-    res = await fetch(`/api/scans/${encodeURIComponent(scanId)}`);
+    res = await fetch(`/api/scans/${encodeURIComponent(scanId)}`, { headers: await authHeaders() });
   } catch {
     throw new ApiError("Could not reach REPO-SIGHT. Check your connection and try again.", 0);
   }
@@ -73,4 +74,47 @@ export async function fetchScan(scanId: string): Promise<ScanReport> {
     throw new ApiError("This report is incomplete or in an unknown format.", res.status);
   }
   return data as unknown as ScanReport;
+}
+
+export interface ExplainContext {
+  repoOwner: string;
+  repoName: string;
+  repoBranch: string;
+}
+
+/** POST /api/explain-finding (signed-in only). `path` must be repo-relative: the server fetches it from GitHub. */
+export async function explainFinding(ctx: ExplainContext, v: Violation, repoRelativePath: string): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch("/api/explain-finding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({
+        ...ctx,
+        path: repoRelativePath,
+        line: v.line,
+        ruleId: v.ruleId,
+        language: v.language ?? "unknown",
+        message: v.message,
+        severity: v.severity,
+        category: v.category,
+      }),
+    });
+  } catch {
+    throw new ApiError("Could not reach REPO-SIGHT. Check your connection and try again.", 0);
+  }
+  const data = await readJson(res);
+  if (!res.ok) {
+    const message =
+      res.status === 401
+        ? "Sign in to use AI explanations."
+        : typeof data.error === "string" && data.error
+          ? data.error
+          : "Could not generate an explanation.";
+    throw new ApiError(message, res.status);
+  }
+  if (typeof data.explanation !== "string" || !data.explanation.trim()) {
+    throw new ApiError("Could not generate an explanation.", res.status);
+  }
+  return data.explanation;
 }
