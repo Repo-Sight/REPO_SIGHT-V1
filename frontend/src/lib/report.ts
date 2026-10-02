@@ -91,6 +91,17 @@ export interface UnanalyzedLanguage {
   lineCount: number;
 }
 
+export interface DuplicateMatch {
+  pathA: string;
+  lineStartA: number;
+  lineEndA: number;
+  pathB: string;
+  lineStartB: number;
+  lineEndB: number;
+  tokenCount?: number;
+  lineCount: number;
+}
+
 export interface ScanReport {
   status: "COMPLETED" | "FAILED";
   errorMessage?: string;
@@ -105,7 +116,7 @@ export interface ScanReport {
   violations: Violation[];
   tierCounts?: Record<Tier, number>;
   fixFirst?: FixFirstItem[];
-  duplication?: { duplicatePercentage: number; duplicateLineCount: number };
+  duplication?: { duplicatePercentage: number; duplicateLineCount: number; matches?: DuplicateMatch[] };
 }
 
 export const TIERS: Tier[] = ["critical", "high", "medium", "low"];
