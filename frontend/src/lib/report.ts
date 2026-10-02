@@ -107,6 +107,10 @@ export interface ScanReport {
   errorMessage?: string;
   scanId: string;
   projectName?: string;
+  /** Present on repo scans (not pasted files). Needed for AI explanations. */
+  repoOwner?: string;
+  repoName?: string;
+  repoBranch?: string;
   createdAt?: string;
   schemaVersion?: number;
   project: ProjectMetrics;
