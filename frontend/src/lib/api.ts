@@ -70,10 +70,26 @@ export async function fetchScan(scanId: string): Promise<ScanReport> {
       typeof data.errorMessage === "string" && data.errorMessage ? data.errorMessage : "Scan not found.";
     throw new ApiError(message, res.status);
   }
+  return asReport(data, res.status);
+}
+
+function asReport(data: Record<string, unknown>, status: number): ScanReport {
   if (!data.project || !Array.isArray(data.violations) || !Array.isArray(data.files)) {
-    throw new ApiError("This report is incomplete or in an unknown format.", res.status);
+    throw new ApiError("This report is incomplete or in an unknown format.", status);
   }
   return data as unknown as ScanReport;
+}
+
+/** The bundled sample report (frontend/public/demo/report.json, built by scripts/build-demo-report.mjs). Static, so it loads instantly and never touches the scan API. */
+export async function fetchDemoReport(): Promise<ScanReport> {
+  let res: Response;
+  try {
+    res = await fetch("/demo/report.json");
+  } catch {
+    throw new ApiError("Could not load the demo report. Check your connection and try again.", 0);
+  }
+  if (!res.ok) throw new ApiError("The demo report is unavailable right now.", res.status);
+  return asReport(await readJson(res), res.status);
 }
 
 export interface ExplainContext {
