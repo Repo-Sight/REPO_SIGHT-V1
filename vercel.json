@@ -21,6 +21,9 @@
     "api/rules.js": {
       "maxDuration": 10
     },
+     "api/badge/[scanId].js": {
+      "maxDuration": 10
+    },
     "api/explain-finding.js": {
       "maxDuration": 25
     }
