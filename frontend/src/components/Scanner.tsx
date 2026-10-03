@@ -1,7 +1,8 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { analyzeFile, analyzeRepo, ApiError, MAX_FILE_BYTES } from "../lib/api";
-
+import { useAuth } from "../lib/authContext";
+import { GITHUB_AUTH_ENABLED, githubProviderToken } from "../lib/supabase";
 type Mode = "repo" | "file";
 
 const FILE_ACCEPT = ".cpp,.cc,.cxx,.c,.h,.hpp,.py,.java,.ts,.tsx,.js,.jsx,.mjs,.cjs,.cs";
@@ -20,6 +21,7 @@ const tabClass = (active: boolean) =>
  */
 export function Scanner() {
   const navigate = useNavigate();
+  const { user, signInWithGithub, openAccount } = useAuth();
   const fileInput = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<Mode>("repo");
   const [repoUrl, setRepoUrl] = useState("");
@@ -27,7 +29,8 @@ export function Scanner() {
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [privateScan, setPrivateScan] = useState(false);
+  const [reconnect, setReconnect] = useState(false);
   async function onPickFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -45,6 +48,7 @@ export function Scanner() {
     e.preventDefault();
     if (busy) return;
     setError(null);
+    setReconnect(false);
 
     if (mode === "repo") {
       if (!/^https?:\/\/github\.com\/[^/\s]+\/[^/\s]+/i.test(repoUrl.trim())) {
@@ -68,10 +72,21 @@ export function Scanner() {
 
     setBusy(true);
     try {
+       let githubToken: string | undefined;
+       if (mode === "repo" && privateScan) {
+        githubToken = (await githubProviderToken()) ?? undefined;
+        if (!githubToken) {
+          setReconnect(true);
+          setError("Your GitHub connection has expired. Sign in with GitHub again to scan private repos.");
+          setBusy(false);
+          return;
+        }
+      }
       const scanId =
-        mode === "repo" ? await analyzeRepo(repoUrl.trim()) : await analyzeFile(filename.trim(), content);
-      navigate({ pathname: "/", search: `?scan=${encodeURIComponent(scanId)}` });
+      mode === "repo" ? await analyzeRepo(repoUrl.trim(), githubToken) : await analyzeFile(filename.trim(), content);
+        navigate({ pathname: "/", search: `?scan=${encodeURIComponent(scanId)}` });
     } catch (err) {
+      if (err instanceof ApiError && err.code === "github_reauth") setReconnect(true);
       setError(err instanceof ApiError ? err.message : "Analysis failed. Please try again.");
       setBusy(false);
     }
@@ -105,7 +120,29 @@ export function Scanner() {
             disabled={busy}
             className={inputClass}
           />
-        </div>
+           {GITHUB_AUTH_ENABLED ? (
+            user ? (
+              <label className="flex items-center gap-2 font-mono text-xs">
+                <input
+                  type="checkbox"
+                 checked={privateScan}
+                 onChange={(e) => setPrivateScan(e.target.checked)}
+                  disabled={busy}
+                  className="h-4 w-4 border-2 border-black"
+                />
+                Private repo (uses your GitHub sign-in; the token is never stored)
+             </label>
+           ) : (
+              <p className="font-mono text-xs text-ink/70">
+                Private repo?{" "}
+                <button type="button" className="font-bold underline" onClick={openAccount}>
+                  Sign in with GitHub
+                </button>{" "}
+                to scan it.
+              </p>
+            )
+          ) : null}
+       </div>
       ) : (
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
