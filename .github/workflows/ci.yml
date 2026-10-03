@@ -56,3 +56,5 @@ jobs:
         run: npm run build
       - name: SEO gate (h1, canonical, duplicates, sitemap)
         run: npm run check
+        - name: Demo report gate (bundled sample report is valid)
+         run: npm run check:demo
