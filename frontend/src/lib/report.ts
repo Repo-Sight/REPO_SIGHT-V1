@@ -106,6 +106,8 @@ export interface ScanReport {
   status: "COMPLETED" | "FAILED";
   errorMessage?: string;
   scanId: string;
+  /** Absent on pre-visibility scans, which are public. Private scans are owner-only. */
+  visibility?: "public" | "private";
   projectName?: string;
   /** Present on repo scans (not pasted files). Needed for AI explanations. */
   repoOwner?: string;
