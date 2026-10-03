@@ -11,7 +11,8 @@
     "build": "vite-react-ssg build && node scripts/flatten-html.mjs",
     "typecheck": "tsc --noEmit",
     "check": "node scripts/check-prerender.mjs",
-    "check:parity": "node scripts/check-parity.mjs"
+    "check:parity": "node scripts/check-parity.mjs",
+    "check:demo": "node scripts/check-demo.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
