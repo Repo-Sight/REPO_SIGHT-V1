@@ -88,6 +88,7 @@ void TypeScriptParser::walkTokens() {
 
         case TokenType::CLOSE_BRACE:
             if (!m_fnStack.empty() &&
+                i > m_fnStack.back().bodyOpenIdx &&
                 m_braceAnalyzer.depth() == m_fnStack.back().bodyBraceDepth) {
                 m_fnStack.back().info.endLine = tok.line;
                 m_result.functions.push_back(m_fnStack.back().info);
@@ -236,6 +237,7 @@ void TypeScriptParser::tryBeginFunction(std::size_t identIdx) {
     pf.info.name      = m_tokens[identIdx].value;
     pf.info.startLine = m_tokens[identIdx].line;
     pf.bodyBraceDepth = m_braceAnalyzer.depth() + 1;
+    pf.bodyOpenIdx    = bodyIdx;
     m_fnStack.push_back(std::move(pf));
 
     m_pendingArrowName.clear();
@@ -255,6 +257,7 @@ void TypeScriptParser::tryBeginAnonymousFunction(std::size_t openParenIdx) {
     pf.info.name      = m_pendingArrowName.empty() ? "<anonymous>" : m_pendingArrowName;
     pf.info.startLine = m_tokens[openParenIdx].line;
     pf.bodyBraceDepth = m_braceAnalyzer.depth() + 1;
+    pf.bodyOpenIdx    = bodyIdx;
     m_fnStack.push_back(std::move(pf));
 
     m_pendingArrowName.clear();
@@ -277,6 +280,7 @@ void TypeScriptParser::tryBeginArrowFunction(std::size_t arrowFirstIdx) {
     pf.info.name      = m_pendingArrowName.empty() ? "<anonymous>" : m_pendingArrowName;
     pf.info.startLine = m_tokens[arrowFirstIdx].line;
     pf.bodyBraceDepth = m_braceAnalyzer.depth() + 1;
+    pf.bodyOpenIdx    = after;
     m_fnStack.push_back(std::move(pf));
 
     m_pendingArrowName.clear();
@@ -389,10 +393,18 @@ std::size_t TypeScriptParser::findMatchingParen(std::size_t openIdx) const {
 // something inside the type. '<'/'>' are safe to treat as depth markers
 // specifically in this position: a bare comparison expression cannot
 // legally appear directly between a parameter list and a function body.
+//
+// A '}' that this scan did not itself open means the ')' was the end of a
+// call inside a larger block -- JSX `<p>{fmt(n)} files</p>` is the common
+// case -- so no body can follow. Return end-of-tokens ("no body") instead
+// of running on to the next unrelated '{' and inventing a function that
+// spans hundreds of lines. Braces opened inside '<...>' or '(...)' (object
+// type literals like `Promise<{ a: number }>`) are balanced and ignored.
 std::size_t TypeScriptParser::skipTrailingSpecifiers(std::size_t i) const {
     const std::size_t n = m_tokens.size();
     int angleDepth = 0;
     int parenDepth = 0;
+    int braceDepth = 0;
 
     while (i < n) {
         const Token& t = m_tokens[i];
@@ -403,6 +415,13 @@ std::size_t TypeScriptParser::skipTrailingSpecifiers(std::size_t i) const {
             (t.type == TokenType::OPEN_BRACE || t.type == TokenType::SEMICOLON)) {
             break;
         }
+                // Only reachable inside '<...>' / '(...)': a depth-0 '{' broke out above.
+        if (t.type == TokenType::OPEN_BRACE)  { ++braceDepth; ++i; continue; }
+        if (t.type == TokenType::CLOSE_BRACE) {
+            if (braceDepth == 0) return n;
+            --braceDepth; ++i; continue;
+        }
+
 
         if (t.type == TokenType::OPERATOR && t.value == "<") { ++angleDepth; ++i; continue; }
         if (t.type == TokenType::OPERATOR && t.value == ">") { if (angleDepth > 0) { --angleDepth; } ++i; continue; }
