@@ -157,6 +157,14 @@ export function Scanner() {
         <button type="submit" className="rs-btn" disabled={busy}>
           {busy ? "Analyzing…" : "Analyze now"}
         </button>
+         <button
+          type="button"
+          className="rs-btn rs-btn-ghost"
+          disabled={busy}
+          onClick={() => navigate({ pathname: "/", search: "?demo=1" })}
+        >
+          Try a demo report
+        </button>
         <p className="font-mono text-xs text-ink/70">Free. No signup. Your code is never executed.</p>
       </div>
 
