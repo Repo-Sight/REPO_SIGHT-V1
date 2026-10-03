@@ -325,3 +325,18 @@ TEST(JavaScriptParser, BraceBlockAnalyzerNeverGoesNegativeOnUnbalancedInput) {
     auto fm = analyze("} } } class X { \n");
     EXPECT_GE(fm.maxNestingDepth, 0);
 }
+
+// ---- Destructured parameters: signature braces must not end the function ----
+
+TEST(JavaScriptParser, DestructuredParamDoesNotEndFunctionEarly) {
+    auto fm = analyze(
+        "function Card({ title, items }) {\n"
+        "  const a = 1;\n"
+        "  const b = 2;\n"
+        "  return a + b;\n"
+        "}\n");
+    ASSERT_EQ(fm.functionCount(), 1);
+    EXPECT_EQ(fm.functions[0].name, "Card");
+    EXPECT_EQ(fm.functions[0].startLine, 1);
+    EXPECT_EQ(fm.functions[0].endLine, 5);
+}
