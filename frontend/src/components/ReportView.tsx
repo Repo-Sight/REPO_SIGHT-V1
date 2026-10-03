@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, explainFinding, fetchScan } from "../lib/api";
+import { SITE } from "../site";
 import { useAuth } from "../lib/authContext";
 import { computeScanDelta, type ScanDelta } from "../lib/delta";
 import { findPreviousScanId } from "../lib/history";
@@ -124,6 +125,8 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
         </button>
       </div>
 
+       <SharePanel report={report} />
+      
       <div role="tablist" aria-label="Report sections" className="flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
@@ -155,6 +158,72 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
     </div>
   );
 }
+/* --------------------------------- share --------------------------------- */
+
+const SCAN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** README badge snippet. Hidden for private scans and the bundled demo (no real scan id). */
+function SharePanel({ report }: { report: ScanReport }) {
+  const [copied, setCopied] = useState<"md" | "link" | null>(null);
+  const [open, setOpen] = useState(false);
+  if (report.visibility === "private" || !SCAN_UUID_RE.test(report.scanId)) return null;
+
+  const id = report.scanId;
+  const badgeUrl = `${SITE.url}/api/badge/${id}.svg`;
+  const reportUrl = `${SITE.url}/?scan=${id}`;
+  const markdown = `[![Code Health](${badgeUrl})](${reportUrl})`;
+
+  async function copy(kind: "md" | "link", text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      window.setTimeout(() => setCopied(null), 2000);
+    } catch {
+      setCopied(null);
+    }
+  }
+
+  return (
+    <div className="border-2 border-black bg-white p-3">
+      <button
+        type="button"
+        className="font-mono text-xs font-bold underline"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {open ? "Hide share options" : "Share this report / add a README badge"}
+      </button>
+      {open ? (
+        <div className="mt-3 space-y-3">
+          <img src={`/api/badge/${id}.svg`} alt="Code health badge preview" height={20} className="block h-5" />
+          <label className="block font-mono text-xs font-bold" htmlFor="rs-badge-md">
+            README markdown
+          </label>
+          <textarea
+            id="rs-badge-md"
+            readOnly
+            rows={3}
+            value={markdown}
+            onFocus={(e) => e.currentTarget.select()}
+            className="w-full resize-none border-2 border-black bg-chrome p-2 font-mono text-xs"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="rs-btn rs-btn-ghost" onClick={() => void copy("md", markdown)}>
+              {copied === "md" ? "Copied" : "Copy markdown"}
+            </button>
+            <button type="button" className="rs-btn rs-btn-ghost" onClick={() => void copy("link", reportUrl)}>
+              {copied === "link" ? "Copied" : "Copy report link"}
+            </button>
+          </div>
+          <p className="font-mono text-xs text-ink/70">
+            Anyone with the link can open this report. The badge shows grade and score only.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 
 /* -------------------------------- overview ------------------------------- */
 
