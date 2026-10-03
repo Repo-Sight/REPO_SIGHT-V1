@@ -17,14 +17,33 @@ export function Home() {
   // render) is always the marketing page, so there is no hydration mismatch
   // for visitors who arrive on an existing /?scan=<id> report link.
   const [scanId, setScanId] = useState<string | null>(null);
+  const [demo, setDemo] = useState(false);
   useEffect(() => {
-    const id = new URLSearchParams(search).get("scan");
+    const params = new URLSearchParams(search);
+    const id = params.get("scan");
     setScanId(isScanId(id) ? id : null);
+    setDemo(params.get("demo") === "1");
   }, [search]);
 
   const newScan = useCallback(() => {
     navigate({ pathname: "/", search: "", hash: "#analyze" });
   }, [navigate]);
+
+  if (demo && !scanId) {
+    return (
+      <div className="space-y-10">
+        <Seo
+          title="Sample code health report | REPO-SIGHT"
+          description={c.description}
+          canonical={c.canonical}
+          robots="noindex, follow"
+        />
+        <OSWindow title="REPO-SIGHT" subtitle="sample report">
+          <DemoReport onNewScan={newScan} />
+        </OSWindow>
+      </div>
+    );
+  }
 
   if (scanId) {
     return (
