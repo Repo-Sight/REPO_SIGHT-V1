@@ -49,6 +49,16 @@ export async function getSession(): Promise<Session | null> {
     return null;
   }
 }
+/**
+ * GitHub's own user token, used only for private-repo scans. Supabase keeps it on the
+ * session until the first token refresh, so a signed-in user can legitimately have none:
+ * callers then ask them to reconnect GitHub. Never persisted or logged by us.
+ */
+export async function githubProviderToken(): Promise<string | null> {
+  const token = (await getSession())?.provider_token;
+  return token ? token : null;
+}
+
 
 /** Anonymous requests simply carry no Authorization header: an auth hiccup must never block a scan. */
 export async function authHeaders(): Promise<Record<string, string>> {
