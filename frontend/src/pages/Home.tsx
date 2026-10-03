@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AdSlot } from "../components/AdSlot";
+import { DemoReport } from "../components/DemoReport";
 import { Html, OSWindow } from "../components/OSWindow";
 import { ReportView } from "../components/ReportView";
 import { Scanner } from "../components/Scanner";
