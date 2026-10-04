@@ -127,6 +127,7 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
       </div>
 
        <SharePanel report={report} />
+       <AuditExport report={report} />
       
       <div role="tablist" aria-label="Report sections" className="flex flex-wrap gap-2">
         {TABS.map((t) => (
