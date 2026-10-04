@@ -487,3 +487,35 @@
   text-align: center;
   padding: 2rem 0;
 }
+/* ---------- client-ready PDF audit (window.print) ----------
+   #rs-print-root is portalled to <body> by AuditExport. Hidden on screen; when
+   printing it is the only thing shown, so no app chrome ends up in the PDF. */
+#rs-print-root {
+  display: none;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body > *:not(#rs-print-root) {
+    display: none !important;
+  }
+  #rs-print-root {
+    display: block !important;
+    font-family: var(--font-sans);
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #000;
+  }
+  #rs-print-root * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    box-shadow: none !important;
+  }
+}
