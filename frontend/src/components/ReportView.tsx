@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, explainFinding, fetchScan } from "../lib/api";
+import { AuditExport } from "./AuditExport";
 import { SITE } from "../site";
 import { useAuth } from "../lib/authContext";
 import { computeScanDelta, type ScanDelta } from "../lib/delta";
