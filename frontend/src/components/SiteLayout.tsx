@@ -1,9 +1,16 @@
-import { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
-import { SITE } from "../site";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { SITE } from "../site"; 
+import { AppWindow, type WindowPhase } from "./AppWindow";
 import { AuthMenu } from "./AuthMenu";
 import { AuthProvider } from "./AuthProvider";
 import { ConsentAndCta } from "./ConsentAndCta";
+import { Desktop } from "./DesktopIcons";
+
+// Window timings, same as the CSS animations (index.css).
+const OPEN_MS = 200;
+const CLOSE_MS = 150;
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const NAV = [
   { href: "/#pipeline", label: "How it works" },
@@ -82,6 +89,10 @@ function windowLabel(pathname: string): string {
   const last = pathname.split("/").filter(Boolean).pop() ?? "home";
   return pathname.endsWith("/") ? `${last}/` : last;
 }
+/** Window title: the app name on the home route, otherwise the page file name. */
+function windowTitle(pathname: string): string {
+  return pathname === "/" || pathname === "" ? SITE.name : windowLabel(pathname);
+}
 
 /** Taskbar clock. Renders empty until mounted so prerendered HTML and first hydration match. */
 function Clock() {
@@ -99,23 +110,120 @@ function Clock() {
     </span>
   );
 }
+const TYPING = /^(INPUT|TEXTAREA|SELECT)$/;
 
 export function SiteLayout() {
-  const [open, setOpen] = useState(false);
-  const { pathname } = useLocation();
+const [menuOpen, setMenuOpen] = useState(false);
+  // Window state. The first render (= the prerendered HTML) is always: open, windowed, idle.
+  const [open, setOpen] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [phase, setPhase] = useState<WindowPhase>("idle");
+  const [mobile, setMobile] = useState(false);
+  const { pathname, hash } = useLocation();
+  const navigate = useNavigate();
+  const scroller = useRef<HTMLDivElement>(null);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const sync = () => setMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => {
+      mq.removeEventListener("change", sync);
+      window.clearTimeout(timer.current);
+    };
+  }, []);
+
+  /** Open a closed window. Animates only here (a click on the bare desktop), never on first load or page swaps. */
+  const openWindow = useCallback((animate: boolean) => {
+    window.clearTimeout(timer.current);
+    setOpen(true);
+    if (animate && !reducedMotion()) {
+      setPhase("in");
+      timer.current = window.setTimeout(() => setPhase("idle"), OPEN_MS);
+    } else {
+      setPhase("idle");
+    }
+  }, []);
+
+  /** Close: play the exit animation, remove the window, and land on the bare desktop at "/". */
+  const closeWindow = useCallback(() => {
+    if (!open || phase === "out") return;
+    window.clearTimeout(timer.current);
+    setPhase("out");
+    timer.current = window.setTimeout(
+      () => {
+        setOpen(false);
+        setExpanded(false);
+        setPhase("idle");
+        if (pathname !== "/") navigate("/");
+      },
+      reducedMotion() ? 0 : CLOSE_MS,
+    );
+  }, [open, phase, pathname, navigate]);
+
+  const toggleExpanded = useCallback(() => {
+    if (open && phase !== "out") setExpanded((v) => !v);
+  }, [open, phase]);
+
+  // Landing on a page by back/forward while the desktop is bare brings the window back (no animation).
+  useEffect(() => {
+    if (!open && pathname !== "/") openWindow(false);
+  }, [pathname, open, openWindow]);
+
+  // A page swap starts at the top of the window (or at the #anchor); the window itself never moves.
+  useEffect(() => {
+    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+    else if (scroller.current) scroller.current.scrollTop = 0;
+  }, [pathname, hash]);
+
+  // Keyboard, as on posthog.com: Shift+Up expand/restore, Shift+W close, Shift+X close all (one window here).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || TYPING.test(t.tagName))) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        toggleExpanded();
+      } else if (e.key === "W" || e.key === "X") {
+        e.preventDefault();
+        closeWindow();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [toggleExpanded, closeWindow]);
+
+  // Same-site page links swap the window's content instead of reloading, so the window keeps its state.
+  const onLinkClick = (e: MouseEvent<HTMLElement>) => {
+    const a = (e.target as HTMLElement).closest("a");
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if ((a.target && a.target !== "_self") || a.hasAttribute("download")) return;
+    const url = new URL(a.href, window.location.href);
+    const isPage = url.pathname === "/" || url.pathname.endsWith(".html") || url.pathname.endsWith("/");
+    if (url.origin !== window.location.origin || !isPage) return;
+    if (open && url.pathname === pathname && url.hash && !url.search) return; // in-page anchor
+    e.preventDefault();
+    setMenuOpen(false);
+    if (!open) openWindow(true);
+    navigate({ pathname: url.pathname, search: url.search, hash: url.hash });
+  };
 
   return (
     <AuthProvider>
-      <div className="flex min-h-screen flex-col">
+      <div id="app-container" className="flex h-dvh flex-col p-2" onClick={onLinkClick}>
         <a href="#main" className="rs-skip">
           Skip to content
         </a>
 
-        <header className="sticky top-0 z-40 px-2 pt-2 sm:px-3">
-          <div
+        <header className="relative z-40 shrink-0">        
+         <div
             id="taskbar"
-            className="mx-auto flex max-w-7xl items-center gap-2 rounded-xl border border-line bg-paper/90 px-2 py-1.5 shadow-soft backdrop-blur"
-          >
+         className="flex h-[42px] items-center gap-2 rounded-lg border border-line bg-paper/90 px-2 shadow-soft-lg backdrop-blur"
+           >
             <a
               href="/"
               className="flex shrink-0 items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-chrome"
@@ -136,50 +244,51 @@ export function SiteLayout() {
             <nav
               id="site-nav"
               aria-label="Main"
-              className={`${open ? "flex" : "hidden"} absolute left-2 right-2 top-full mt-1 flex-col gap-1 rounded-xl border border-line bg-paper p-3 shadow-soft-lg md:static md:mt-0 md:flex md:flex-1 md:flex-row md:items-center md:gap-1 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none`}
-            >
+       className={`${menuOpen ? "flex" : "hidden"} absolute left-0 right-0 top-full mt-1 flex-col gap-1 rounded-lg border border-line bg-paper p-3 shadow-soft-lg md:static md:mt-0 md:flex md:flex-1 md:flex-row md:items-center md:gap-1 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none`} 
+              >
               {NAV.map((n) => (
-                <a key={n.href} href={n.href} className="rs-navlink" onClick={() => setOpen(false)}>
-                  {n.label}
+       <a key={n.href} href={n.href} className="rs-navlink" onClick={() => setMenuOpen(false)}>
+                {n.label}
                 </a>
               ))}
               <details className="rs-menu">
                 <summary className="rs-navlink">Languages</summary>
                 <div className="rs-menu-panel">
                   {LANGUAGES.map((l) => (
-                    <a key={l.href} href={l.href} onClick={() => setOpen(false)}>
-                      {l.label} analyzer
+  <a key={l.href} href={l.href} onClick={() => setMenuOpen(false)}>
+    {l.label} analyzer
                     </a>
                   ))}
                 </div>
               </details>
             </nav>
 
-            {/* "Open window" chip: the current page, like a task in a taskbar. */}
-            <span
-              className="ml-auto hidden max-w-[16rem] items-center gap-2 truncate rounded-lg border border-line bg-chrome px-2.5 py-1 text-sm font-medium lg:flex"
-              aria-hidden="true"
-            >
-              <span className="h-2 w-2 shrink-0 rounded-full bg-signal" />
-              <span className="truncate">{windowLabel(pathname)}</span>
-            </span>
-
+        {/* "Open window" chip: the current page, like a task in a taskbar. Hidden while the desktop is bare. */}
+            {open ? (
+              <span
+                className="ml-auto hidden max-w-[16rem] items-center gap-2 truncate rounded-lg border border-line bg-chrome px-2.5 py-0.5 text-sm font-medium lg:flex"
+                aria-hidden="true"
+              >
+                <span className="h-2 w-2 shrink-0 rounded-full bg-signal" />
+                <span className="truncate">{windowLabel(pathname)}</span>
+              </span>
+            ) : null}
             <div className="ml-auto flex items-center gap-2 lg:ml-0">
               <Clock />
               <AuthMenu />
-              <a href="/#analyze" className="rs-btn hidden !py-1.5 sm:inline-block">
-                Analyze a repo
+              <a href="/#analyze" className="rs-btn hidden !py-1 sm:inline-block"> 
+               Analyze a repo
               </a>
               <button
                 type="button"
-                className="rounded-md border border-line bg-paper p-2 md:hidden"
+               className="rounded-md border border-line bg-paper p-1.5 md:hidden"
                 aria-label="Toggle menu"
-                aria-expanded={open}
+                aria-expanded={menuOpen}            
                 aria-controls="site-nav"
-                onClick={() => setOpen((v) => !v)}
-              >
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <line x1="3" y1="7" x2="21" y2="7" />
+                onClick={() => setMenuOpen((v) => !v)}   
+                >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <line x1="3" y1="7" x2="21" y2="7" />
                   <line x1="3" y1="12" x2="21" y2="12" />
                   <line x1="3" y1="17" x2="21" y2="17" />
                 </svg>
@@ -188,44 +297,63 @@ export function SiteLayout() {
           </div>
         </header>
 
-        <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-          <Outlet />
-        </main>
+       {/* Desktop viewport: icons underneath, the window layer on top, everything clipped to this box. */}
+        <div className="relative min-h-0 flex-1 overflow-clip">
+          <Desktop covered={open && (expanded || mobile)} />
+          <div data-app="WindowList" className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            {open ? (
+              <AppWindow
+                title={windowTitle(pathname)}
+                expanded={expanded}
+                phase={phase}
+                wide={pathname === "/"}
+                onToggleExpand={toggleExpanded}
+                onClose={closeWindow}
+                scrollerRef={scroller}
+              >
+                <main id="main" className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                  <Outlet />
+                </main>
 
-        <footer className="border-t border-line bg-chrome">
-          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
-            <div className="lg:col-span-4 xl:col-span-1">
-              <div className="flex items-center gap-2.5">
-                <img src="/apple-touch-icon.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg border border-line" />
-                <span className="text-lg font-extrabold tracking-tight">{SITE.name}</span>
-              </div>
-              <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
-                A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for
-                students, job seekers, and indie devs.
-              </p>
-            </div>
-            {FOOTER_COLUMNS.map((col) => (
-              <div key={col.title}>
-                <h2 className="text-sm font-semibold">{col.title}</h2>
-                <ul className="mt-3 space-y-2 text-sm text-muted">
-                  {col.links.map((l) => (
-                    <li key={l.href}>
-                      <a
-                        href={l.href}
-                        className="hover:text-ink hover:underline"
-                        {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                      >
-                        {l.label}
-                      </a>
-                    </li>
-                  ))}
-                  {col.title === "Legal" ? <li>Apache 2.0 License</li> : null}
-                </ul>
-              </div>
-            ))}
+                <footer className="border-t border-line bg-chrome">
+                  <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
+                    <div className="lg:col-span-4 xl:col-span-1">
+                      <div className="flex items-center gap-2.5">
+                        <img src="/apple-touch-icon.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg border border-line" />
+                        <span className="text-lg font-extrabold tracking-tight">{SITE.name}</span>
+                      </div>
+                      <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
+                        A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for
+                        students, job seekers, and indie devs.
+                      </p>
+                    </div>
+                    {FOOTER_COLUMNS.map((col) => (
+                      <div key={col.title}>
+                        <h2 className="text-sm font-semibold">{col.title}</h2>
+                        <ul className="mt-3 space-y-2 text-sm text-muted">
+                          {col.links.map((l) => (
+                            <li key={l.href}>
+                              <a
+                                href={l.href}
+                                className="hover:text-ink hover:underline"
+                                {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                              >
+                                {l.label}
+                              </a>
+                            </li>
+                          ))}
+                          {col.title === "Legal" ? <li>Apache 2.0 License</li> : null}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </footer>
+              </AppWindow>
+            ) : null}
+           </div>
+
+        </div>
           </div>
-        </footer>
-
         <ConsentAndCta />
       </div>
     </AuthProvider>
