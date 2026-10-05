@@ -1,9 +1,8 @@
-import { Html, OSWindow } from "../components/OSWindow";
+import { Html } from "../components/OSWindow";
 import { Seo } from "../components/Seo";
 import { pageHtml, type PageEntry } from "../content/content";
 
 export function ContentPage({ entry }: { entry: PageEntry }) {
-  const name = entry.file.split("/").pop() ?? entry.file;
   return (
     <>
       <Seo
@@ -14,9 +13,7 @@ export function ContentPage({ entry }: { entry: PageEntry }) {
         ogTitle={entry.ogTitle}
         ogDescription={entry.ogDescription}
       />
-      <OSWindow title={name}>
-        <Html html={pageHtml(entry.file)} className={`rs-${entry.kind}`} />
-      </OSWindow>
+     <Html html={pageHtml(entry.file)} className={`rs-${entry.kind}`} />
     </>
   );
 }
