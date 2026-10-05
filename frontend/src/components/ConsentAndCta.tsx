@@ -25,10 +25,14 @@ export function ConsentAndCta() {
   useEffect(() => {
     setConsent(readConsent());
     setMounted(true);
-    const onScroll = () => setScrolled(window.scrollY > 320);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+     // The window body scrolls, not the page. Scroll events don't bubble, so listen in the capture phase.
+    const onScroll = (e: Event) => {
+      const el = e.target instanceof Element ? e.target : null;
+      if (el && !el.classList.contains("rs-win-body")) return;
+      setScrolled((el ? el.scrollTop : window.scrollY) > 320);
+    };
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => document.removeEventListener("scroll", onScroll, true);
   }, []);
 
   const decide = (value: Consent) => {
