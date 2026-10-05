@@ -8,10 +8,10 @@ type Mode = "repo" | "file";
 const FILE_ACCEPT = ".cpp,.cc,.cxx,.c,.h,.hpp,.py,.java,.ts,.tsx,.js,.jsx,.mjs,.cjs,.cs";
 
 const inputClass =
-  "w-full border-2 border-black bg-white px-3 py-2.5 font-mono text-sm shadow-brutal-sm placeholder:text-ink/50";
+  "w-full rounded-md border border-line bg-white px-3 py-2.5 font-mono text-sm shadow-soft-sm placeholder:text-ink/50";
 const tabClass = (active: boolean) =>
-  `border-2 border-black px-3 py-1.5 font-mono text-xs font-bold sm:text-sm ${
-    active ? "bg-ink text-white shadow-brutal-sm" : "bg-white hover:bg-chrome"
+  `rounded-md border border-line px-3 py-1.5 font-mono text-xs font-bold sm:text-sm ${
+    active ? "bg-ink text-white shadow-soft-sm" : "bg-white hover:bg-chrome"
   }`;
 
 /**
@@ -128,7 +128,7 @@ export function Scanner() {
                  checked={privateScan}
                  onChange={(e) => setPrivateScan(e.target.checked)}
                   disabled={busy}
-                  className="h-4 w-4 border-2 border-black"
+                  className="h-4 w-4 rounded-md border border-line"
                 />
                 Private repo (uses your GitHub sign-in; the token is never stored)
              </label>
@@ -209,7 +209,7 @@ export function Scanner() {
         {busy ? "Fetching and analyzing. Large repos can take up to a minute." : ""}
       </p>
       {error ? (
-        <p role="alert" className="border-2 border-black bg-red-100 px-3 py-2 text-sm font-semibold">
+        <p role="alert" className="rounded-md border border-line bg-red-100 px-3 py-2 text-sm font-semibold">
           {error}
         </p>
       ) : null}
