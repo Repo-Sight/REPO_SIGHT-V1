@@ -35,6 +35,11 @@ function Glyph({ children }: { children: ReactNode }) {
 }
 
 export const GLYPHS = {
+  home: (
+    <Glyph>
+      <path d="M4 11 12 4l8 7M6 9.5V20h12V9.5M10 20v-5h4v5" />
+    </Glyph>
+  ),
   scan: (
     <Glyph>
       <path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2" />
@@ -99,7 +104,7 @@ export type GlyphName = keyof typeof GLYPHS;
 const TILE =
   "grid h-14 w-14 place-items-center rounded-2xl border text-ink shadow-soft-sm transition-transform group-hover:-translate-y-0.5 group-hover:shadow-soft group-focus-visible:-translate-y-0.5";
 const LABEL =
-  "mt-1.5 block max-w-[5.5rem] text-center text-[0.72rem] font-medium leading-tight text-ink group-hover:underline";
+  "mt-1.5 block max-w-[7rem] text-center text-[0.72rem] font-medium leading-tight text-ink group-hover:underline";
 
 export function DesktopIcon({
   href,
@@ -115,8 +120,7 @@ export function DesktopIcon({
   external?: boolean;
 }) {
   return (
-    <li className="flex justify-center">
-      <a
+<li className="pointer-events-auto flex min-h-[84px] w-28 justify-center max-sm:w-auto">      <a
         href={href}
         className="group flex w-20 flex-col items-center rounded-xl p-1 no-underline hover:bg-white/60"
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
@@ -171,15 +175,15 @@ export function DesktopFolder({
     side === "right" ? "lg:left-full lg:ml-2 lg:top-0" : "lg:right-full lg:mr-2 lg:top-0";
 
   return (
-    <li className="relative flex justify-center">
-      <details ref={ref} className="rs-folder">
+<li className="pointer-events-auto relative flex min-h-[84px] w-28 justify-center max-sm:w-auto">   
+  <details ref={ref} className="rs-folder">
         <summary className="group flex w-20 cursor-pointer list-none flex-col items-center rounded-xl p-1 hover:bg-white/60">
           <span className={`${TILE} ${TONES[tone]}`}>{GLYPHS.folder}</span>
           <span className={LABEL}>{label}</span>
         </summary>
         <div
-          className={`z-50 overflow-hidden rounded-xl border border-line bg-paper shadow-soft-lg max-lg:fixed max-lg:inset-x-4 max-lg:top-24 lg:absolute lg:w-64 ${pos}`}
-        >
+ className={`rs-pop z-50 overflow-hidden rounded-xl border border-line bg-paper shadow-soft-lg max-lg:fixed max-lg:inset-x-4 max-lg:top-24 lg:absolute lg:w-64 ${pos}`}
+           >
           <div className="flex items-center gap-2 border-b border-line bg-chrome px-3 py-1.5 text-sm font-semibold">
             <span className="h-2.5 w-2.5 rounded-full bg-signal" aria-hidden="true" />
             {title}
@@ -196,5 +200,106 @@ export function DesktopFolder({
         </div>
       </details>
     </li>
+  );
+}
+export interface DesktopItem {
+  href: string;
+  label: string;
+  glyph: GlyphName;
+  tone: Tone;
+  external?: boolean;
+  folder?: { title: string; links: FolderLink[] };
+}
+
+const LEFT: DesktopItem[] = [
+  { href: "/", label: "Home", glyph: "home", tone: "ink" },
+  { href: "/#analyze", label: "Analyze", glyph: "scan", tone: "red" },
+  { href: "/?demo=1", label: "Demo report", glyph: "report", tone: "yellow" },
+  {
+    href: "",
+    label: "Languages",
+    glyph: "folder",
+    tone: "blue",
+    folder: {
+      title: "Languages",
+      links: [
+        { href: "/cpp-code-analyzer.html", label: "C++ analyzer" },
+        { href: "/python-code-analyzer.html", label: "Python analyzer" },
+        { href: "/java-code-analyzer.html", label: "Java analyzer" },
+        { href: "/typescript-code-analyzer.html", label: "TypeScript analyzer" },
+        { href: "/javascript-code-analyzer.html", label: "JavaScript analyzer" },
+      ],
+    },
+  },
+  {
+    href: "",
+    label: "Checkers",
+    glyph: "folder",
+    tone: "green",
+    folder: {
+      title: "Checkers",
+      links: [
+        { href: "/github-code-analyzer.html", label: "GitHub code analyzer" },
+        { href: "/code-quality-checker.html", label: "Code quality checker" },
+        { href: "/code-complexity-checker.html", label: "Code complexity checker" },
+        { href: "/code-security-scanner.html", label: "Code security scanner" },
+        { href: "/free-static-code-analyzer.html", label: "Free static analyzer" },
+      ],
+    },
+  },
+  { href: "/learn/", label: "Learn", glyph: "book", tone: "ink" },
+];
+
+const RIGHT: DesktopItem[] = [
+  { href: "/about.html", label: "About", glyph: "info", tone: "blue" },
+  { href: "/contact.html", label: "Contact", glyph: "mail", tone: "yellow" },
+  { href: "/privacy.html", label: "Privacy", glyph: "lock", tone: "green" },
+  { href: "/terms.html", label: "Terms", glyph: "terms", tone: "ink" },
+  { href: "https://buymeacoffee.com/ronakarora1", label: "Support", glyph: "coffee", tone: "red", external: true },
+];
+
+function Column({ items, label, side, className }: { items: DesktopItem[]; label: string; side: "left" | "right"; className: string }) {
+  return (
+    <nav aria-label={label} className="max-sm:contents">
+      <ul role="list" className={className}>
+        {items.map((i) =>
+          i.folder ? (
+            <DesktopFolder key={i.label} label={i.label} tone={i.tone} title={i.folder.title} links={i.folder.links} side={side === "left" ? "right" : "left"} />
+          ) : (
+            <DesktopIcon key={i.label} href={i.href} label={i.label} glyph={i.glyph} tone={i.tone} external={i.external} />
+          ),
+        )}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * The desktop behind the window: icons in a left and a right column (112px cells,
+ * columns wrap when the viewport is short; the right column wraps in reverse so it
+ * hugs the edge). Under 640px both columns become one wrapping grid. The layer is
+ * pointer-events:none so only the icons catch clicks; the window sits above it.
+ * It deliberately has no z-index, so an open folder (z-50) can sit above the window.
+ */
+export function Desktop({ covered }: { covered: boolean }) {
+  return (
+    <div
+      data-app="Desktop"
+      inert={covered}
+      className="pointer-events-none absolute inset-0 px-1 pt-4 max-sm:grid max-sm:grid-cols-4 max-sm:content-start max-sm:gap-y-1 sm:flex sm:justify-between"
+    >
+      <Column
+        items={LEFT}
+        label="Desktop"
+        side="left"
+        className="flex h-full flex-col flex-wrap content-start max-sm:contents"
+      />
+      <Column
+        items={RIGHT}
+        label="Desktop, more"
+        side="right"
+        className="flex h-full flex-col flex-wrap-reverse content-start max-sm:contents"
+      />
+    </div>
   );
 }
