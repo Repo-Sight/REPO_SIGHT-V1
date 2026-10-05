@@ -48,13 +48,13 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="rs-account-title"
-        className="w-full max-w-md border-2 border-black bg-white p-5 shadow-brutal"
+        className="w-full max-w-md rounded-md border border-line bg-white p-5 shadow-soft"
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="rs-account-title" className="font-mono text-lg font-black">
             {user ? "Your account" : "Sign in"}
           </h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="border-2 border-black px-2 font-mono font-black hover:bg-chrome">
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-md border border-line px-2 font-mono font-black hover:bg-chrome">
             ×
           </button>
         </div>
@@ -126,7 +126,7 @@ function SignedOut({
           onChange={(e) => setEmail(e.target.value)}
           disabled={busy}
           placeholder="you@example.com"
-          className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm"
+          className="w-full rounded-md border border-line bg-white px-3 py-2 font-mono text-sm"
         />
         <button type="submit" className="rs-btn rs-btn-ghost w-full" disabled={busy}>
           {busy ? "Sending…" : "Send link"}
@@ -136,7 +136,7 @@ function SignedOut({
         {sent ? `Check ${sent} for a sign-in link.` : ""}
       </p>
       {error ? (
-        <p role="alert" className="border-2 border-black bg-red-100 px-3 py-2 text-sm font-semibold">
+        <p role="alert" className="rounded-md border border-line bg-red-100 px-3 py-2 text-sm font-semibold">
           {error}
         </p>
       ) : null}
@@ -182,7 +182,7 @@ function SignedIn({ email, onClose, onSignOut }: { email: string | null; onClose
                 <Link
                   to={{ pathname: "/", search: `?scan=${encodeURIComponent(r.scan_id)}` }}
                   onClick={onClose}
-                  className="flex flex-wrap items-center justify-between gap-2 border-2 border-black p-2 hover:bg-chrome"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line p-2 hover:bg-chrome"
                 >
                   <span className="min-w-0 break-all font-mono text-sm font-bold">{r.project_name}</span>
                   <span className="font-mono text-xs">
