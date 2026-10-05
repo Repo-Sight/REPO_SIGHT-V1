@@ -1,19 +1,28 @@
 @import "tailwindcss";
 
 @theme {
-  --color-parchment: #f4f3f0;
-  --color-chrome: #e9e7e1;
-  --color-ink: #1d1f21;
-  --color-signal: #f64900;
-  --color-signal-dark: #d63f00;
-  --color-ok: #27c93f;
+  /* PostHog-style warm neutrals + red/yellow accents (palette values only; no PostHog art or fonts). */
+  --color-parchment: #eeefe9; /* page */
+  --color-paper: #fdfdf8; /* window / card surface */
+  --color-white: #fdfdf8;
+  --color-chrome: #e5e7e0; /* title bars, wells */
+  --color-line: #bfc1b7; /* 1px borders */
+  --color-line-soft: #d2d3cc;
+  --color-ink: #23251d;
+  --color-muted: #65675e;
+  --color-signal: #f54e00;
+  --color-signal-dark: #c03300;
+  --color-sun: #f7a501; /* primary CTA */
+  --color-sun-dark: #e38907;
+  --color-sun-edge: #b17816;
+  --color-ok: #36c46f;
 
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --shadow-brutal-sm: 2px 2px 0 #000;
-  --shadow-brutal: 4px 4px 0 #000;
-  --shadow-brutal-lg: 6px 6px 0 #000;
+  --shadow-soft-sm: 0 1px 2px rgb(35 37 29 / 0.08);
+  --shadow-soft: 0 1px 0 rgb(35 37 29 / 0.04), 0 10px 28px -14px rgb(35 37 29 / 0.28);
+  --shadow-soft-lg: 0 1px 0 rgb(35 37 29 / 0.05), 0 22px 48px -22px rgb(35 37 29 / 0.38);
 }
 
 @layer base {
@@ -21,8 +30,14 @@
     overflow-x: hidden;
     scroll-behavior: smooth;
   }
+  /* Desktop wallpaper: warm paper with a faint dot grid and a soft vignette. */
   body {
     background-color: var(--color-parchment);
+    background-image:
+      radial-gradient(circle at 50% -10%, rgb(253 253 248 / 0.9), transparent 55%),
+      radial-gradient(rgb(35 37 29 / 0.09) 1px, transparent 1px);
+    background-size: auto, 22px 22px;
+    background-attachment: fixed, scroll;
     color: var(--color-ink);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -52,10 +67,10 @@
   left: -9999px;
   top: 0;
   z-index: 60;
-  background: #fff;
-  border: 2px solid #000;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
   padding: 0.5rem 0.75rem;
-  font-family: var(--font-mono);
   font-size: 0.875rem;
 }
 .rs-skip:focus {
@@ -64,45 +79,117 @@
 }
 
 .rs-navlink {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 500;
   text-decoration: none;
-  padding: 0.25rem 0.5rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+  color: var(--color-ink);
 }
-.rs-navlink:hover {
-  background: var(--color-signal);
-  color: #000;
+.rs-navlink:hover,
+.rs-navlink[aria-expanded="true"] {
+  background: var(--color-chrome);
+}
+
+/* Header dropdown (Languages). <details> keeps it working without JS; JS-free prerender stays valid. */
+.rs-menu {
+  position: relative;
+}
+.rs-folder > summary {
+  list-style: none;
+}
+.rs-folder > summary::-webkit-details-marker {
+  display: none;
+}
+.rs-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.rs-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.rs-menu > summary::after {
+  content: "";
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: 0.4rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+.rs-menu-panel {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 14rem;
+  padding: 0.4rem;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+}
+@media (min-width: 768px) {
+  .rs-menu-panel {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    z-index: 50;
+  }
+}
+.rs-menu-panel a {
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.rs-menu-panel a:hover {
+  background: var(--color-chrome);
 }
 
 /* Primary button: black text on signal orange (5.9:1); white would only reach 3.6:1. */
 .rs-btn,
 .rs-prose .btn-primary {
   display: inline-block;
-  background: var(--color-signal);
-  color: #000;
-  border: 2px solid #000;
-  box-shadow: var(--shadow-brutal);
+  background: var(--color-sun);
+  color: #151515;
+  border: 1px solid var(--color-sun-edge);
+  border-radius: 6px;
+  box-shadow: 0 2px 0 var(--color-sun-edge);
   padding: 0.55rem 1.1rem;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  font-weight: 800;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.25;
   text-decoration: none;
   cursor: pointer;
-  transition: transform 80ms, box-shadow 80ms;
+  transition: transform 80ms, box-shadow 80ms, background-color 80ms;
 }
 .rs-btn:hover,
 .rs-prose .btn-primary:hover {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 #000;
-  background: var(--color-signal-dark);
-  color: #000;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 var(--color-sun-edge);
+  background: #ffb21f;
+  color: #151515;
+}
+.rs-btn:active,
+.rs-prose .btn-primary:active {
+  transform: translateY(1px);
+  box-shadow: 0 0 0 var(--color-sun-edge);
+}
+.rs-btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .rs-btn-ghost {
-  background: #fff;
+  background: var(--color-paper);
+  border-color: var(--color-line);
+  box-shadow: 0 2px 0 var(--color-line);
 }
 .rs-btn-ghost:hover {
   background: var(--color-chrome);
+  box-shadow: 0 3px 0 var(--color-line);
+}
+.rs-btn-ghost:active {
+  box-shadow: 0 0 0 var(--color-line);
 }
 
 /* ---------- ads, cookie banner, sticky CTA ---------- */
@@ -114,11 +201,10 @@
 }
 .rs-ad-label {
   display: block;
-  font-family: var(--font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgb(29 31 33 / 0.7);
+  color: var(--color-muted);
   margin-bottom: 0.25rem;
 }
 
@@ -133,8 +219,9 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.85rem 1.25rem;
-  background: #fff;
-  border-top: 2px solid #000;
+  background: var(--color-paper);
+  border-top: 1px solid var(--color-line);
+  box-shadow: 0 -8px 24px -16px rgb(35 37 29 / 0.3);
   font-size: 0.875rem;
 }
 .rs-cookie-banner a {
@@ -167,8 +254,9 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: #fff;
-  border-top: 2px solid #000;
+  background: var(--color-paper);
+  border-top: 1px solid var(--color-line);
+  box-shadow: 0 -8px 24px -16px rgb(35 37 29 / 0.3);
   font-size: 0.85rem;
   transform: translateY(100%);
   transition: transform 200ms ease;
@@ -194,17 +282,17 @@
 
 .rs-prose h1 {
   font-size: clamp(2rem, 5vw, 3.25rem);
-  font-weight: 900;
+  font-weight: 800;
   line-height: 1.08;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   margin: 0 0 0.9rem;
   text-wrap: balance;
 }
 .rs-prose h2 {
   font-size: clamp(1.35rem, 3vw, 1.85rem);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.2;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   margin: 2.25rem 0 0.75rem;
   text-wrap: balance;
 }
@@ -219,7 +307,7 @@
   margin: 0 0 1rem;
 }
 .rs-prose ul {
-  list-style: square;
+  list-style: disc;
   padding-left: 1.4rem;
 }
 .rs-prose ol {
@@ -232,12 +320,11 @@
 .rs-prose a {
   text-decoration: underline;
   text-decoration-color: var(--color-signal);
-  text-decoration-thickness: 2px;
+  text-decoration-thickness: 1.5px;
   text-underline-offset: 3px;
 }
 .rs-prose a:hover {
-  background: var(--color-signal);
-  text-decoration-color: #000;
+  color: var(--color-signal-dark);
 }
 .rs-prose a.btn-primary,
 .rs-prose a.feature-card-link,
@@ -247,16 +334,17 @@
 .rs-prose code {
   font-family: var(--font-mono);
   font-size: 0.88em;
-  background: #fff;
-  border: 1px solid rgb(0 0 0 / 0.35);
+  background: var(--color-chrome);
+  border: 1px solid var(--color-line-soft);
+  border-radius: 4px;
   padding: 0.05em 0.35em;
   overflow-wrap: anywhere;
 }
 .rs-prose pre {
-  background: var(--color-ink);
-  color: var(--color-parchment);
-  border: 2px solid #000;
-  box-shadow: var(--shadow-brutal);
+  background: #1e1f23;
+  color: #eeefe9;
+  border: 1px solid #1e1f23;
+  border-radius: 8px;
   padding: 1rem;
   margin: 0 0 1.25rem;
   overflow-x: auto;
@@ -272,13 +360,12 @@
 }
 
 .rs-prose .legal-updated {
-  font-family: var(--font-mono);
   font-size: 0.8rem;
-  color: rgb(29 31 33 / 0.75);
+  color: var(--color-muted);
   margin-bottom: 1.5rem;
 }
 .rs-prose .section-sub {
-  color: rgb(29 31 33 / 0.8);
+  color: var(--color-muted);
   max-width: 44rem;
 }
 
@@ -322,9 +409,9 @@
 .rs-prose .feature-card,
 .rs-prose .pipeline-card,
 .rs-prose .tool-example-card {
-  background: #fff;
-  border: 2px solid #000;
-  box-shadow: var(--shadow-brutal);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
   padding: 1.15rem;
 }
 .rs-prose .feature-card p,
@@ -335,48 +422,51 @@
 .rs-prose a.feature-card-link {
   display: block;
   color: inherit;
-  transition: transform 80ms, box-shadow 80ms;
+  border-radius: 8px;
+  transition: transform 120ms, box-shadow 120ms;
 }
 .rs-prose a.feature-card-link:hover {
-  background: #fff;
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 #000;
+  color: inherit;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-soft);
 }
 .rs-prose .feature-icon {
   width: 2.5rem;
   height: 2.5rem;
   display: grid;
   place-items: center;
-  border: 2px solid #000;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
   background: var(--color-chrome);
   margin-bottom: 0.75rem;
 }
 .rs-prose .feature-icon-accent {
-  background: var(--color-signal);
+  background: #ffe6d9;
+  border-color: #f4b99c;
 }
 .rs-prose .feature-icon svg {
   width: 1.35rem;
   height: 1.35rem;
-  stroke: #000;
+  stroke: var(--color-ink);
 }
 .rs-prose .pipeline-num {
   display: block;
-  font-family: var(--font-mono);
   font-size: 1.6rem;
-  font-weight: 900;
-  color: var(--color-signal-dark);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-signal);
 }
 
 .rs-prose .tool-example-card .finding-severity {
   display: inline-block;
-  font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: #ffbd2e;
-  border: 2px solid #000;
-  padding: 0.1rem 0.5rem;
+  background: #ffe3a3;
+  border: 1px solid var(--color-sun-dark);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
   margin-bottom: 0.75rem;
 }
 .rs-prose .finding-note {
@@ -385,18 +475,22 @@
 }
 
 .rs-prose .faq-item {
-  background: #fff;
-  border: 2px solid #000;
-  box-shadow: var(--shadow-brutal-sm);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
   margin: 0.75rem 0;
+  overflow: hidden;
 }
 .rs-prose .faq-item summary {
   cursor: pointer;
   padding: 0.8rem 1rem;
-  font-weight: 700;
+  font-weight: 600;
+}
+.rs-prose .faq-item summary:hover {
+  background: var(--color-chrome);
 }
 .rs-prose .faq-item[open] summary {
-  border-bottom: 2px solid #000;
+  border-bottom: 1px solid var(--color-line);
   background: var(--color-chrome);
 }
 .rs-prose .faq-item p {
@@ -413,16 +507,16 @@
   margin-top: 0.75rem;
 }
 .rs-prose .tool-crosslinks-grid a {
-  background: #fff;
-  border: 2px solid #000;
-  box-shadow: var(--shadow-brutal-sm);
-  padding: 0.3rem 0.7rem;
-  font-family: var(--font-mono);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 .rs-prose .tool-crosslinks-grid a:hover {
-  background: var(--color-signal);
+  background: var(--color-chrome);
+  color: var(--color-ink);
 }
 
 .rs-prose .code-compare {
@@ -439,9 +533,8 @@
   margin-bottom: 0;
 }
 .rs-prose .code-label {
-  font-family: var(--font-mono);
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 600;
   margin: 0 0 0.35rem;
 }
 .rs-prose .label-bad {
@@ -453,11 +546,11 @@
 
 .rs-prose .cta-band {
   margin-top: 2.5rem;
-  background: var(--color-signal);
-  color: #000;
-  border: 2px solid #000;
-  box-shadow: var(--shadow-brutal-lg);
-  padding: 1.5rem;
+  background: #ffe3a3;
+  color: var(--color-ink);
+  border: 1px solid var(--color-sun-dark);
+  border-radius: 12px;
+  padding: 1.75rem;
 }
 .rs-prose .cta-band-inner {
   display: flex;
@@ -475,10 +568,13 @@
 }
 .rs-prose .cta-band .btn-primary {
   background: var(--color-ink);
+  border-color: var(--color-ink);
+  box-shadow: 0 2px 0 #000;
   color: #fff;
 }
 .rs-prose .cta-band .btn-primary:hover {
   background: #000;
+  box-shadow: 0 3px 0 #000;
   color: #fff;
 }
 
