@@ -39,7 +39,7 @@ export function DemoReport({ onNewScan }: { onNewScan: () => void }) {
   if (state.kind === "error") {
     return (
       <div className="space-y-4">
-        <p role="alert" className="border-2 border-black bg-red-100 px-3 py-2 text-sm font-semibold">
+        <p role="alert" className="rounded-md border border-line bg-red-100 px-3 py-2 text-sm font-semibold">
           {state.message}
         </p>
         <button type="button" className="rs-btn" onClick={onNewScan}>
@@ -50,7 +50,7 @@ export function DemoReport({ onNewScan }: { onNewScan: () => void }) {
   }
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-2 border-black bg-chrome px-3 py-2 shadow-brutal-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-chrome px-3 py-2 shadow-soft-sm">
         <p className="font-mono text-xs sm:text-sm">
           <strong>Sample report.</strong> A real scan of REPO-SIGHT&apos;s own source code. No signup, nothing to paste.
         </p>
