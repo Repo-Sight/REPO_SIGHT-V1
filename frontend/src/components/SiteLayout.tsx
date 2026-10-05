@@ -1,165 +1,233 @@
-import { useCallback, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { AdSlot } from "../components/AdSlot";
-import { DesktopFolder, DesktopIcon } from "../components/DesktopIcons";
-import { DemoReport } from "../components/DemoReport";
-import { Html, OSWindow } from "../components/OSWindow";
-import { ReportView } from "../components/ReportView";
-import { Scanner } from "../components/Scanner";
-import { Seo } from "../components/Seo";
-import { homeContent as c } from "../content/content";
-import { isScanId } from "../lib/api";
+import { useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { SITE } from "../site";
+import { AuthMenu } from "./AuthMenu";
+import { AuthProvider } from "./AuthProvider";
+import { ConsentAndCta } from "./ConsentAndCta";
 
-export function Home() {
-  const { search } = useLocation();
-  const navigate = useNavigate();
+const NAV = [
+  { href: "/#pipeline", label: "How it works" },
+  { href: "/#features", label: "What you get" },
+  { href: "/learn/", label: "Learn" },
+];
 
-  // Read ?scan= only after mount: the prerendered HTML (and the first hydrated
-  // render) is always the marketing page, so there is no hydration mismatch
-  // for visitors who arrive on an existing /?scan=<id> report link.
-  const [scanId, setScanId] = useState<string | null>(null);
-  const [demo, setDemo] = useState(false);
+const LANGUAGES = [
+  { href: "/cpp-code-analyzer.html", label: "C++" },
+  { href: "/python-code-analyzer.html", label: "Python" },
+  { href: "/java-code-analyzer.html", label: "Java" },
+  { href: "/typescript-code-analyzer.html", label: "TypeScript" },
+  { href: "/javascript-code-analyzer.html", label: "JavaScript" },
+];
+
+const FOOTER_COLUMNS: { title: string; links: { href: string; label: string; external?: boolean }[] }[] = [
+  {
+    title: "Product",
+    links: [
+      { href: "/#analyze", label: "Analyze a repo" },
+      { href: "/#pipeline", label: "How it works" },
+      { href: "/#features", label: "What you get" },
+    ],
+  },
+  {
+    title: "Tools",
+    links: [
+      { href: "/cpp-code-analyzer.html", label: "C++ analyzer" },
+      { href: "/python-code-analyzer.html", label: "Python analyzer" },
+      { href: "/java-code-analyzer.html", label: "Java analyzer" },
+      { href: "/typescript-code-analyzer.html", label: "TypeScript analyzer" },
+      { href: "/javascript-code-analyzer.html", label: "JavaScript analyzer" },
+    ],
+  },
+  {
+    title: "Resources",
+    links: [
+      { href: "/learn/", label: "Browse all articles" },
+      { href: "/learn/what-is-static-analysis.html", label: "What is static analysis?" },
+      { href: "/learn/cyclomatic-complexity-explained.html", label: "Cyclomatic complexity" },
+      { href: "/learn/reading-a-code-health-score.html", label: "Reading a health score" },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { href: "/about.html", label: "About" },
+      { href: "/privacy.html", label: "Privacy Policy" },
+      { href: "/terms.html", label: "Terms of Use" },
+    ],
+  },
+  {
+    title: "Contact",
+    links: [
+      { href: "/contact.html", label: "Contact page" },
+      { href: `mailto:${SITE.contactEmail}`, label: SITE.contactEmail },
+    ],
+  },
+  {
+    title: "Follow",
+    links: [
+      { href: "https://buymeacoffee.com/ronakarora1", label: "Support this project", external: true },
+      {
+        href: "https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&utm_source=ig_contact_invite",
+        label: "Instagram",
+        external: true,
+      },
+      { href: "https://www.linkedin.com/company/reposight/", label: "LinkedIn", external: true },
+    ],
+  },
+];
+
+/** Label of the "open window" chip in the taskbar, derived from the route (matches the window title bar). */
+function windowLabel(pathname: string): string {
+  if (pathname === "/" || pathname === "") return "home";
+  const last = pathname.split("/").filter(Boolean).pop() ?? "home";
+  return pathname.endsWith("/") ? `${last}/` : last;
+}
+
+/** Taskbar clock. Renders empty until mounted so prerendered HTML and first hydration match. */
+function Clock() {
+  const [now, setNow] = useState("");
   useEffect(() => {
-    const params = new URLSearchParams(search);
-    const id = params.get("scan");
-    setScanId(isScanId(id) ? id : null);
-    setDemo(params.get("demo") === "1");
-  }, [search]);
+    const tick = () =>
+      setNow(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return (
+    <span className="hidden min-w-[4.5ch] text-sm tabular-nums text-muted sm:inline" aria-hidden="true">
+      {now}
+    </span>
+  );
+}
 
-  const newScan = useCallback(() => {
-    navigate({ pathname: "/", search: "", hash: "#analyze" });
-  }, [navigate]);
-
-  if (demo && !scanId) {
-    return (
-      <div className="space-y-10">
-        <Seo
-          title="Sample code health report | REPO-SIGHT"
-          description={c.description}
-          canonical={c.canonical}
-          robots="noindex, follow"
-        />
-        <OSWindow title="REPO-SIGHT" subtitle="sample report">
-          <DemoReport onNewScan={newScan} />
-        </OSWindow>
-      </div>
-    );
-  }
-
-  if (scanId) {
-    return (
-      <div className="space-y-10">
-        {/* Reports are per-scan pages: keep them out of the index, canonical stays on the homepage. */}
-        <Seo
-          title="Code health report | REPO-SIGHT"
-          description={c.description}
-          canonical={c.canonical}
-          robots="noindex, follow"
-        />
-        <OSWindow title="REPO-SIGHT" subtitle="report">
-          <ReportView scanId={scanId} onNewScan={newScan} />
-        </OSWindow>
-      </div>
-    );
-  }
+export function SiteLayout() {
+  const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
 
   return (
-    <div className="space-y-10">
-      <Seo
-        title={c.title}
-        description={c.description}
-        canonical={c.canonical}
-        robots={c.robots}
-        ogTitle={c.ogTitle}
-        ogDescription={c.ogDescription}
-        jsonLd={c.jsonLd}
-      />
+    <AuthProvider>
+      <div className="flex min-h-screen flex-col">
+        <a href="#main" className="rs-skip">
+          Skip to content
+        </a>
 
-      {/* PostHog-style hero: left-aligned headline, then a desktop: icons either side, windows in the middle. */}
-      <section aria-labelledby="hero-title" className="pt-2 sm:pt-6">
-        <div className="max-w-4xl space-y-5">
-          <h1
-            id="hero-title"
-            className="text-balance text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
+        <header className="sticky top-0 z-40 px-2 pt-2 sm:px-3">
+          <div
+            id="taskbar"
+            className="mx-auto flex max-w-7xl items-center gap-2 rounded-xl border border-line bg-paper/90 px-2 py-1.5 shadow-soft backdrop-blur"
           >
-            {c.h1Lead} <span className="text-signal">{c.h1Highlight}</span>
-          </h1>
-          <p className="max-w-2xl text-base leading-relaxed text-muted sm:text-lg">{c.heroSub}</p>
-        </div>
-      </section>
+            <a
+              href="/"
+              className="flex shrink-0 items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-chrome"
+              aria-label={`${SITE.name} home`}
+            >
+              <img
+                src="/apple-touch-icon.png"
+                alt=""
+                width={28}
+                height={28}
+                className="h-7 w-7 rounded-md border border-line"
+              />
+              <span className="text-base font-extrabold tracking-tight">{SITE.name}</span>
+            </a>
 
-      <div className="grid gap-x-6 gap-y-6 lg:grid-cols-[5.5rem_minmax(0,1fr)_5.5rem]">
-        <nav aria-label="Desktop" className="order-1 lg:order-none lg:col-start-1 lg:row-start-1 lg:self-start lg:sticky lg:top-24">
-          <ul role="list" className="grid grid-cols-5 gap-y-2 lg:grid-cols-1">
-            <DesktopIcon href="/#analyze" label="Analyze" glyph="scan" tone="red" />
-            <DesktopIcon href="/?demo=1" label="Demo report" glyph="report" tone="yellow" />
-            <DesktopFolder
-              label="Languages"
-              tone="blue"
-              title="Languages"
-              links={[
-                { href: "/cpp-code-analyzer.html", label: "C++ analyzer" },
-                { href: "/python-code-analyzer.html", label: "Python analyzer" },
-                { href: "/java-code-analyzer.html", label: "Java analyzer" },
-                { href: "/typescript-code-analyzer.html", label: "TypeScript analyzer" },
-                { href: "/javascript-code-analyzer.html", label: "JavaScript analyzer" },
-              ]}
-            />
-            <DesktopFolder
-              label="Checkers"
-              tone="green"
-              title="Checkers"
-              links={[
-                { href: "/github-code-analyzer.html", label: "GitHub code analyzer" },
-                { href: "/code-quality-checker.html", label: "Code quality checker" },
-                { href: "/code-complexity-checker.html", label: "Code complexity checker" },
-                { href: "/code-security-scanner.html", label: "Code security scanner" },
-                { href: "/free-static-code-analyzer.html", label: "Free static analyzer" },
-              ]}
-            />
-            <DesktopIcon href="/learn/" label="Learn" glyph="book" tone="ink" />
-          </ul>
-        </nav>
+            <span className="mx-1 hidden h-6 w-px bg-line md:block" aria-hidden="true" />
 
-        <div className="order-3 min-w-0 space-y-10 lg:order-none lg:col-start-2 lg:row-start-1">
-          {/* #analyze is the anchor every CTA links to. */}
-          <OSWindow id="analyze" title="REPO-SIGHT" subtitle="scan a repository">
-            <Scanner />
-          </OSWindow>
+            <nav
+              id="site-nav"
+              aria-label="Main"
+              className={`${open ? "flex" : "hidden"} absolute left-2 right-2 top-full mt-1 flex-col gap-1 rounded-xl border border-line bg-paper p-3 shadow-soft-lg md:static md:mt-0 md:flex md:flex-1 md:flex-row md:items-center md:gap-1 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none`}
+            >
+              {NAV.map((n) => (
+                <a key={n.href} href={n.href} className="rs-navlink" onClick={() => setOpen(false)}>
+                  {n.label}
+                </a>
+              ))}
+              <details className="rs-menu">
+                <summary className="rs-navlink">Languages</summary>
+                <div className="rs-menu-panel">
+                  {LANGUAGES.map((l) => (
+                    <a key={l.href} href={l.href} onClick={() => setOpen(false)}>
+                      {l.label} analyzer
+                    </a>
+                  ))}
+                </div>
+              </details>
+            </nav>
 
-          <OSWindow title="pipeline" subtitle="how it works">
-            <Html html={c.pipelineHtml} />
-          </OSWindow>
+            {/* "Open window" chip: the current page, like a task in a taskbar. */}
+            <span
+              className="ml-auto hidden max-w-[16rem] items-center gap-2 truncate rounded-lg border border-line bg-chrome px-2.5 py-1 text-sm font-medium lg:flex"
+              aria-hidden="true"
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full bg-signal" />
+              <span className="truncate">{windowLabel(pathname)}</span>
+            </span>
 
-          <AdSlot />
+            <div className="ml-auto flex items-center gap-2 lg:ml-0">
+              <Clock />
+              <AuthMenu />
+              <a href="/#analyze" className="rs-btn hidden !py-1.5 sm:inline-block">
+                Analyze a repo
+              </a>
+              <button
+                type="button"
+                className="rounded-md border border-line bg-paper p-2 md:hidden"
+                aria-label="Toggle menu"
+                aria-expanded={open}
+                aria-controls="site-nav"
+                onClick={() => setOpen((v) => !v)}
+              >
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <line x1="3" y1="7" x2="21" y2="7" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="17" x2="21" y2="17" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </header>
 
-          <OSWindow title="features" subtitle="what you get">
-            <Html html={c.featuresHtml} />
-          </OSWindow>
+        <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+          <Outlet />
+        </main>
 
-          <OSWindow title="learn" subtitle="read up on the numbers">
-            <Html html={c.learnHtml} />
-          </OSWindow>
-        </div>
+        <footer className="border-t border-line bg-chrome">
+          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
+            <div className="lg:col-span-4 xl:col-span-1">
+              <div className="flex items-center gap-2.5">
+                <img src="/apple-touch-icon.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg border border-line" />
+                <span className="text-lg font-extrabold tracking-tight">{SITE.name}</span>
+              </div>
+              <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
+                A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for
+                students, job seekers, and indie devs.
+              </p>
+            </div>
+            {FOOTER_COLUMNS.map((col) => (
+              <div key={col.title}>
+                <h2 className="text-sm font-semibold">{col.title}</h2>
+                <ul className="mt-3 space-y-2 text-sm text-muted">
+                  {col.links.map((l) => (
+                    <li key={l.href}>
+                      <a
+                        href={l.href}
+                        className="hover:text-ink hover:underline"
+                        {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                      >
+                        {l.label}
+                      </a>
+                    </li>
+                  ))}
+                  {col.title === "Legal" ? <li>Apache 2.0 License</li> : null}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </footer>
 
-        <nav aria-label="Desktop, more" className="order-2 lg:order-none lg:col-start-3 lg:row-start-1 lg:self-start lg:sticky lg:top-24">
-          <ul role="list" className="grid grid-cols-5 gap-y-2 lg:grid-cols-1">
-            <DesktopIcon href="/about.html" label="About" glyph="info" tone="blue" />
-            <DesktopIcon href="/contact.html" label="Contact" glyph="mail" tone="yellow" />
-            <DesktopIcon href="/privacy.html" label="Privacy" glyph="lock" tone="green" />
-            <DesktopIcon href="/terms.html" label="Terms" glyph="terms" tone="ink" />
-            <DesktopIcon
-              href="https://buymeacoffee.com/ronakarora1"
-              label="Support"
-              glyph="coffee"
-              tone="red"
-              external
-            />
-          </ul>
-        </nav>
+        <ConsentAndCta />
       </div>
-
-      <Html html={c.ctaHtml} />
-    </div>
+    </AuthProvider>
   );
 }
