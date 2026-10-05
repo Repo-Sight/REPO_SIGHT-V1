@@ -38,11 +38,11 @@ const TIER_STYLE: Record<Tier, string> = {
   low: "bg-chrome text-black",
 };
 
-const card = "border-2 border-black bg-white shadow-brutal-sm";
+const card = "rounded-md border border-line bg-white shadow-soft-sm";
 
 function TierBadge({ tier }: { tier: Tier }) {
   return (
-    <span className={`inline-block border-2 border-black px-1.5 py-0.5 font-mono text-[11px] font-black uppercase ${TIER_STYLE[tier]}`}>
+    <span className={`inline-block rounded-md border border-line px-1.5 py-0.5 font-mono text-[11px] font-black uppercase ${TIER_STYLE[tier]}`}>
       {tier}
     </span>
   );
@@ -91,7 +91,7 @@ export function ReportView({ scanId, onNewScan }: { scanId: string; onNewScan: (
   if (state.kind === "error") {
     return (
       <div className="space-y-4">
-        <p role="alert" className="border-2 border-black bg-red-100 px-3 py-2 text-sm font-semibold">
+        <p role="alert" className="rounded-md border border-line bg-red-100 px-3 py-2 text-sm font-semibold">
           {state.message}
         </p>
         <button type="button" className="rs-btn" onClick={onNewScan}>
@@ -139,8 +139,8 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
             aria-selected={tab === t.id}
             aria-controls={`rs-panel-${t.id}`}
             onClick={() => setTab(t.id)}
-            className={`border-2 border-black px-3 py-1.5 font-mono text-xs font-bold sm:text-sm ${
-              tab === t.id ? "bg-ink text-white shadow-brutal-sm" : "bg-white hover:bg-chrome"
+            className={`rounded-md border border-line px-3 py-1.5 font-mono text-xs font-bold sm:text-sm ${
+              tab === t.id ? "bg-ink text-white shadow-soft-sm" : "bg-white hover:bg-chrome"
             }`}
           >
             {t.label}
@@ -186,7 +186,7 @@ function SharePanel({ report }: { report: ScanReport }) {
   }
 
   return (
-    <div className="border-2 border-black bg-white p-3">
+    <div className="rounded-md border border-line bg-white p-3">
       <button
         type="button"
         className="font-mono text-xs font-bold underline"
@@ -207,7 +207,7 @@ function SharePanel({ report }: { report: ScanReport }) {
             rows={3}
             value={markdown}
             onFocus={(e) => e.currentTarget.select()}
-            className="w-full resize-none border-2 border-black bg-chrome p-2 font-mono text-xs"
+            className="w-full resize-none rounded-md border border-line bg-chrome p-2 font-mono text-xs"
           />
           <div className="flex flex-wrap gap-2">
             <button type="button" className="rs-btn rs-btn-ghost" onClick={() => void copy("md", markdown)}>
@@ -240,7 +240,7 @@ function OverviewTab({ report }: { report: ScanReport }) {
       <TrendCallout report={report} />
       <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
         <div className={`${card} flex items-center gap-4 p-4`}>
-          <div className="border-2 border-black bg-signal px-5 py-2 font-mono text-5xl font-black" aria-label={`Grade ${p.healthGrade}`}>
+          <div className="rounded-md border border-line bg-signal px-5 py-2 font-mono text-5xl font-black" aria-label={`Grade ${p.healthGrade}`}>
             {p.healthGrade}
           </div>
           <div>
@@ -365,13 +365,13 @@ function LanguagesTab({ report }: { report: ScanReport }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex h-5 w-full overflow-hidden border-2 border-black" role="img" aria-label="Share of code lines by language">
+      <div className="flex h-5 w-full overflow-hidden rounded-md border border-line" role="img" aria-label="Share of code lines by language">
         {langs.map((l, i) => (
           <div key={l.language} className={BAR_SHADES[i % BAR_SHADES.length]} style={{ width: `${(l.codeLines / total) * 100}%` }} />
         ))}
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[34rem] border-2 border-black bg-white text-left text-sm">
+        <table className="w-full min-w-[34rem] rounded-md border border-line bg-white text-left text-sm">
           <thead className="bg-chrome font-mono text-xs uppercase">
             <tr>
               <th className="p-2">Language</th>
@@ -385,9 +385,9 @@ function LanguagesTab({ report }: { report: ScanReport }) {
           </thead>
           <tbody className="font-mono">
             {langs.map((l, i) => (
-              <tr key={l.language} className="border-t border-black/30">
+              <tr key={l.language} className="border-t border-line/30">
                 <td className="p-2">
-                  <span className={`mr-2 inline-block h-3 w-3 border border-black align-middle ${BAR_SHADES[i % BAR_SHADES.length]}`} aria-hidden="true" />
+                  <span className={`mr-2 inline-block h-3 w-3 border border-line align-middle ${BAR_SHADES[i % BAR_SHADES.length]}`} aria-hidden="true" />
                   {languageLabel(l.language)}
                 </td>
                 <td className="p-2 text-right">{((l.codeLines / total) * 100).toFixed(1)}%</td>
@@ -448,7 +448,7 @@ function FilesTab({ report }: { report: ScanReport }) {
               setQuery(e.target.value);
               setShown(PAGE);
             }}
-            className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm"
+            className="w-full rounded-md border border-line bg-white px-3 py-2 font-mono text-sm"
             placeholder="auth, .py, src/api…"
           />
         </div>
@@ -460,7 +460,7 @@ function FilesTab({ report }: { report: ScanReport }) {
             id="rs-file-sort"
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
-            className="border-2 border-black bg-white px-3 py-2 font-mono text-sm"
+            className="rounded-md border border-line bg-white px-3 py-2 font-mono text-sm"
           >
             <option value="issues">Most findings</option>
             <option value="complexity">Highest complexity</option>
@@ -497,7 +497,7 @@ function FilesTab({ report }: { report: ScanReport }) {
                   </span>
                 </button>
                 {isOpen ? (
-                  <div id={panelId} className="border-t-2 border-black p-3">
+                  <div id={panelId} className="border-t border-line p-3">
                     {findings.length === 0 ? (
                       <p className="text-sm">No findings in this file.</p>
                     ) : (
@@ -586,7 +586,7 @@ function TrendCallout({ report }: { report: ScanReport }) {
     const worse = d.scoreDelta < 0 || d.added > d.resolved || d.addedSecurity > 0;
     const prevDate = d.previousDate ? new Date(d.previousDate) : null;
     return (
-      <section className={`border-2 border-black p-4 shadow-brutal-sm ${worse ? "bg-amber-100" : "bg-white"}`} aria-label="Change since your previous scan">
+      <section className={`rounded-md border border-line p-4 shadow-soft-sm ${worse ? "bg-amber-100" : "bg-white"}`} aria-label="Change since your previous scan">
         <h3 className="font-mono text-sm font-black">{worse ? "Heads up: since your last scan" : "Progress since your last scan"}</h3>
         <p className="mt-1 text-sm">
           {head}
@@ -604,7 +604,7 @@ function TrendCallout({ report }: { report: ScanReport }) {
 
   if (ready && !user && isRepoScan) {
     return (
-      <p className="border-2 border-dashed border-black p-3 text-sm">
+      <p className="rounded-md border border-dashed border-line p-3 text-sm">
         Fixed some things? Rescan this repo while signed in and REPO-SIGHT shows what improved since this scan.{" "}
         <button type="button" className="font-bold underline" onClick={openAccount}>
           Sign in
@@ -641,7 +641,7 @@ function ExplainButton({ report, v }: { report: ScanReport; v: Violation }) {
   return (
     <div className="mt-1 font-sans">
       {state.kind === "idle" || state.kind === "error" ? (
-        <button type="button" className="border-2 border-black bg-white px-2 py-0.5 font-mono text-[11px] font-bold hover:bg-chrome" onClick={run}>
+        <button type="button" className="rounded-md border border-line bg-white px-2 py-0.5 font-mono text-[11px] font-bold hover:bg-chrome" onClick={run}>
           {user ? "Explain this finding" : "Sign in to explain"}
         </button>
       ) : null}
@@ -649,7 +649,7 @@ function ExplainButton({ report, v }: { report: ScanReport; v: Violation }) {
         {state.kind === "loading" ? <p className="font-mono text-xs">Asking for an explanation…</p> : null}
         {/* Model output is untrusted text: rendered as plain text, never as HTML. */}
         {state.kind === "done" ? (
-          <p className="mt-1 whitespace-pre-wrap border-2 border-black bg-chrome p-2 text-xs leading-relaxed">{state.text}</p>
+          <p className="mt-1 whitespace-pre-wrap rounded-md border border-line bg-chrome p-2 text-xs leading-relaxed">{state.text}</p>
         ) : null}
         {state.kind === "error" ? <p className="mt-1 text-xs font-semibold">{state.message}</p> : null}
       </div>
@@ -812,7 +812,7 @@ function ScoringTab({ report }: { report: ScanReport }) {
               <span className="font-mono text-xs text-ink/70">weight {Math.round(c.weight * 100)}%</span>
             </div>
             <div
-              className="mt-2 h-3 w-full border-2 border-black bg-chrome"
+              className="mt-2 h-3 w-full rounded-md border border-line bg-chrome"
               role="meter"
               aria-label={`${c.title} score`}
               aria-valuemin={0}
