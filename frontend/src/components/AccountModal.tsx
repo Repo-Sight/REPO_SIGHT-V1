@@ -6,9 +6,22 @@ import { GITHUB_AUTH_ENABLED } from "../lib/supabase";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
 
-export function AccountModal({ onClose }: { onClose: () => void }) {
+const MODAL_CLOSE_MS = 250;
+export function AccountModal({ onClose: unmount }: { onClose: () => void }) {
   const { user, signInWithGithub, sendMagicLink, signOut } = useAuth();
   const panel = useRef<HTMLDivElement>(null);
+   const [closing, setClosing] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  // Exit animation first (panel slides up and fades, overlay fades), then unmount. Every close path goes through here.
+  const onClose = () => {
+    if (closing) return;
+    setClosing(true);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    timer.current = window.setTimeout(unmount, reduced ? 0 : MODAL_CLOSE_MS);
+  };
 
   // Move focus in on open, restore it to the opener on close.
   useEffect(() => {
@@ -39,7 +52,8 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
+    className="rs-overlay fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-2"
+      data-closing={closing}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
       onKeyDown={onKeyDown}
     >
@@ -48,7 +62,8 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="rs-account-title"
-        className="w-full max-w-md rounded-md border border-line bg-white p-5 shadow-soft"
+      data-closing={closing}
++        className="rs-modal w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft-lg"
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="rs-account-title" className="font-mono text-lg font-black">
