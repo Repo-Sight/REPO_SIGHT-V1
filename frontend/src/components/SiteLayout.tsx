@@ -353,7 +353,6 @@ const [menuOpen, setMenuOpen] = useState(false);
            </div>
 
         </div>
-          </div>
         <ConsentAndCta />
       </div>
     </AuthProvider>
