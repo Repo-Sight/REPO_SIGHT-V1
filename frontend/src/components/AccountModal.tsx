@@ -63,7 +63,7 @@ export function AccountModal({ onClose: unmount }: { onClose: () => void }) {
         aria-modal="true"
         aria-labelledby="rs-account-title"
       data-closing={closing}
-+        className="rs-modal w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft-lg"
+        className="rs-modal w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft-lg"
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="rs-account-title" className="font-mono text-lg font-black">
