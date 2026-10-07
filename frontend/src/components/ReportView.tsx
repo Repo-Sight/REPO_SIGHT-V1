@@ -32,10 +32,10 @@ const TABS: { id: TabId; label: string }[] = [
 
 // Colour never carries meaning alone: every badge also prints its tier name.
 const TIER_STYLE: Record<Tier, string> = {
-  critical: "bg-red-600 text-white",
-  high: "bg-signal text-black",
-  medium: "bg-amber-300 text-black",
-  low: "bg-chrome text-black",
+  critical: "bg-rose text-black",
+  high: "bg-amber text-black",
+  medium: "bg-signal text-black",
+  low: "bg-chrome text-ink",
 };
 
 const card = "rounded-md border border-line bg-white shadow-soft-sm";
@@ -91,7 +91,7 @@ export function ReportView({ scanId, onNewScan }: { scanId: string; onNewScan: (
   if (state.kind === "error") {
     return (
       <div className="space-y-4">
-        <p role="alert" className="rounded-md border border-line bg-red-100 px-3 py-2 text-sm font-semibold">
+        <p role="alert" className="rounded-md border border-line bg-rose/25 px-3 py-2 text-sm font-semibold">
           {state.message}
         </p>
         <button type="button" className="rs-btn" onClick={onNewScan}>
@@ -352,7 +352,7 @@ function FixFirstCard({ item }: { item: FixFirstItem }) {
 
 /* -------------------------------- languages ------------------------------ */
 
-const BAR_SHADES = ["bg-ink", "bg-signal", "bg-ok", "bg-amber-300", "bg-sky-400", "bg-chrome"];
+const BAR_SHADES = ["bg-ink", "bg-signal", "bg-ok", "bg-amber", "bg-lav", "bg-chrome"];
 
 function LanguagesTab({ report }: { report: ScanReport }) {
   const langs = useMemo(
@@ -586,7 +586,7 @@ function TrendCallout({ report }: { report: ScanReport }) {
     const worse = d.scoreDelta < 0 || d.added > d.resolved || d.addedSecurity > 0;
     const prevDate = d.previousDate ? new Date(d.previousDate) : null;
     return (
-      <section className={`rounded-md border border-line p-4 shadow-soft-sm ${worse ? "bg-amber-100" : "bg-white"}`} aria-label="Change since your previous scan">
+      <section className={`rounded-md border border-line p-4 shadow-soft-sm ${worse ? "bg-amber/25" : "bg-white"}`} aria-label="Change since your previous scan">
         <h3 className="font-mono text-sm font-black">{worse ? "Heads up: since your last scan" : "Progress since your last scan"}</h3>
         <p className="mt-1 text-sm">
           {head}
