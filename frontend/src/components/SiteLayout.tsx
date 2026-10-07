@@ -6,6 +6,7 @@ import { AuthMenu } from "./AuthMenu";
 import { AuthProvider } from "./AuthProvider";
 import { ConsentAndCta } from "./ConsentAndCta";
 import { Desktop } from "./DesktopIcons";
+import { Wallpaper } from "./Wallpaper";
 
 // Window timings, same as the CSS animations (index.css).
 const OPEN_MS = 200;
@@ -236,7 +237,7 @@ const [menuOpen, setMenuOpen] = useState(false);
                 height={28}
                 className="h-7 w-7 rounded-md border border-line"
               />
-              <span className="text-base font-extrabold tracking-tight">{SITE.name}</span>
+              <span className="rs-display text-xl">{SITE.name}</span>
             </a>
 
             <span className="mx-1 hidden h-6 w-px bg-line md:block" aria-hidden="true" />
@@ -299,6 +300,7 @@ const [menuOpen, setMenuOpen] = useState(false);
 
        {/* Desktop viewport: icons underneath, the window layer on top, everything clipped to this box. */}
         <div className="relative min-h-0 flex-1 overflow-clip">
+          <Wallpaper />
           <Desktop covered={open && (expanded || mobile)} />
           <div data-app="WindowList" className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
             {open ? (
@@ -320,7 +322,7 @@ const [menuOpen, setMenuOpen] = useState(false);
                     <div className="lg:col-span-4 xl:col-span-1">
                       <div className="flex items-center gap-2.5">
                         <img src="/apple-touch-icon.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg border border-line" />
-                        <span className="text-lg font-extrabold tracking-tight">{SITE.name}</span>
+                        <span className="rs-display text-2xl">{SITE.name}</span>
                       </div>
                       <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
                         A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for
