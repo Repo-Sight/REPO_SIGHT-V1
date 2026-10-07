@@ -1,28 +1,32 @@
 @import "tailwindcss";
 
 @theme {
-  /* PostHog-style warm neutrals + red/yellow accents (palette values only; no PostHog art or fonts). */
-  --color-parchment: #eeefe9; /* page */
-  --color-paper: #fdfdf8; /* window / card surface */
-  --color-white: #fdfdf8;
-  --color-chrome: #e5e7e0; /* title bars, wells */
-  --color-line: #bfc1b7; /* 1px borders */
-  --color-line-soft: #d2d3cc;
-  --color-ink: #23251d;
-  --color-muted: #65675e;
-  --color-signal: #f54e00;
-  --color-signal-dark: #c03300;
-  --color-sun: #f7a501; /* primary CTA */
-  --color-sun-dark: #e38907;
-  --color-sun-edge: #b17816;
-  --color-ok: #36c46f;
+  /* Matte dark palette, shared by the wallpaper, window chrome and report. */
+  --color-parchment: #0a0e13; /* page */
+  --color-paper: #141a22; /* window / card surface */
+  --color-white: #141a22; /* "white" surfaces (inputs, cards) use the dark surface */
+  --color-chrome: #1b232d; /* title bars, wells */
+  --color-line: #2c3745; /* 1px borders */
+  --color-line-soft: #232d39;
+  --color-ink: #d8dee6;
+  --color-muted: #8f9eb0;
+  --color-signal: #8ea8c4; /* accent: steel */
+  --color-signal-dark: #a9bfd6; /* hover on dark */
+  --color-sun: #8ea8c4; /* primary CTA */
+  --color-sun-dark: #7f9bb8;
+  --color-sun-edge: #587390;
+  --color-ok: #8fae96;
+  --color-rose: #c28f93;
+  --color-amber: #c0a070;
+  --color-lav: #9a94b8;
 
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-display: "Samarkan", Georgia, serif;
 
-  --shadow-soft-sm: 0 1px 2px rgb(35 37 29 / 0.08);
-  --shadow-soft: 0 1px 0 rgb(35 37 29 / 0.04), 0 10px 28px -14px rgb(35 37 29 / 0.28);
-  --shadow-soft-lg: 0 1px 0 rgb(35 37 29 / 0.05), 0 22px 48px -22px rgb(35 37 29 / 0.38);
+  --shadow-soft-sm: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-soft: 0 1px 0 rgb(0 0 0 / 0.2), 0 10px 28px -14px rgb(0 0 0 / 0.6);
+  --shadow-soft-lg: 0 1px 0 rgb(0 0 0 / 0.25), 0 22px 48px -22px rgb(0 0 0 / 0.7);
 }
 
 @layer base {
@@ -30,21 +34,18 @@
     overflow-x: hidden;
     scroll-behavior: smooth;
   }
-  /* Desktop wallpaper: warm paper with a faint dot grid and a soft vignette. */
+  /* Desktop base: matte dark with a soft steel vignette (the wallpaper sits on top, see .rs-wall). */
   body {
     background-color: var(--color-parchment);
-    background-image:
-      radial-gradient(circle at 50% -10%, rgb(253 253 248 / 0.9), transparent 55%),
-      radial-gradient(rgb(35 37 29 / 0.09) 1px, transparent 1px);
-    background-size: auto, 22px 22px;
-    background-attachment: fixed, scroll;
+    background-image: radial-gradient(circle at 50% -10%, rgb(142 168 196 / 0.1), transparent 55%);
+    background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
   ::selection {
     background: var(--color-signal);
-    color: #fff;
+    color: #0a0e13;
   }
   :focus-visible {
     outline: 3px solid var(--color-signal);
@@ -77,10 +78,10 @@
   transform: translateZ(0);
 }
 @supports (backdrop-filter: blur(1px)) {
-  /* frosted: surface at 75% over a heavy blur (PostHog: primary/75 + backdrop-blur-3xl) */
+  /* lightly frosted: surface at 94% over a soft blur (readable over the animated wallpaper) */
   .rs-win {
-    background: color-mix(in srgb, var(--color-paper) 75%, transparent);
-    backdrop-filter: blur(64px);
+    background: color-mix(in srgb, var(--color-paper) 94%, transparent);
+    backdrop-filter: blur(16px);
   }
 }
 @media (min-width: 768px) {
@@ -310,7 +311,7 @@
 .rs-prose .btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 3px 0 var(--color-sun-edge);
-  background: #ffb21f;
+  background: #a3bad2;
   color: #151515;
 }
 .rs-btn:active,
@@ -364,7 +365,7 @@
   padding: 0.85rem 1.25rem;
   background: var(--color-paper);
   border-top: 1px solid var(--color-line);
-  box-shadow: 0 -8px 24px -16px rgb(35 37 29 / 0.3);
+  box-shadow: 0 -8px 24px -16px rgb(0 0 0 / 0.5);
   font-size: 0.875rem;
 }
 .rs-cookie-banner a {
@@ -399,7 +400,7 @@
   padding: 0.75rem 1rem;
   background: var(--color-paper);
   border-top: 1px solid var(--color-line);
-  box-shadow: 0 -8px 24px -16px rgb(35 37 29 / 0.3);
+  box-shadow: 0 -8px 24px -16px rgb(0 0 0 / 0.5);
   font-size: 0.85rem;
   transform: translateY(100%);
   transition: transform 200ms ease;
@@ -424,10 +425,12 @@
 }
 
 .rs-prose h1 {
+  font-family: var(--font-display);
   font-size: clamp(2rem, 5vw, 3.25rem);
-  font-weight: 800;
-  line-height: 1.08;
-  letter-spacing: -0.025em;
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 1.12;
+  letter-spacing: 0;
   margin: 0 0 0.9rem;
   text-wrap: balance;
 }
@@ -484,9 +487,9 @@
   overflow-wrap: anywhere;
 }
 .rs-prose pre {
-  background: #1e1f23;
-  color: #eeefe9;
-  border: 1px solid #1e1f23;
+  background: #0b1016;
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
   border-radius: 8px;
   padding: 1rem;
   margin: 0 0 1.25rem;
@@ -584,8 +587,8 @@
   margin-bottom: 0.75rem;
 }
 .rs-prose .feature-icon-accent {
-  background: #ffe6d9;
-  border-color: #f4b99c;
+  background: rgb(142 168 196 / 0.16);
+  border-color: rgb(142 168 196 / 0.4);
 }
 .rs-prose .feature-icon svg {
   width: 1.35rem;
@@ -606,8 +609,8 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: #ffe3a3;
-  border: 1px solid var(--color-sun-dark);
+  background: rgb(192 160 112 / 0.2);
+  border: 1px solid var(--color-amber);
   border-radius: 999px;
   padding: 0.1rem 0.6rem;
   margin-bottom: 0.75rem;
@@ -681,17 +684,17 @@
   margin: 0 0 0.35rem;
 }
 .rs-prose .label-bad {
-  color: #b42318;
+  color: var(--color-rose);
 }
 .rs-prose .label-good {
-  color: #166534;
+  color: var(--color-ok);
 }
 
 .rs-prose .cta-band {
   margin-top: 2.5rem;
-  background: #ffe3a3;
+  background: var(--color-chrome);
   color: var(--color-ink);
-  border: 1px solid var(--color-sun-dark);
+  border: 1px solid var(--color-line);
   border-radius: 12px;
   padding: 1.75rem;
 }
@@ -709,23 +712,167 @@
   margin-bottom: 0;
   max-width: 38rem;
 }
-.rs-prose .cta-band .btn-primary {
-  background: var(--color-ink);
-  border-color: var(--color-ink);
-  box-shadow: 0 2px 0 #000;
-  color: #fff;
-}
-.rs-prose .cta-band .btn-primary:hover {
-  background: #000;
-  box-shadow: 0 3px 0 #000;
-  color: #fff;
-}
-
 /* 404 */
 .rs-notfound {
   text-align: center;
   padding: 2rem 0;
 }
+/* ---------- display type + wallpaper ---------- */
+
+/* Samarkan has one weight: no synthetic bold, no tracking. Unlayered so it beats utility classes. */
+.rs-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0;
+}
+
+.rs-wall {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+.rs-wall[data-ready="true"] {
+  opacity: 1;
+}
+.rs-wall-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 60% at 68% 55%, rgb(142 168 196 / 0.1), transparent 70%),
+    radial-gradient(40% 45% at 92% 12%, rgb(154 148 184 / 0.08), transparent 70%),
+    linear-gradient(160deg, #0f1620, #0a0e13 60%);
+}
+.rs-scene {
+  position: absolute;
+  inset: 0;
+}
+.rs-stage {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: scale(var(--k, 1)) rotateX(58deg) rotateZ(45deg);
+}
+.rs-floor {
+  position: absolute;
+  left: -1200px;
+  top: -1200px;
+  width: 2400px;
+  height: 2400px;
+  overflow: hidden;
+  background:
+    linear-gradient(rgb(142 168 196 / 0.09) 2px, transparent 2px) 0 0 / 96px 96px,
+    linear-gradient(90deg, rgb(142 168 196 / 0.09) 2px, transparent 2px) 0 0 / 96px 96px,
+    #0c121a;
+  -webkit-mask: radial-gradient(closest-side, #000 30%, transparent 100%);
+  mask: radial-gradient(closest-side, #000 30%, transparent 100%);
+}
+.rs-code {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  font: 500 17px/26px var(--font-mono);
+  white-space: pre;
+  color: #4f6178;
+  opacity: 0.8;
+  animation: rs-roll 160s linear infinite;
+}
+@keyframes rs-roll {
+  to {
+    transform: translateY(-50%);
+  }
+}
+.rs-code i {
+  font-style: normal;
+}
+.rs-code .k { color: #9a94b8; }
+.rs-code .s { color: #8fae96; }
+.rs-code .n { color: #c0a070; }
+.rs-code .c { color: #3c4a5c; }
+.rs-code .f { color: #8ea8c4; }
+.rs-floor svg {
+  position: absolute;
+  inset: 0;
+}
+.rs-cube {
+  position: absolute;
+  left: -56px;
+  top: -56px;
+  width: 112px;
+  height: 112px;
+  transform-style: preserve-3d;
+}
+.rs-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--m);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--n) 60%, transparent),
+    0 0 10px color-mix(in srgb, var(--n) 18%, transparent);
+}
+.rs-face::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--sh);
+}
+.rs-face > * {
+  position: relative;
+}
+.rs-fp { transform: rotateX(90deg) translateZ(56px); --sh: linear-gradient(135deg, rgb(255 255 255 / 0.1), transparent 55%); }
+.rs-ft { transform: translateZ(56px); --sh: rgb(0 0 0 / 0.22); }
+.rs-fr { transform: rotateY(90deg) translateZ(56px); --sh: rgb(0 0 0 / 0.45); }
+.rs-ltr {
+  font-family: var(--font-display);
+  font-size: 76px;
+  line-height: 1;
+  color: #e6ebf1;
+}
+.rs-ic {
+  width: 54%;
+  height: 54%;
+  fill: none;
+  color: var(--n);
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rs-tag {
+  position: absolute;
+  left: 10px;
+  bottom: 9px;
+  font: 500 13px var(--font-mono);
+  color: var(--n);
+}
+.rs-m1 { --n: #6f9c98; --m: radial-gradient(circle, #6f9c98 0 1.5px, transparent 2.5px) 0 0 / 24px 24px, linear-gradient(145deg, #27403f, #16262a); }
+.rs-m2 { --n: #8e8fa3; --m: repeating-linear-gradient(45deg, #171c23 0 3px, #222933 3px 6px); }
+.rs-m3 { --n: #9a94b8; --m: linear-gradient(145deg, #322f46, #1d1b2b); }
+.rs-m4 { --n: #7e9a86; --m: linear-gradient(160deg, #18222a, #0c1116); }
+.rs-m5 { --n: #c0a070; --m: linear-gradient(135deg, #5a4130, #33241a); }
+.rs-m6 { --n: #8ea8c4; --m: linear-gradient(135deg, #3a4b5e, #27343f); }
+.rs-m7 { --n: #6fa0b4; --m: linear-gradient(145deg, #21424d, #122a33); }
+.rs-m8 { --n: #c9a56a; --m: radial-gradient(circle, rgb(201 165 106 / 0.7) 0 2px, transparent 2.6px) 0 0 / 10px 10px, linear-gradient(145deg, #4a3524, #261a11); }
+.rs-m9 { --n: #a8b4c2; --m: linear-gradient(145deg, #454e5a, #2b323b); }
+@media (prefers-reduced-motion: reduce) {
+  .rs-code {
+    animation: none;
+  }
+  .rs-wall {
+    transition: none;
+  }
+}
+
 /* ---------- client-ready PDF audit (window.print) ----------
    #rs-print-root is portalled to <body> by AuditExport. Hidden on screen; when
    printing it is the only thing shown, so no app chrome ends up in the PDF. */
