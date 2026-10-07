@@ -151,7 +151,7 @@ function SignedOut({
         {sent ? `Check ${sent} for a sign-in link.` : ""}
       </p>
       {error ? (
-        <p role="alert" className="rounded-md border border-line bg-red-100 px-3 py-2 text-sm font-semibold">
+        <p role="alert" className="rounded-md border border-line bg-rose/25 px-3 py-2 text-sm font-semibold">
           {error}
         </p>
       ) : null}
