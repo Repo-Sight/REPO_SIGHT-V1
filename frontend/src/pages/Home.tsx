@@ -75,7 +75,7 @@ export function Home() {
         <div className="max-w-4xl space-y-5">
           <h1
             id="hero-title"
-            className="text-balance text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
+            className="rs-display text-balance text-4xl leading-[1.1] sm:text-5xl lg:text-6xl"
           >
             {c.h1Lead} <span className="text-signal">{c.h1Highlight}</span>
           </h1>
