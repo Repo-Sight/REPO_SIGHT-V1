@@ -9,10 +9,10 @@ import { useEffect, useRef, type ReactNode } from "react";
 export type Tone = "red" | "yellow" | "blue" | "green" | "ink";
 
 const TONES: Record<Tone, string> = {
-  red: "bg-[#ffe6d9] border-[#f4b99c]",
-  yellow: "bg-[#ffe3a3] border-[#e9b94e]",
-  blue: "bg-[#dbe6ff] border-[#a9c0f5]",
-  green: "bg-[#d8f3e2] border-[#9ed8b4]",
+  red: "bg-rose/20 border-rose/50",
+  yellow: "bg-amber/20 border-amber/50",
+  blue: "bg-signal/20 border-signal/50",
+  green: "bg-ok/20 border-ok/50",
   ink: "bg-chrome border-line",
 };
 
@@ -122,7 +122,7 @@ export function DesktopIcon({
   return (
 <li className="pointer-events-auto flex min-h-[84px] w-28 justify-center max-sm:w-auto">      <a
         href={href}
-        className="group flex w-20 flex-col items-center rounded-xl p-1 no-underline hover:bg-white/60"
+        className="group flex w-20 flex-col items-center rounded-xl p-1 no-underline hover:bg-ink/10"
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       >
         <span className={`${TILE} ${TONES[tone]}`}>{GLYPHS[glyph]}</span>
@@ -177,7 +177,7 @@ export function DesktopFolder({
   return (
 <li className="pointer-events-auto relative flex min-h-[84px] w-28 justify-center max-sm:w-auto">   
   <details ref={ref} className="rs-folder">
-        <summary className="group flex w-20 cursor-pointer list-none flex-col items-center rounded-xl p-1 hover:bg-white/60">
+        <summary className="group flex w-20 cursor-pointer list-none flex-col items-center rounded-xl p-1 hover:bg-ink/10">
           <span className={`${TILE} ${TONES[tone]}`}>{GLYPHS.folder}</span>
           <span className={LABEL}>{label}</span>
         </summary>
