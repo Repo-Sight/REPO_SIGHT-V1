@@ -102,6 +102,29 @@ export interface DuplicateMatch {
   lineCount: number;
 }
 
+export interface HotspotFile {
+  path: string;
+  cyclomaticComplexity: number;
+  /** Absent on reports produced before the no-git fallback existed. */
+  maxNestingDepth?: number;
+  commitCount: number;
+  linesAdded: number;
+  linesDeleted: number;
+  hotspotScore: number;
+}
+
+/**
+ * "git": every file ranked by complexity x churn. "complexity": no git history
+ * (every repo-tarball scan), so the analyser returns the top few files by
+ * cyclomatic complexity and nesting depth. Both are empty when nothing branches.
+ */
+export interface HotspotReport {
+  gitAvailable: boolean;
+  /** Absent on reports produced before the no-git fallback existed. */
+  mode?: "git" | "complexity";
+  topFiles: HotspotFile[];
+}
+
 export interface ScanReport {
   status: "COMPLETED" | "FAILED";
   errorMessage?: string;
@@ -119,6 +142,7 @@ export interface ScanReport {
   files: FileMetrics[];
   byLanguage?: LanguageAggregate[];
   unanalyzedLanguages?: UnanalyzedLanguage[];
+  hotspots?: HotspotReport;
   violations: Violation[];
   tierCounts?: Record<Tier, number>;
   fixFirst?: FixFirstItem[];
