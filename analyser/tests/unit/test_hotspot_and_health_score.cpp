@@ -237,6 +237,165 @@ TEST(HotspotReportBuild, TiedScoresBreakByPathForDeterminism) {
     fs::remove_all(tmp);
 }
  
+namespace {
+
+// No-git GitHistory: a fresh empty temp dir is never a repository.
+GitHistory noGitHistory(const std::string& dirName) {
+    const auto tmp = fs::temp_directory_path() / dirName;
+    fs::create_directories(tmp);
+    GitHistory git(tmp);
+    (void)git.collect();
+    return git;
+}
+
+FileMetrics fileWith(int complexity, int nesting) {
+    FileMetrics fm;
+    fm.cyclomaticComplexity = complexity;
+    fm.maxNestingDepth      = nesting;
+    return fm;
+}
+
+} // namespace
+
+TEST(HotspotFallback, NoGitReturnsTopThreeByComplexityAndNesting) {
+    const auto git = noGitHistory("cma_hotspot_fallback_top3");
+
+    MetricsEngine engine;
+    engine.addFile("a.cpp", fileWith(40, 6));
+    engine.addFile("b.cpp", fileWith(10, 2));
+    engine.addFile("c.cpp", fileWith(25, 5));
+    engine.addFile("d.cpp", fileWith(30, 1));
+    engine.addFile("e.cpp", fileWith(2, 1));
+
+    const auto report = engine.buildHotspotReport(git);
+    EXPECT_FALSE(report.gitAvailable);
+    ASSERT_EQ(report.files.size(), kComplexityFallbackTopFiles);
+    EXPECT_EQ(report.files[0].path, "a.cpp");
+    EXPECT_EQ(report.files[1].path, "c.cpp");
+    EXPECT_EQ(report.files[2].path, "d.cpp");
+
+    EXPECT_EQ(report.files[0].cyclomaticComplexity, 40);
+    EXPECT_EQ(report.files[0].maxNestingDepth, 6);
+    EXPECT_DOUBLE_EQ(report.files[0].hotspotScore, 100.0);
+    EXPECT_GT(report.files[0].hotspotScore, report.files[1].hotspotScore);
+    EXPECT_GT(report.files[1].hotspotScore, report.files[2].hotspotScore);
+    for (const auto& fh : report.files) {
+        EXPECT_EQ(fh.commitCount, 0);
+        EXPECT_EQ(fh.linesAdded, 0);
+        EXPECT_EQ(fh.linesDeleted, 0);
+    }
+}
+
+TEST(HotspotFallback, FewerThanThreeEligibleFilesReturnsOnlyThose) {
+    const auto git = noGitHistory("cma_hotspot_fallback_few");
+
+    MetricsEngine engine;
+    engine.addFile("branchy.cpp", fileWith(12, 3));
+    engine.addFile("flat.cpp", fileWith(1, 0));
+
+    const auto report = engine.buildHotspotReport(git);
+    ASSERT_EQ(report.files.size(), 1u);
+    EXPECT_EQ(report.files[0].path, "branchy.cpp");
+}
+
+TEST(HotspotFallback, FilesWithNoBranchingAreNeverHotspots) {
+    const auto git = noGitHistory("cma_hotspot_fallback_flat");
+
+    MetricsEngine engine;
+    engine.addFile("a.cpp", fileWith(1, 4));
+    engine.addFile("b.cpp", fileWith(1, 0));
+
+    const auto report = engine.buildHotspotReport(git);
+    EXPECT_FALSE(report.gitAvailable);
+    EXPECT_TRUE(report.files.empty());
+}
+
+TEST(HotspotFallback, NestingBreaksComplexityTie) {
+    const auto git = noGitHistory("cma_hotspot_fallback_nesting");
+
+    MetricsEngine engine;
+    engine.addFile("shallow.cpp", fileWith(20, 2));
+    engine.addFile("deep.cpp", fileWith(20, 7));
+
+    const auto report = engine.buildHotspotReport(git);
+    ASSERT_EQ(report.files.size(), 2u);
+    EXPECT_EQ(report.files[0].path, "deep.cpp");
+    EXPECT_EQ(report.files[1].path, "shallow.cpp");
+}
+
+TEST(HotspotFallback, FullTiesBreakByPathForDeterminism) {
+    const auto git = noGitHistory("cma_hotspot_fallback_tiebreak");
+
+    MetricsEngine engine;
+    engine.addFile("zzz.cpp", fileWith(9, 3));
+    engine.addFile("aaa.cpp", fileWith(9, 3));
+
+    const auto report = engine.buildHotspotReport(git);
+    ASSERT_EQ(report.files.size(), 2u);
+    EXPECT_EQ(report.files[0].path, "aaa.cpp");
+    EXPECT_EQ(report.files[1].path, "zzz.cpp");
+}
+
+TEST(HotspotFallback, GitModeCarriesNestingDepthAndStillRanksEveryFile) {
+    TempGitRepo repo;
+    repo.writeAndCommit("a.cpp", "int f() { return 1; }\n", "v1");
+    repo.writeAndCommit("b.cpp", "int g() { return 2; }\n", "v1");
+    repo.writeAndCommit("c.cpp", "int h() { return 3; }\n", "v1");
+    repo.writeAndCommit("d.cpp", "int k() { return 4; }\n", "v1");
+
+    GitHistory git(repo.path());
+    ASSERT_TRUE(git.collect());
+
+    MetricsEngine engine;
+    engine.addFile((repo.path() / "a.cpp").string(), fileWith(5, 3));
+    engine.addFile((repo.path() / "b.cpp").string(), fileWith(1, 0));
+    engine.addFile((repo.path() / "c.cpp").string(), fileWith(1, 0));
+    engine.addFile((repo.path() / "d.cpp").string(), fileWith(1, 0));
+
+    const auto report = engine.buildHotspotReport(git);
+    ASSERT_TRUE(report.gitAvailable);
+    EXPECT_EQ(report.files.size(), 4u); // not truncated to the fallback's top 3
+    for (const auto& fh : report.files) {
+        if (fh.path.find("a.cpp") != std::string::npos) {
+            EXPECT_EQ(fh.maxNestingDepth, 3);
+        }
+    }
+}
+
+TEST(ReportGeneratorJsonHotspots, FallbackModeAndNestingDepthAreSerialised) {
+    ProjectMetrics pm;
+    std::vector<std::pair<std::string, FileMetrics>> files;
+    files.emplace_back("main.cpp", FileMetrics{});
+    DependencyGraph graph;
+    FileCoupling fc; fc.path = "main.cpp";
+    graph.files.push_back(fc);
+
+    HotspotReport hotspots; // gitAvailable defaults false
+    FileHotspot fh; fh.path = "main.cpp"; fh.cyclomaticComplexity = 12; fh.maxNestingDepth = 4;
+    fh.hotspotScore = 100.0;
+    hotspots.files.push_back(fh);
+
+    const auto json = ReportGenerator::toJson(pm, files, graph, hotspots);
+    EXPECT_NE(json.find("\"gitAvailable\": false"), std::string::npos);
+    EXPECT_NE(json.find("\"mode\": \"complexity\""), std::string::npos);
+    EXPECT_NE(json.find("\"maxNestingDepth\": 4"), std::string::npos);
+    EXPECT_EQ(json.find("\"topFiles\": []"), std::string::npos);
+}
+
+TEST(ReportGeneratorJsonHotspots, GitModeIsLabelledGit) {
+    ProjectMetrics pm;
+    std::vector<std::pair<std::string, FileMetrics>> files;
+    files.emplace_back("main.cpp", FileMetrics{});
+    DependencyGraph graph;
+    FileCoupling fc; fc.path = "main.cpp";
+    graph.files.push_back(fc);
+
+    HotspotReport hotspots;
+    hotspots.gitAvailable = true;
+    const auto json = ReportGenerator::toJson(pm, files, graph, hotspots);
+    EXPECT_NE(json.find("\"mode\": \"git\""), std::string::npos);
+}
+
 TEST(HealthScore, EmptyProjectNeverDividesByZero) {
     ProjectMetrics m;
     const auto hs = computeHealthScore(m);
@@ -502,4 +661,3 @@ TEST(ReportGeneratorJsonHotspots, SaveJsonToFileFourArgMatchesToJson) {
     EXPECT_EQ(buf.str(), expected);
     std::remove(path.c_str());
 }
- 
