@@ -471,10 +471,59 @@ DependencyGraph MetricsEngine::buildDependencyGraph() const {
     return graph;
 }
  
+namespace {
+
+// No-git fallback: rank files by cyclomatic complexity and nesting depth and
+// keep the top kComplexityFallbackTopFiles. A file with no branching at all
+// (cyclomaticComplexity <= 1) is never a complexity hotspot, so it is skipped
+// -- a trivial repo yields an empty list rather than three meaningless rows.
+std::vector<FileHotspot> buildComplexityHotspots(
+    const std::vector<std::pair<std::string, FileMetrics>>& files) {
+    int maxComplexity = 0;
+    int maxNesting    = 0;
+    for (const auto& [path, fm] : files) {
+        if (fm.cyclomaticComplexity <= 1) continue;
+        maxComplexity = std::max(maxComplexity, fm.cyclomaticComplexity);
+        maxNesting    = std::max(maxNesting, fm.maxNestingDepth);
+    }
+
+    std::vector<FileHotspot> hotspots;
+    for (const auto& [path, fm] : files) {
+        if (fm.cyclomaticComplexity <= 1) continue;
+
+        FileHotspot fh;
+        fh.path                 = path;
+        fh.cyclomaticComplexity = fm.cyclomaticComplexity;
+        fh.maxNestingDepth      = fm.maxNestingDepth;
+
+        const double normComplexity =
+            static_cast<double>(fm.cyclomaticComplexity) / maxComplexity;
+        const double normNesting =
+            (maxNesting > 0) ? static_cast<double>(fm.maxNestingDepth) / maxNesting : 0.0;
+        fh.hotspotScore = (normComplexity + normNesting) / 2.0 * 100.0;
+
+        hotspots.push_back(std::move(fh));
+    }
+
+    std::sort(hotspots.begin(), hotspots.end(), [](const FileHotspot& a, const FileHotspot& b) {
+        if (a.hotspotScore != b.hotspotScore) return a.hotspotScore > b.hotspotScore;
+        if (a.cyclomaticComplexity != b.cyclomaticComplexity)
+            return a.cyclomaticComplexity > b.cyclomaticComplexity;
+        if (a.maxNestingDepth != b.maxNestingDepth) return a.maxNestingDepth > b.maxNestingDepth;
+        return a.path < b.path;
+    });
+
+    if (hotspots.size() > kComplexityFallbackTopFiles) hotspots.resize(kComplexityFallbackTopFiles);
+    return hotspots;
+}
+
+} // namespace
+
 HotspotReport MetricsEngine::buildHotspotReport(const GitHistory& git) const {
     HotspotReport report;
     if (!git.available()) {
         report.gitAvailable = false;
+        report.files        = buildComplexityHotspots(m_files);
         return report;
     }
     report.gitAvailable = true;
@@ -491,6 +540,7 @@ HotspotReport MetricsEngine::buildHotspotReport(const GitHistory& git) const {
         FileHotspot fh;
         fh.path = path;
         fh.cyclomaticComplexity = fm.cyclomaticComplexity;
+        fh.maxNestingDepth      = fm.maxNestingDepth;
  
         const auto key = canonicalPathKey(std::filesystem::path(path));
         const auto it  = churnMap.find(key);
