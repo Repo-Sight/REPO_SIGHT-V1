@@ -1,0 +1,124 @@
+<section class="tool-hero">
+      <h1>C# Code Analyzer</h1>
+      <p class="section-sub">Paste a public GitHub URL and REPO-SIGHT reads your C# source directly &mdash; complexity, async and exception-handling pitfalls, and 13 rules built specifically for C#. Free, no signup.</p>
+      <div class="tool-hero-ctas">
+        <a href="/#analyze" class="btn-primary">Analyze a repo free</a>
+      </div>
+    </section>
+
+    <section class="features">
+      <h2>What REPO-SIGHT checks in your C# code</h2>
+      <p class="section-sub">13 rules, tuned for C# &mdash; 6 of them security-specific. Every <code>.cs</code> file in the repo is analyzed.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+          </div>
+          <h3>Complexity &amp; structure</h3>
+          <p>Cyclomatic complexity, max nesting depth (<code>csharp-deep-nesting</code> flags files past 6 levels), and <code>csharp-long-method</code> for methods over 100 lines &mdash; the same thresholds used in the health score.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <h3>Async &amp; swallowed exceptions</h3>
+          <p><code>csharp-async-void</code> catches <code>async void</code> methods whose exceptions the caller can never await, and <code>csharp-empty-catch-block</code> catches errors silently thrown away.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <h3>Encapsulation &amp; logging</h3>
+          <p><code>csharp-public-field</code> flags public fields that should be properties (properties, constants, and <code>static readonly</code> values are left alone), and <code>csharp-console-writeline</code> flags <code>Console.WriteLine</code> calls that belong in a logger.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-2-2M16 6l2-2M12 7v2M9 9h6a3 3 0 013 3v3a6 6 0 01-12 0v-3a3 3 0 013-3z"/></svg>
+          </div>
+          <h3>SQL injection &amp; process launch</h3>
+          <p><code>csharp-sec-sql-string-concat</code> flags <code>new SqlCommand(...)</code> queries built with string concatenation, and <code>csharp-sec-process-start</code> flags <code>Process.Start</code> calls to review for untrusted arguments.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-2-2M16 6l2-2M12 7v2M9 9h6a3 3 0 013 3v3a6 6 0 01-12 0v-3a3 3 0 013-3z"/></svg>
+          </div>
+          <h3>Weak crypto, TLS &amp; secrets</h3>
+          <p>MD5/SHA1 hashes, DES/TripleDES ciphers, custom <code>ServerCertificateValidationCallback</code> handlers, and hardcoded credentials round out 6 security checks in total.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="10" height="10" rx="1.5"/><rect x="10" y="10" width="10" height="10" rx="1.5"/></svg>
+          </div>
+          <h3>Duplication &amp; debt</h3>
+          <p>Token-based clone detection across the whole repo, plus every TODO/FIXME counted &mdash; <code>csharp-todo-without-ticket</code> flags the ones with no ticket reference.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tool-example">
+      <div class="tool-example-card">
+        <span class="finding-severity">Warning &middot; example finding</span>
+        <pre><code>public async void LoadOrders()
+{
+    var orders = await _repo.GetAllAsync();
+    Render(orders);
+}</code></pre>
+        <p class="finding-note">Illustrative example. <code>csharp-async-void</code>: an exception thrown inside an <code>async void</code> method can't be awaited or caught by the caller and can crash the process &mdash; returning <code>Task</code> keeps it observable.</p>
+      </div>
+    </section>
+
+    <section class="tool-faq">
+      <h2>Frequently asked questions</h2>
+      <details class="faq-item">
+        <summary>Which C# files does it analyze?</summary>
+        <p>Every <code>.cs</code> file in the repository. Methods, lambdas, generic methods with <code>where</code> constraints, records, and namespaces (including file-scoped ones) are all recognized.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Are expression-bodied members counted?</summary>
+        <p>Not as separate functions. A method written as <code>=&gt; expr;</code> has no braces to measure, so it adds no function length or nesting of its own. Everything with a braced body is measured.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How is this different from Roslyn analyzers?</summary>
+        <p>Roslyn analyzers run inside a .NET build, so they need the SDK and a restorable project. REPO-SIGHT runs from a GitHub URL alone, across the whole repo, and rolls the result into a single project health score &mdash; nothing to install or configure.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Does REPO-SIGHT build or run my code?</summary>
+        <p>No. It's static analysis only &mdash; the source is parsed, never compiled, restored, or executed.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Is it actually free?</summary>
+        <p>Yes &mdash; no tiers, no paywalled metrics. A small amount of advertising covers hosting instead of a paid plan.</p>
+      </details>
+    </section>
+
+    <section class="tool-crosslinks">
+      <h2>Other languages</h2>
+      <div class="tool-crosslinks-grid">
+        <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+        <a href="/python-code-analyzer.html">Python analyzer</a>
+        <a href="/java-code-analyzer.html">Java analyzer</a>
+        <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+        <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
+        <a href="/csharp-code-analyzer.html">C# analyzer</a>
+        <a href="/free-static-code-analyzer.html">Free static code analyzer</a>
+      </div>
+    </section>
+
+    <section class="tool-crosslinks">
+      <h2>Related reading</h2>
+      <div class="tool-crosslinks-grid">
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity explained</a>
+        <a href="/learn/what-is-code-complexity.html">What is code complexity?</a>
+        <a href="/learn/static-analysis-vs-code-review.html">Static analysis vs. code review</a>
+      </div>
+    </section>
+
+    <section class="cta-band">
+      <div class="cta-band-inner">
+        <div>
+          <h2>Free is the whole plan.</h2>
+          <p>No tiers, no paywalled metrics. A small amount of advertising keeps it free instead of a paywall &mdash; analyze without an account any time.</p>
+        </div>
+        <a href="/#analyze" class="btn-primary btn-cta-band">Analyze a repo now</a>
+      </div>
+    </section>
