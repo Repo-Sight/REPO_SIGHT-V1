@@ -25,6 +25,7 @@ const LANGUAGES = [
   { href: "/java-code-analyzer.html", label: "Java" },
   { href: "/typescript-code-analyzer.html", label: "TypeScript" },
   { href: "/javascript-code-analyzer.html", label: "JavaScript" },
+  { href: "/csharp-code-analyzer.html", label: "C#" },
 ];
 
 const FOOTER_COLUMNS: { title: string; links: { href: string; label: string; external?: boolean }[] }[] = [
@@ -44,6 +45,7 @@ const FOOTER_COLUMNS: { title: string; links: { href: string; label: string; ext
       { href: "/java-code-analyzer.html", label: "Java analyzer" },
       { href: "/typescript-code-analyzer.html", label: "TypeScript analyzer" },
       { href: "/javascript-code-analyzer.html", label: "JavaScript analyzer" },
+      { href: "/csharp-code-analyzer.html", label: "C# analyzer" },
     ],
   },
   {
