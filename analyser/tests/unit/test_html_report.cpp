@@ -122,6 +122,27 @@ TEST(ReportGeneratorHtml, GitUnavailableShowsMutedMessageNotEmptyTable) {
     EXPECT_EQ(section.substr(0, section.find("</section>")).find("<table>"), std::string::npos);
 }
  
+TEST(ReportGeneratorHtml, GitUnavailableWithFallbackFilesShowsComplexityTable) {
+    ProjectMetrics pm = makeProject();
+    std::vector<std::pair<std::string, FileMetrics>> files;
+    files.emplace_back("main.cpp", FileMetrics{});
+    DependencyGraph graph;
+    HotspotReport hotspots; // gitAvailable defaults false
+    FileHotspot fh; fh.path = "deep.cpp"; fh.cyclomaticComplexity = 17; fh.maxNestingDepth = 6;
+    fh.hotspotScore = 100.0;
+    hotspots.files.push_back(fh);
+    ViolationReport violations;
+
+    const auto html = ReportGenerator::toHtml(pm, files, graph, hotspots, violations);
+    const auto section = html.substr(html.find("id=\"hotspots\""));
+    const auto body = section.substr(0, section.find("</section>"));
+    EXPECT_NE(body.find("Git history not available"), std::string::npos);
+    EXPECT_NE(body.find("<table>"), std::string::npos);
+    EXPECT_NE(body.find("Max Nesting"), std::string::npos);
+    EXPECT_NE(body.find("deep.cpp"), std::string::npos);
+    EXPECT_EQ(body.find("Commits"), std::string::npos);
+}
+
 TEST(ReportGeneratorHtml, EmptyViolationsShowsMutedMessageNotEmptyTable) {
     ProjectMetrics pm = makeProject();
     std::vector<std::pair<std::string, FileMetrics>> files;
@@ -225,4 +246,3 @@ TEST(ReportGeneratorHtml, SaveHtmlToFileFailsOnUnwritablePath) {
     EXPECT_FALSE(ReportGenerator::saveHtmlToFile(ProjectMetrics{}, {},
                                                   "/nonexistent_dir_xyz/report.html"));
 }
- 
