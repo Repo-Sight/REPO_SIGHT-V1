@@ -228,6 +228,7 @@ const LEFT: DesktopItem[] = [
         { href: "/java-code-analyzer.html", label: "Java analyzer" },
         { href: "/typescript-code-analyzer.html", label: "TypeScript analyzer" },
         { href: "/javascript-code-analyzer.html", label: "JavaScript analyzer" },
+        { href: "/csharp-code-analyzer.html", label: "C# analyzer" },
       ],
     },
   },
