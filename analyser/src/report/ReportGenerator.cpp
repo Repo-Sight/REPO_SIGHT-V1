@@ -390,6 +390,9 @@ void ReportGenerator::writeDependenciesJson(
 void ReportGenerator::writeHotspotsJson(const HotspotReport& hotspots, std::ostream& out) {
     out << "  \"hotspots\": {\n";
     out << "    \"gitAvailable\": " << (hotspots.gitAvailable ? "true" : "false") << ",\n";
+    // "git": ranked by complexity x churn. "complexity": no git history, top
+    // files by complexity and nesting depth. Additive key; older readers ignore it.
+    out << "    \"mode\": \"" << (hotspots.gitAvailable ? "git" : "complexity") << "\",\n";
     out << "    \"topFiles\": [";
     for (std::size_t i = 0; i < hotspots.files.size(); ++i) {
         const auto& fh = hotspots.files[i];
@@ -397,6 +400,7 @@ void ReportGenerator::writeHotspotsJson(const HotspotReport& hotspots, std::ostr
         out << "      {\n";
         out << "        \"path\": \""             << jsonEscape(fh.path)       << "\",\n";
         out << "        \"cyclomaticComplexity\": " << fh.cyclomaticComplexity << ",\n";
+        out << "        \"maxNestingDepth\": "      << fh.maxNestingDepth       << ",\n";
         out << "        \"commitCount\": "         << fh.commitCount           << ",\n";
         out << "        \"linesAdded\": "          << fh.linesAdded            << ",\n";
         out << "        \"linesDeleted\": "        << fh.linesDeleted          << ",\n";
@@ -814,8 +818,28 @@ void ReportGenerator::writeHtmlHotspotsSection(
     out << "<section id=\"hotspots\">\n"
         << "<h2>Hotspots</h2>\n";
 
-    if (!hotspots.gitAvailable) {
+    if (!hotspots.gitAvailable && hotspots.files.empty()) {
         out << "<p class=\"muted\">Git history not available</p>\n";
+    } else if (!hotspots.gitAvailable) {
+        out << "<p class=\"muted\">Git history not available &mdash; showing the files with the "
+            << "highest cyclomatic complexity and nesting depth instead.</p>\n"
+            << "<table>\n"
+            << "<thead>\n"
+            << "<tr><th>File</th><th>Cyclomatic Complexity</th><th>Max Nesting</th><th>Score</th></tr>\n"
+            << "</thead>\n"
+            << "<tbody>\n";
+
+        for (const auto& fh : hotspots.files) {
+            out << "<tr>"
+                << "<td>" << htmlEscape(fh.path)    << "</td>"
+                << "<td>" << fh.cyclomaticComplexity << "</td>"
+                << "<td>" << fh.maxNestingDepth      << "</td>"
+                << "<td>" << fh.hotspotScore         << "</td>"
+                << "</tr>\n";
+        }
+
+        out << "</tbody>\n"
+            << "</table>\n";
     } else {
         out << "<table>\n"
             << "<thead>\n"
