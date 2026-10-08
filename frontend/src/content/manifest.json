@@ -339,5 +339,16 @@
   "ogTitle": "TypeScript Code Analyzer — Free Static Analysis | REPO-SIGHT",
   "ogDescription": "Paste a public GitHub URL and get real static analysis for your TypeScript code: explicit any, loose equality, unsafe innerHTML, and 14 rules built for TypeScript. Free, no signup.",
   "robots": "index, follow"
+ },
+ {
+  "path": "/csharp-code-analyzer.html",
+  "file": "csharp-code-analyzer.html",
+  "kind": "tool",
+  "title": "C# Code Analyzer — Free Static Analysis | REPO-SIGHT",
+  "description": "Paste a public GitHub URL and get real static analysis for your C# code: async void, empty catch blocks, SQL string concatenation, and 13 rules built for C#. Free, no signup.",
+  "canonical": "https://www.repo-sight.com/csharp-code-analyzer.html",
+  "ogTitle": "C# Code Analyzer — Free Static Analysis | REPO-SIGHT",
+  "ogDescription": "Paste a public GitHub URL and get real static analysis for your C# code: async void, empty catch blocks, SQL string concatenation, and 13 rules built for C#. Free, no signup.",
+  "robots": "index, follow"
  }
 ]
