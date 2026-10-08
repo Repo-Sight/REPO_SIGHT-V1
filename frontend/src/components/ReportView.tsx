@@ -14,6 +14,7 @@ import {
   violationsByPath,
   type FileMetrics,
   type FixFirstItem,
+  type HotspotReport,
   type DuplicateMatch,
   type ScanReport,
   type Tier,
@@ -287,6 +288,8 @@ function OverviewTab({ report }: { report: ScanReport }) {
         )}
       </section>
 
+      <HotspotsCard hotspots={report.hotspots} />
+
       {unanalyzed.length > 0 ? (
         <section className={`${card} p-4`} aria-labelledby="rs-unanalyzed">
           <h3 id="rs-unanalyzed" className="font-mono text-sm font-black">
@@ -299,6 +302,44 @@ function OverviewTab({ report }: { report: ScanReport }) {
         </section>
       ) : null}
     </div>
+  );
+}
+
+const HOTSPOT_GIT_LIMIT = 5;
+
+function HotspotsCard({ hotspots }: { hotspots: HotspotReport | undefined }) {
+  if (!hotspots) return null;
+  const git = hotspots.gitAvailable;
+  // Git mode lists every file; only the ones with real churn x complexity matter.
+  const rows = git
+    ? hotspots.topFiles.filter((f) => f.hotspotScore > 0).slice(0, HOTSPOT_GIT_LIMIT)
+    : hotspots.topFiles;
+  if (rows.length === 0) return null;
+
+  return (
+    <section className={`${card} p-4`} aria-labelledby="rs-hotspots">
+      <h3 id="rs-hotspots" className="font-mono text-sm font-black">
+        {git ? "Hotspots" : "Most complex files"}
+      </h3>
+      <p className="mt-1 text-sm text-ink/80">
+        {git
+          ? "Files that are both complex and changed often. Bugs cluster here."
+          : "No git history in this scan, so files are ranked by cyclomatic complexity and nesting depth. Start refactoring here."}
+      </p>
+      <ol className="mt-3 space-y-2">
+        {rows.map((f, i) => (
+          <li key={f.path} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <span className="font-mono text-sm font-black">#{i + 1}</span>
+            <span className="break-all font-mono text-xs">{relPath(f.path)}</span>
+            <span className="font-mono text-[11px] text-ink/70">
+              complexity {formatNumber(f.cyclomaticComplexity)}
+              {typeof f.maxNestingDepth === "number" ? ` · nesting ${formatNumber(f.maxNestingDepth)}` : ""}
+              {git ? ` · ${formatNumber(f.commitCount)} ${f.commitCount === 1 ? "commit" : "commits"}` : ""}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
