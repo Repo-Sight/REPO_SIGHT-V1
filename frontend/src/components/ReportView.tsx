@@ -21,11 +21,12 @@ import {
   type Violation,
 } from "../lib/report";
 
-type TabId = "overview" | "languages" | "files" | "security" | "duplication" | "scoring";
+type TabId = "overview" | "languages" | "files" | "findings" | "security" | "duplication" | "scoring";
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "languages", label: "By language" },
   { id: "files", label: "Files" },
+  { id: "findings", label: "Findings" },
   { id: "security", label: "Security" },
   { id: "duplication", label: "Duplication" },
   { id: "scoring", label: "Scoring" },
@@ -111,6 +112,7 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
   const p = report.project;
   const created = report.createdAt ? new Date(report.createdAt) : null;
   const securityCount = useMemo(() => report.violations.filter((v) => v.category === "security").length, [report.violations]);
+  const findingsCount = useMemo(() => report.violations.filter((v) => v.category !== "security").length, [report.violations]);
 
   return (
     <div className="space-y-5">
@@ -146,6 +148,7 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
           >
             {t.label}
             {t.id === "security" && securityCount > 0 ? ` (${formatNumber(securityCount)})` : ""}
+            {t.id === "findings" && findingsCount > 0 ? ` (${formatNumber(findingsCount)})` : ""}
           </button>
         ))}
       </div>
@@ -154,6 +157,7 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
         {tab === "overview" ? <OverviewTab report={report} /> : null}
         {tab === "languages" ? <LanguagesTab report={report} /> : null}
         {tab === "files" ? <FilesTab report={report} /> : null}
+        {tab === "findings" ? <FindingsTab report={report} /> : null}
         {tab === "security" ? <SecurityTab report={report} /> : null}
         {tab === "duplication" ? <DuplicationTab report={report} /> : null}
         {tab === "scoring" ? <ScoringTab report={report} /> : null}
@@ -702,26 +706,108 @@ function ExplainButton({ report, v }: { report: ScanReport; v: Violation }) {
 
 const LOCATIONS_PER_RULE = 10;
 
+interface RuleGroup {
+  ruleId: string;
+  items: Violation[];
+  rank: number;
+  tier: Tier | undefined;
+  files: number;
+}
+
+/** One group per rule: worst tier first, then most occurrences. Shared by the Security and Findings tabs. */
+function groupByRule(violations: Violation[], include: (v: Violation) => boolean): RuleGroup[] {
+  const byRule = new Map<string, Violation[]>();
+  for (const v of violations) {
+    if (!include(v)) continue;
+    const list = byRule.get(v.ruleId);
+    if (list) list.push(v);
+    else byRule.set(v.ruleId, [v]);
+  }
+  const tierRank = (v: Violation) => (v.tier ? TIERS.indexOf(v.tier) : TIERS.length);
+  return [...byRule.entries()]
+    .map(([ruleId, items]) => ({
+      ruleId,
+      items: [...items].sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line),
+      rank: Math.min(...items.map(tierRank)),
+      tier: items.map((i) => i.tier).find((t): t is Tier => !!t),
+      files: new Set(items.map((i) => i.path)).size,
+    }))
+    .sort((a, b) => a.rank - b.rank || b.items.length - a.items.length);
+}
+
+/* -------------------------------- findings ------------------------------- */
+
+// Rules with this many occurrences or more start collapsed so one noisy rule
+// cannot bury the rest of the list.
+const GROUP_COLLAPSE_AT = 4;
+const GROUP_LOCATIONS = 25;
+
+function FindingsTab({ report }: { report: ScanReport }) {
+  const groups = useMemo(() => groupByRule(report.violations, (v) => v.category !== "security"), [report.violations]);
+
+  if (groups.length === 0) {
+    return (
+      <div className={`${card} space-y-2 p-4 text-sm`}>
+        <p className="font-semibold">No findings.</p>
+        <p>None of REPO-SIGHT's code-quality rules fired in the analyzed files. Security checks have their own tab.</p>
+      </div>
+    );
+  }
+
+  const total = groups.reduce((n, g) => n + g.items.length, 0);
+  return (
+    <div className="space-y-4">
+      <p className="text-sm">
+        {formatNumber(total)} {total === 1 ? "finding" : "findings"} across {formatNumber(groups.length)}{" "}
+        {groups.length === 1 ? "rule" : "rules"}, grouped by rule so repeated notices stay out of the way. Security issues are in
+        the Security tab.
+      </p>
+      <ul className="space-y-3">
+        {groups.map((g) => {
+          // Messages for one rule can differ per hit (names, numbers); only repeat them per row when they do.
+          const varied = g.items.some((v) => v.message !== g.items[0].message);
+          return (
+            <li key={g.ruleId} className={card}>
+              <details open={g.items.length < GROUP_COLLAPSE_AT} className="group p-4">
+                <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 [&::-webkit-details-marker]:hidden">
+                  <span aria-hidden="true" className="font-mono text-xs transition-transform group-open:rotate-90">
+                    ▸
+                  </span>
+                  {g.tier ? <TierBadge tier={g.tier} /> : null}
+                  <span className="font-mono text-sm font-black">{g.ruleId}</span>
+                  <span className="font-mono text-xs text-ink/70">
+                    {formatNumber(g.items.length)} {g.items.length === 1 ? "occurrence" : "occurrences"} in {formatNumber(g.files)}{" "}
+                    {g.files === 1 ? "file" : "files"}
+                  </span>
+                </summary>
+                {/* message derives from scanned source; React escapes it. */}
+                {varied ? null : <p className="mt-2 text-sm">{g.items[0].message}</p>}
+                <ul className="mt-3 space-y-1 font-mono text-xs">
+                  {g.items.slice(0, GROUP_LOCATIONS).map((v, i) => (
+                    <li key={`${v.path}-${v.line}-${i}`} className="break-all">
+                      {relPath(v.path)}
+                      {v.line > 0 ? `:${v.line}` : ""}
+                      {varied ? <span className="ml-2 font-sans text-ink/80">{v.message}</span> : null}
+                      <ExplainButton report={report} v={v} />
+                    </li>
+                  ))}
+                  {g.items.length > GROUP_LOCATIONS ? (
+                    <li className="text-ink/70">+ {formatNumber(g.items.length - GROUP_LOCATIONS)} more</li>
+                  ) : null}
+                </ul>
+              </details>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/* -------------------------------- security (grouping) -------------------- */
+
 function SecurityTab({ report }: { report: ScanReport }) {
-  const groups = useMemo(() => {
-    const byRule = new Map<string, Violation[]>();
-    for (const v of report.violations) {
-      if (v.category !== "security") continue;
-      const list = byRule.get(v.ruleId);
-      if (list) list.push(v);
-      else byRule.set(v.ruleId, [v]);
-    }
-    const tierRank = (v: Violation) => (v.tier ? TIERS.indexOf(v.tier) : TIERS.length);
-    return [...byRule.entries()]
-      .map(([ruleId, items]) => ({
-        ruleId,
-        items: [...items].sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line),
-        rank: Math.min(...items.map(tierRank)),
-        tier: items.map((i) => i.tier).find((t): t is Tier => !!t),
-        files: new Set(items.map((i) => i.path)).size,
-      }))
-      .sort((a, b) => a.rank - b.rank || b.items.length - a.items.length);
-  }, [report.violations]);
+  const groups = useMemo(() => groupByRule(report.violations, (v) => v.category === "security"), [report.violations]);
 
   if (groups.length === 0) {
     return (
