@@ -299,10 +299,13 @@ export const RULES = {
   "cpp-sec-weak-random": r("weak-random", "medium", "low"),
 
   // ---- error handling ----
-  "java-empty-catch-block": r("empty-catch", "medium", "high"),
-  "csharp-empty-catch-block": r("empty-catch", "medium", "high"),
-  "js-empty-catch-block": r("empty-catch", "medium", "high"),
-  "ts-empty-catch-block": r("empty-catch", "medium", "high"),
+  // Empty catch blocks are "high": the failure is swallowed, so the bug shows
+  // up later and far from its cause. high + confidence high also feeds the
+  // "Fix now" card at the top of the report Overview.
+  "java-empty-catch-block": r("empty-catch", "high", "high"),
+  "csharp-empty-catch-block": r("empty-catch", "high", "high"),
+  "js-empty-catch-block": r("empty-catch", "high", "high"),
+  "ts-empty-catch-block": r("empty-catch", "high", "high"),
   "cpp-catch-all-ellipsis": r("catch-all-cpp", "medium", "high"),
   "py-bare-except": r("bare-except", "medium", "high"),
   "csharp-async-void": r("async-void", "medium", "high"),
