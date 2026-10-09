@@ -243,6 +243,7 @@ function OverviewTab({ report }: { report: ScanReport }) {
   return (
     <div className="space-y-6">
       <TrendCallout report={report} />
+      <FixNowCard report={report} />
       <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
         <div className={`${card} flex items-center gap-4 p-4`}>
           <div className="rounded-md border border-line bg-signal px-5 py-2 font-mono text-5xl font-black" aria-label={`Grade ${p.healthGrade}`}>
@@ -306,6 +307,72 @@ function OverviewTab({ report }: { report: ScanReport }) {
         </section>
       ) : null}
     </div>
+  );
+}
+
+/* ------------------------------ fix now card ----------------------------- */
+
+const FIX_NOW_LOCATIONS = 5;
+
+/**
+ * Critical-fault elevation: non-security findings that are both severe and
+ * certain (tier high/critical, confidence high), e.g. empty catch blocks that
+ * swallow failures. Shown above everything else on the Overview so they never
+ * sit under stylistic noise. Security findings have their own tab and rank in
+ * Fix First, so they are excluded here. Renders nothing when there are none.
+ */
+function FixNowCard({ report }: { report: ScanReport }) {
+  const groups = useMemo(
+    () =>
+      groupByRule(
+        report.violations,
+        (v) => v.category !== "security" && (v.tier === "critical" || v.tier === "high") && v.confidence === "high"
+      ),
+    [report.violations]
+  );
+  if (groups.length === 0) return null;
+
+  const total = groups.reduce((n, g) => n + g.items.length, 0);
+  return (
+    <section className="rounded-md border-2 border-line bg-white shadow-soft-sm" aria-labelledby="rs-fixnow">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line bg-rose px-4 py-2 text-black">
+        <h3 id="rs-fixnow" className="font-mono text-sm font-black uppercase">
+          Fix now
+        </h3>
+        <span className="font-mono text-xs font-bold">
+          {formatNumber(total)} {total === 1 ? "finding" : "findings"} that can hide or cause real failures at run time
+        </span>
+      </div>
+      <ul className="divide-y divide-line">
+        {groups.map((g) => (
+          <li key={g.ruleId} className="p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {g.tier ? <TierBadge tier={g.tier} /> : null}
+              <span className="font-mono text-sm font-black">{g.ruleId}</span>
+              <span className="font-mono text-xs text-ink/70">
+                {formatNumber(g.items.length)} {g.items.length === 1 ? "occurrence" : "occurrences"} in {formatNumber(g.files)}{" "}
+                {g.files === 1 ? "file" : "files"}
+              </span>
+            </div>
+            {/* message derives from scanned source; React escapes it. */}
+            <p className="mt-2 text-sm">{g.items[0].message}</p>
+            <ul className="mt-2 space-y-1 font-mono text-xs">
+              {g.items.slice(0, FIX_NOW_LOCATIONS).map((v, i) => (
+                <li key={`${v.path}-${v.line}-${i}`} className="break-all">
+                  {relPath(v.path)}
+                  {v.line > 0 ? `:${v.line}` : ""}
+                </li>
+              ))}
+              {g.items.length > FIX_NOW_LOCATIONS ? (
+                <li className="text-ink/70">
+                  + {formatNumber(g.items.length - FIX_NOW_LOCATIONS)} more, listed in the Findings tab
+                </li>
+              ) : null}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
