@@ -1,5 +1,6 @@
 #include "rules/JavaRules.h"
  
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <unordered_set>
@@ -82,12 +83,154 @@ bool isPlausibleSecretLiteral(const std::string& raw) {
     return stripped.size() >= 6;
 }
 
+// ---------------------------------------------------------------------------
+// Data-holder (DTO/POJO) detection for java-public-field.
+//
+// A public field on a class that only holds data -- fields, constructors,
+// toString/equals/hashCode and get/set/is accessors, nothing else -- is a
+// deliberate DTO/POJO shape, not an encapsulation leak. Rule: every enclosing
+// type body is scanned once; the innermost one decides.
+// ---------------------------------------------------------------------------
+struct TypeSpan {
+    std::size_t open  = 0;   // index of the body's '{'
+    std::size_t close = 0;   // index of the matching '}' (n when unterminated)
+    std::string name;
+    bool        dataHolder = false;
+};
+
+bool isInsignificant(const Token& t) {
+    return t.type == TokenType::NEWLINE || t.type == TokenType::LINE_COMMENT ||
+           t.type == TokenType::BLOCK_COMMENT;
+}
+
+std::size_t nextSignificant(const std::vector<Token>& tokens, std::size_t i) {
+    std::size_t k = i + 1;
+    while (k < tokens.size() && isInsignificant(tokens[k])) ++k;
+    return k;
+}
+
+bool isAccessorLikeName(const std::string& name) {
+    if (name == "toString" || name == "equals" || name == "hashCode") return true;
+    static const std::array<const char*, 3> prefixes = {"get", "set", "is"};
+    for (const char* prefix : prefixes) {
+        const std::string pre(prefix);
+        if (name.size() > pre.size() && name.compare(0, pre.size(), pre) == 0 &&
+            std::isupper(static_cast<unsigned char>(name[pre.size()]))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// True when the type body contains no method declaration beyond constructors
+// and accessor-like methods. Only members directly in the body count: nested
+// types, initializer blocks and field initializers (`= compute();`) are skipped.
+bool isDataHolderBody(const std::vector<Token>& tokens, const TypeSpan& span) {
+    int  depth         = 0;
+    bool inInitializer = false;
+    const std::size_t end = std::min(span.close, tokens.size());
+    for (std::size_t i = span.open + 1; i < end; ++i) {
+        const Token& t = tokens[i];
+        if (isInsignificant(t)) continue;
+
+        if (t.type == TokenType::OPEN_BRACE || t.type == TokenType::OPEN_PAREN) { ++depth; continue; }
+        if (t.type == TokenType::CLOSE_BRACE || t.type == TokenType::CLOSE_PAREN) {
+            if (depth > 0) --depth;
+            continue;
+        }
+        if (depth != 0) continue;
+
+        if (t.type == TokenType::SEMICOLON) { inInitializer = false; continue; }
+        if (t.type == TokenType::OPERATOR && t.value == "=") { inInitializer = true; continue; }
+        if (inInitializer || t.type != TokenType::IDENTIFIER) continue;
+
+        const std::size_t next = nextSignificant(tokens, i);
+        if (next >= tokens.size() || tokens[next].type != TokenType::OPEN_PAREN) continue;
+
+        // IDENTIFIER '(' at member level: constructor, method, or annotation.
+        std::size_t prev = i;
+        bool        hasPrev = false;
+        while (prev > span.open + 1) {
+            --prev;
+            if (!isInsignificant(tokens[prev])) { hasPrev = true; break; }
+        }
+        if (hasPrev && tokens[prev].value == "@") continue;  // @Annotation(...)
+
+        if (t.value == span.name || isAccessorLikeName(t.value)) continue;
+        return false;
+    }
+    return true;
+}
+
+std::vector<TypeSpan> findTypeSpans(const std::vector<Token>& tokens) {
+    struct Frame { bool isType; std::size_t spanIdx; };
+    std::vector<TypeSpan> spans;
+    std::vector<Frame>    stack;
+    bool        pendingType = false;
+    std::string pendingName;
+
+    for (std::size_t i = 0; i < tokens.size(); ++i) {
+        const Token& t = tokens[i];
+        if (t.type == TokenType::KEYWORD &&
+            (t.value == "class" || t.value == "interface" || t.value == "enum")) {
+            // `Foo.class` is a class literal, not a declaration.
+            std::size_t prev = i;
+            bool        dotBefore = false;
+            while (prev > 0) {
+                --prev;
+                if (isInsignificant(tokens[prev])) continue;
+                dotBefore = (tokens[prev].value == ".");
+                break;
+            }
+            if (!dotBefore) {
+                pendingType = true;
+                pendingName.clear();
+                const std::size_t next = nextSignificant(tokens, i);
+                if (next < tokens.size() && tokens[next].type == TokenType::IDENTIFIER) {
+                    pendingName = tokens[next].value;
+                }
+            }
+        } else if (t.type == TokenType::OPEN_BRACE) {
+            if (pendingType) {
+                TypeSpan span;
+                span.open  = i;
+                span.close = tokens.size();
+                span.name  = pendingName;
+                stack.push_back({true, spans.size()});
+                spans.push_back(std::move(span));
+                pendingType = false;
+            } else {
+                stack.push_back({false, 0});
+            }
+        } else if (t.type == TokenType::CLOSE_BRACE) {
+            if (!stack.empty()) {
+                if (stack.back().isType) spans[stack.back().spanIdx].close = i;
+                stack.pop_back();
+            }
+        } else if (t.type == TokenType::SEMICOLON) {
+            pendingType = false;
+        }
+    }
+
+    for (auto& span : spans) span.dataHolder = isDataHolderBody(tokens, span);
+    return spans;
+}
+
+// Innermost type body containing token index `i`, or nullptr.
+const TypeSpan* innermostSpan(const std::vector<TypeSpan>& spans, std::size_t i) {
+    for (auto it = spans.rbegin(); it != spans.rend(); ++it) {
+        if (it->open < i && i < it->close) return &*it;
+    }
+    return nullptr;
+}
+
 } // anonymous namespace
  
 std::vector<Violation> checkJavaRules(const std::string& path, const std::vector<Token>& tokens,
                                         const FileMetrics& fm) {
     std::vector<Violation> out;
     const std::size_t n = tokens.size();
+    const std::vector<TypeSpan> typeSpans = findTypeSpans(tokens);
     bool flaggedTrustManager = false;
  
     for (std::size_t i = 0; i < n; ++i) {
@@ -114,7 +257,8 @@ std::vector<Violation> checkJavaRules(const std::string& path, const std::vector
         }
  
         // java-public-field: public [modifiers] TYPE name (=|;|,)  -- excludes
-        // public static final constants and methods.
+        // public static final constants, methods, and fields of data-holder
+        // (DTO/POJO) classes.
         if (tok.type == TokenType::KEYWORD && tok.value == "public") {
             std::size_t j = i + 1;
             bool isStatic = false, isFinal = false;
@@ -140,13 +284,20 @@ std::vector<Violation> checkJavaRules(const std::string& path, const std::vector
                         (t.type == TokenType::SEMICOLON ||
                          (t.type == TokenType::OPERATOR && t.value == "=") ||
                          t.type == TokenType::OPEN_PAREN ||
+                         t.type == TokenType::OPEN_BRACE ||
                          (t.type == TokenType::PUNCTUATION && t.value == ","))) {
                         break;
                     }
                     if (depth == 0 && t.type == TokenType::IDENTIFIER) nameIdx = k;
                     ++k;
                 }
-                if (nameIdx < n && k < n && tokens[k].type != TokenType::OPEN_PAREN) {
+                const TypeSpan* owner = innermostSpan(typeSpans, i);
+                const bool inDataHolder = owner != nullptr && owner->dataHolder;
+                // '(' = method/constructor; '{' = a type declaration (`public class X {`),
+                // which is not a field. Without the '{' stop the scan ran on into the
+                // first member and reported it a second time.
+                if (nameIdx < n && k < n && tokens[k].type != TokenType::OPEN_PAREN &&
+                    tokens[k].type != TokenType::OPEN_BRACE && !inDataHolder) {
                     out.push_back(makeViolation(path, tokens[nameIdx].line, "java-public-field",
                         "Public field '" + tokens[nameIdx].value +
                         "' breaks encapsulation -- consider a private field with accessors", "info"));
