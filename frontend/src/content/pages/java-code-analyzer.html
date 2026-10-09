@@ -29,7 +29,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
           </div>
           <h3>Encapsulation &amp; raw generics</h3>
-          <p><code>java-public-field</code> and <code>java-raw-type-usage</code> flag fields exposed without accessors and generics used without their type parameters.</p>
+          <p><code>java-public-field</code> and <code>java-raw-type-usage</code> flag fields exposed without accessors and generics used without their type parameters. Public fields on classes that only hold data (fields, constructors, <code>toString</code>/<code>equals</code>/<code>hashCode</code> and getters/setters) are treated as DTOs and not flagged.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon feature-icon-accent">
