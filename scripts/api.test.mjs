@@ -83,6 +83,15 @@ test("enrichReport adds v3 fields to a real analyser report without disturbing v
   assert.equal(total, before.violations.length, "tierCounts sums to violation count");
 });
 
+test("empty-catch rules are high tier / high confidence (drives the Fix now card)", () => {
+  for (const id of ["java-empty-catch-block", "csharp-empty-catch-block", "js-empty-catch-block", "ts-empty-catch-block"]) {
+    const rule = getRule(id);
+    assert.equal(rule.tier, "high", `${id} tier`);
+    assert.equal(rule.confidence, "high", `${id} confidence`);
+    assert.equal(rule.category, "style", `${id} stays a style rule, not a security rule`);
+  }
+});
+
 test("Fix First is ranked: hardcoded secret first, style noise last", () => {
   const { fixFirst } = enrichReport(fixture());
   assert.ok(fixFirst.length > 0 && fixFirst.length <= FIX_FIRST_LIMIT);
