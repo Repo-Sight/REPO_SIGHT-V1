@@ -60,6 +60,7 @@ add_library(cma_rules STATIC
     src/rules/JavaScriptRules.cpp
     src/rules/CSharpRules.cpp
     src/rules/SlopRules.cpp
+    src/rules/SecretRules.cpp
     
 )
 target_include_directories(cma_rules PUBLIC ${INCLUDE_DIR})
