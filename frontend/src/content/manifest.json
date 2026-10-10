@@ -70,10 +70,10 @@
   "file": "cpp-code-analyzer.html",
   "kind": "tool",
   "title": "C++ Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "description": "Paste a public GitHub URL and get real static analysis for your C++ code: cyclomatic complexity, nesting depth, RAII patterns, and 13 rules built for C++. Free, no signup.",
+  "description": "Paste a public GitHub URL and get real static analysis for your C++ code: cyclomatic complexity, nesting depth, RAII patterns, and 15 rules built for C++. Free, no signup.",
   "canonical": "https://www.repo-sight.com/cpp-code-analyzer.html",
   "ogTitle": "C++ Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "ogDescription": "Paste a public GitHub URL and get real static analysis for your C++ code: cyclomatic complexity, nesting depth, RAII patterns, and 13 rules built for C++. Free, no signup.",
+  "ogDescription": "Paste a public GitHub URL and get real static analysis for your C++ code: cyclomatic complexity, nesting depth, RAII patterns, and 15 rules built for C++. Free, no signup.",
   "robots": "index, follow"
  },
  {
@@ -103,10 +103,10 @@
   "file": "java-code-analyzer.html",
   "kind": "tool",
   "title": "Java Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "description": "Paste a public GitHub URL and get real static analysis for your Java code: empty catch blocks, raw types, SQL string concatenation, and 13 rules built for Java. Free, no signup.",
+  "description": "Paste a public GitHub URL and get real static analysis for your Java code: empty catch blocks, raw types, SQL string concatenation, and 15 rules built for Java. Free, no signup.",
   "canonical": "https://www.repo-sight.com/java-code-analyzer.html",
   "ogTitle": "Java Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "ogDescription": "Paste a public GitHub URL and get real static analysis for your Java code: empty catch blocks, raw types, SQL string concatenation, and 13 rules built for Java. Free, no signup.",
+  "ogDescription": "Paste a public GitHub URL and get real static analysis for your Java code: empty catch blocks, raw types, SQL string concatenation, and 15 rules built for Java. Free, no signup.",
   "robots": "index, follow"
  },
  {
@@ -114,10 +114,10 @@
   "file": "javascript-code-analyzer.html",
   "kind": "tool",
   "title": "JavaScript Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "description": "Paste a public GitHub URL and get real static analysis for your JavaScript code: loose equality, unsafe eval/innerHTML, disabled TLS, and 13 rules built for JavaScript. Free, no signup.",
+  "description": "Paste a public GitHub URL and get real static analysis for your JavaScript code: loose equality, unsafe eval/innerHTML, disabled TLS, and 15 rules built for JavaScript. Free, no signup.",
   "canonical": "https://www.repo-sight.com/javascript-code-analyzer.html",
   "ogTitle": "JavaScript Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "ogDescription": "Paste a public GitHub URL and get real static analysis for your JavaScript code: loose equality, unsafe eval/innerHTML, disabled TLS, and 13 rules built for JavaScript. Free, no signup.",
+  "ogDescription": "Paste a public GitHub URL and get real static analysis for your JavaScript code: loose equality, unsafe eval/innerHTML, disabled TLS, and 15 rules built for JavaScript. Free, no signup.",
   "robots": "index, follow"
  },
  {
@@ -312,10 +312,10 @@
   "file": "python-code-analyzer.html",
   "kind": "tool",
   "title": "Python Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "description": "Paste a public GitHub URL and get real static analysis for your Python code: bare excepts, mutable defaults, unsafe eval/pickle/yaml, and 14 rules built for Python. Free, no signup.",
+  "description": "Paste a public GitHub URL and get real static analysis for your Python code: bare excepts, mutable defaults, unsafe eval/pickle/yaml, and 16 rules built for Python. Free, no signup.",
   "canonical": "https://www.repo-sight.com/python-code-analyzer.html",
   "ogTitle": "Python Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "ogDescription": "Paste a public GitHub URL and get real static analysis for your Python code: bare excepts, mutable defaults, unsafe eval/pickle/yaml, and 14 rules built for Python. Free, no signup.",
+  "ogDescription": "Paste a public GitHub URL and get real static analysis for your Python code: bare excepts, mutable defaults, unsafe eval/pickle/yaml, and 16 rules built for Python. Free, no signup.",
   "robots": "index, follow"
  },
  {
@@ -334,10 +334,10 @@
   "file": "typescript-code-analyzer.html",
   "kind": "tool",
   "title": "TypeScript Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "description": "Paste a public GitHub URL and get real static analysis for your TypeScript code: explicit any, loose equality, unsafe innerHTML, and 14 rules built for TypeScript. Free, no signup.",
+  "description": "Paste a public GitHub URL and get real static analysis for your TypeScript code: explicit any, loose equality, unsafe innerHTML, and 16 rules built for TypeScript. Free, no signup.",
   "canonical": "https://www.repo-sight.com/typescript-code-analyzer.html",
   "ogTitle": "TypeScript Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "ogDescription": "Paste a public GitHub URL and get real static analysis for your TypeScript code: explicit any, loose equality, unsafe innerHTML, and 14 rules built for TypeScript. Free, no signup.",
+  "ogDescription": "Paste a public GitHub URL and get real static analysis for your TypeScript code: explicit any, loose equality, unsafe innerHTML, and 16 rules built for TypeScript. Free, no signup.",
   "robots": "index, follow"
  },
  {
@@ -345,10 +345,10 @@
   "file": "csharp-code-analyzer.html",
   "kind": "tool",
   "title": "C# Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "description": "Paste a public GitHub URL and get real static analysis for your C# code: async void, empty catch blocks, SQL string concatenation, and 13 rules built for C#. Free, no signup.",
+  "description": "Paste a public GitHub URL and get real static analysis for your C# code: async void, empty catch blocks, SQL string concatenation, and 15 rules built for C#. Free, no signup.",
   "canonical": "https://www.repo-sight.com/csharp-code-analyzer.html",
   "ogTitle": "C# Code Analyzer — Free Static Analysis | REPO-SIGHT",
-  "ogDescription": "Paste a public GitHub URL and get real static analysis for your C# code: async void, empty catch blocks, SQL string concatenation, and 13 rules built for C#. Free, no signup.",
+  "ogDescription": "Paste a public GitHub URL and get real static analysis for your C# code: async void, empty catch blocks, SQL string concatenation, and 15 rules built for C#. Free, no signup.",
   "robots": "index, follow"
  }
 ]
