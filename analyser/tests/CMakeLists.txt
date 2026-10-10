@@ -24,6 +24,7 @@ add_executable(cma_tests
     unit/test_rule_violations.cpp
     unit/test_security_rules.cpp
     unit/test_slop_rules.cpp
+    unit/test_secret_rules.cpp
     unit/test_html_report.cpp
     unit/test_file_scanner.cpp
     unit/test_metrics_engine.cpp
