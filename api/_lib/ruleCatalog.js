@@ -21,8 +21,9 @@
 // KEEP IN SYNC: every ruleId emitted by the analyser must have an entry
 // here. scripts/api.test.mjs scans analyser/src/rules/*.cpp and fails if a
 // rule is missing (or if this file names a rule the analyser doesn't have).
-// Thresholds quoted in the copy (100 lines, depth 6) mirror the constants
-// kLongFunctionThreshold / kDeepNestingThreshold in the rule sources.
+// Thresholds quoted in the copy (100 lines, depth 6, complexity 10) mirror the
+// constants kLongFunctionThreshold / kDeepNestingThreshold /
+// kComplexFunctionThreshold in the rule sources.
 
 export const TIERS = ["critical", "high", "medium", "low"];
 export const CONFIDENCES = ["high", "medium", "low"];
@@ -166,6 +167,20 @@ const FAMILIES = {
     what: "A function or method is longer than 100 lines.",
     why: "Long functions are hard to read, test and change safely, and they tend to collect bugs.",
     fix: "Split it into smaller functions that each do one job.",
+  },
+  "complex-function": {
+    title: "Overly complex function",
+    what: "A single function has a cyclomatic complexity over 10: more than nine independent decision points (if, loops, case, catch, && / ||, ternaries) in its own body.",
+    why: "Every decision point is another path to test and another place for a bug. Code produced quickly, by hand or with an AI assistant, tends to pile branches into one function because adding an if is easier than restructuring.",
+    fix: "Split it into smaller functions that each handle one case, replace long if/else chains with early returns or a lookup table, and add tests before you refactor.",
+    caveat: "Counted from the function's own body; a nested function is measured separately. A flat switch with many simple cases can score high without being hard to read.",
+  },
+  "unreviewed-placeholder": {
+    title: "Unreviewed placeholder or AI leftover",
+    what: "A comment looks like text left behind by an AI coding assistant, or marks code that was never filled in (for example \"... rest of the code remains\" or \"your code here\").",
+    why: "Elided or placeholder code usually means part of the real logic is missing, or a snippet was pasted without being read. It can ship as a silent gap or a stale copy.",
+    fix: "Read the code around the comment, complete or delete the placeholder, then remove the comment.",
+    caveat: "Matched on a fixed list of phrases inside comments, so an ordinary human note can occasionally trigger it.",
   },
   "deep-nesting": {
     title: "Deeply nested code",
@@ -339,6 +354,20 @@ export const RULES = {
   "csharp-deep-nesting": r("deep-nesting", "medium", "high"),
   "js-deep-nesting": r("deep-nesting", "medium", "high"),
   "ts-deep-nesting": r("deep-nesting", "medium", "high"),
+
+  // ---- AI code slop gates (analyser/src/rules/SlopRules.cpp) ----
+  "cpp-complex-function": r("complex-function", "medium", "high"),
+  "py-complex-function": r("complex-function", "medium", "high"),
+  "java-complex-function": r("complex-function", "medium", "high"),
+  "csharp-complex-function": r("complex-function", "medium", "high"),
+  "js-complex-function": r("complex-function", "medium", "high"),
+  "ts-complex-function": r("complex-function", "medium", "high"),
+  "cpp-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
+  "py-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
+  "java-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
+  "csharp-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
+  "js-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
+  "ts-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
 
   // ---- housekeeping ----
   "cpp-todo-without-ticket": r("todo-no-ticket", "low", "high"),
