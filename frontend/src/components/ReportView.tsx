@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, explainFinding, fetchScan } from "../lib/api";
 import { AuditExport } from "./AuditExport";
+import { LanguageBar, formatShare, languageShade, sortLanguages } from "./LanguageBar";
 import { SITE } from "../site";
 import { useAuth } from "../lib/authContext";
 import { computeScanDelta, type ScanDelta } from "../lib/delta";
@@ -265,6 +266,8 @@ function OverviewTab({ report }: { report: ScanReport }) {
         </div>
       </div>
 
+      <LanguageMix report={report} />
+
       {counts ? (
         <div className="flex flex-wrap items-center gap-2" aria-label="Findings by severity">
           {TIERS.map((t) => (
@@ -307,6 +310,26 @@ function OverviewTab({ report }: { report: ScanReport }) {
         </section>
       ) : null}
     </div>
+  );
+}
+
+/* ----------------------------- language mix card ------------------------- */
+
+function LanguageMix({ report }: { report: ScanReport }) {
+  const langs = useMemo(() => sortLanguages(report.byLanguage), [report.byLanguage]);
+  if (langs.length === 0) return null;
+  return (
+    <section className={`${card} p-4`} aria-labelledby="rs-langmix">
+      <h3 id="rs-langmix" className="font-mono text-sm font-black">
+        Language mix
+      </h3>
+      <p className="mb-3 mt-1 text-sm text-ink/80">
+        {langs.length === 1
+          ? "All analyzed code is in one language."
+          : `${langs.length} languages analyzed, by share of code lines. Details in the By language tab.`}
+      </p>
+      <LanguageBar langs={langs} />
+    </section>
   );
 }
 
@@ -464,24 +487,15 @@ function FixFirstCard({ item }: { item: FixFirstItem }) {
 
 /* -------------------------------- languages ------------------------------ */
 
-const BAR_SHADES = ["bg-ink", "bg-signal", "bg-ok", "bg-amber", "bg-lav", "bg-chrome"];
-
 function LanguagesTab({ report }: { report: ScanReport }) {
-  const langs = useMemo(
-    () => [...(report.byLanguage ?? [])].sort((a, b) => b.codeLines - a.codeLines),
-    [report.byLanguage],
-  );
+  const langs = useMemo(() => sortLanguages(report.byLanguage), [report.byLanguage]);
   const total = langs.reduce((s, l) => s + l.codeLines, 0) || 1;
 
   if (langs.length === 0) return <p className="text-sm">No per-language data in this report.</p>;
 
   return (
     <div className="space-y-5">
-      <div className="flex h-5 w-full overflow-hidden rounded-md border border-line" role="img" aria-label="Share of code lines by language">
-        {langs.map((l, i) => (
-          <div key={l.language} className={BAR_SHADES[i % BAR_SHADES.length]} style={{ width: `${(l.codeLines / total) * 100}%` }} />
-        ))}
-      </div>
+      <LanguageBar langs={langs} showLegend={false} />
       <div className="overflow-x-auto">
         <table className="w-full min-w-[34rem] rounded-md border border-line bg-white text-left text-sm">
           <thead className="bg-chrome font-mono text-xs uppercase">
@@ -499,10 +513,10 @@ function LanguagesTab({ report }: { report: ScanReport }) {
             {langs.map((l, i) => (
               <tr key={l.language} className="border-t border-line/30">
                 <td className="p-2">
-                  <span className={`mr-2 inline-block h-3 w-3 border border-line align-middle ${BAR_SHADES[i % BAR_SHADES.length]}`} aria-hidden="true" />
+                  <span className={`mr-2 inline-block h-3 w-3 border border-line align-middle ${languageShade(i)}`} aria-hidden="true" />
                   {languageLabel(l.language)}
                 </td>
-                <td className="p-2 text-right">{((l.codeLines / total) * 100).toFixed(1)}%</td>
+                <td className="p-2 text-right">{formatShare(l.codeLines, total)}</td>
                 <td className="p-2 text-right">{formatNumber(l.fileCount)}</td>
                 <td className="p-2 text-right">{formatNumber(l.codeLines)}</td>
                 <td className="p-2 text-right">{formatNumber(l.functionCount)}</td>
