@@ -39,6 +39,13 @@ const FAMILIES = {
     fix: "Load the value from an environment variable or a secret manager, rotate the credential if it was real, and purge it from git history.",
     caveat: "Matched on the variable's name plus a string literal, so placeholders and test values can be false positives.",
   },
+  "secret-token": {
+    title: "Live-looking API token in the source",
+    what: "A string in the code contains a token in the exact format of an Anthropic, OpenAI, AWS or GitHub credential (for example an sk-ant-, sk-, AKIA or ghp_ key).",
+    why: "Anyone who can read the code can use that key to run up your bill, read your data or push to your repositories -- and bots scan public repos for these formats within minutes. Deleting the line later does not remove it from git history.",
+    fix: "Treat the key as compromised: revoke it in the provider's dashboard, create a new one, load it from an environment variable or secret manager, and purge the old one from git history.",
+    caveat: "Matched on the token's format, not on whether it is still active -- an already-revoked or test key still shows up. The report never repeats the value.",
+  },
   eval: {
     title: "Dynamic code execution",
     what: "The code runs a string as program code at runtime (eval / exec).",
@@ -258,6 +265,13 @@ export const RULES = {
   "js-sec-hardcoded-secret": r("hardcoded-secret", "critical", "medium", "Read it from process.env or a secret manager, rotate the credential if it was real, and purge it from git history."),
   "ts-sec-hardcoded-secret": r("hardcoded-secret", "critical", "medium", "Read it from process.env or a secret manager, rotate the credential if it was real, and purge it from git history."),
   "py-sec-hardcoded-secret": r("hardcoded-secret", "critical", "medium", "Read it from os.environ or a secret manager, rotate the credential if it was real, and purge it from git history."),
+
+  "cpp-sec-secret-token": r("secret-token", "critical", "high", "Read it at runtime with std::getenv or a secret manager, revoke and rotate the key, and purge the old one from git history."),
+  "csharp-sec-secret-token": r("secret-token", "critical", "high", "Read it from configuration, user-secrets or Environment.GetEnvironmentVariable, revoke and rotate the key, and purge the old one from git history."),
+  "java-sec-secret-token": r("secret-token", "critical", "high", "Read it with System.getenv or a secret manager, revoke and rotate the key, and purge the old one from git history."),
+  "js-sec-secret-token": r("secret-token", "critical", "high", "Read it from process.env or a secret manager, revoke and rotate the key, and purge the old one from git history."),
+  "ts-sec-secret-token": r("secret-token", "critical", "high", "Read it from process.env or a secret manager, revoke and rotate the key, and purge the old one from git history."),
+  "py-sec-secret-token": r("secret-token", "critical", "high", "Read it from os.environ or a secret manager, revoke and rotate the key, and purge the old one from git history."),
 
   // ---- injection and code execution ----
   "js-sec-eval": r("eval", "high", "medium", "Remove eval. Use JSON.parse for data, or replace dynamic code with a lookup table or explicit function calls."),
