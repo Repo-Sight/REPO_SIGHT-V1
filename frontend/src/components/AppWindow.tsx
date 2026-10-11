@@ -8,6 +8,8 @@ interface AppWindowProps {
   phase: WindowPhase;
   /** Capped at 1200px wide when windowed (the home page only). */
   wide?: boolean;
+  /** Docked left at a reduced width so the wallpaper shows (bare home route, >= 1100px). */
+  compact?: boolean;
   onToggleExpand: () => void;
   onClose: () => void;
   scrollerRef: Ref<HTMLDivElement>;
@@ -26,7 +28,7 @@ const BTN =
  * The prerendered HTML is always the open, windowed, idle state, so crawlers and
  * the first hydrated render see the full content.
  */
-export function AppWindow({ title, expanded, phase, wide, onToggleExpand, onClose, scrollerRef, children }: AppWindowProps) {
+export function AppWindow({ title, expanded, phase, wide, compact, onToggleExpand, onClose, scrollerRef, children }: AppWindowProps) {
   return (
     <section
       className="rs-win"
@@ -35,6 +37,7 @@ export function AppWindow({ title, expanded, phase, wide, onToggleExpand, onClos
       data-focused="true"
       data-expanded={expanded}
       data-wide={wide ? "true" : "false"}
+      data-compact={compact ? "true" : "false"}
       data-phase={phase}
     >
       <div className="flex shrink-0 items-center gap-3 border-b border-line bg-chrome px-3 py-1.5 select-none">
