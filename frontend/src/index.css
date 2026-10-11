@@ -325,11 +325,13 @@
 }
 .rs-btn-ghost {
   background: var(--color-paper);
+  color: var(--color-ink);
   border-color: var(--color-line);
   box-shadow: 0 2px 0 var(--color-line);
 }
 .rs-btn-ghost:hover {
   background: var(--color-chrome);
+  color: var(--color-ink);
   box-shadow: 0 3px 0 var(--color-line);
 }
 .rs-btn-ghost:active {
@@ -864,6 +866,71 @@
 .rs-m7 { --n: #6fa0b4; --m: linear-gradient(145deg, #21424d, #122a33); }
 .rs-m8 { --n: #c9a56a; --m: radial-gradient(circle, rgb(201 165 106 / 0.7) 0 2px, transparent 2.6px) 0 0 / 10px 10px, linear-gradient(145deg, #4a3524, #261a11); }
 .rs-m9 { --n: #a8b4c2; --m: linear-gradient(145deg, #454e5a, #2b323b); }
+
+/* ---------- home desktop: compact home.mdx window + demo-report.json card ----------
+   On the bare home route (>= 1100px) the window is docked left so the REPO-SIGHT
+   cube wallpaper stays visible. Expand (Shift + Up) still fills the desktop. */
+@media (min-width: 1100px) {
+  .rs-win[data-compact="true"]:not([data-expanded="true"]) {
+    position: absolute;
+    left: 118px;
+    top: 0.75rem;
+    bottom: 0.75rem;
+    width: clamp(520px, 42%, 640px);
+    height: auto;
+    max-width: none;
+  }
+  .rs-win[data-compact="true"]:not([data-expanded="true"]) #hero-title {
+    font-size: clamp(2rem, 2.9vw, 2.75rem);
+    line-height: 1.12;
+  }
+}
+
+.rs-card-win {
+  display: none;
+}
+@media (min-width: 1280px) {
+  .rs-card-win {
+    pointer-events: auto;
+    position: absolute;
+    top: 1.25rem;
+    right: 142px;
+    width: 19rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: 0.5rem;
+    background: var(--color-paper);
+    box-shadow: var(--shadow-soft-lg);
+  }
+}
+@supports (backdrop-filter: blur(1px)) {
+  .rs-card-win {
+    background: color-mix(in srgb, var(--color-paper) 94%, transparent);
+    backdrop-filter: blur(16px);
+  }
+}
+.rs-card-grade {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  font-size: 3.25rem;
+  line-height: 1;
+  color: var(--color-signal);
+}
+.rs-card-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-line-soft);
+  overflow: hidden;
+}
+.rs-card-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--color-signal);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rs-code {
     animation: none;
