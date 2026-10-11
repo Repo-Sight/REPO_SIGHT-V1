@@ -119,8 +119,8 @@ export function Wallpaper() {
     return () => ro.disconnect();
   }, []);
 
-  const ax = narrow ? 50 : 68;
-  const ay = narrow ? 58 : 55;
+  const ax = narrow ? 50 : 72;
+  const ay = narrow ? 58 : 60;
 
   return (
     <div ref={root} className="rs-wall" data-ready={ready} aria-hidden="true">
