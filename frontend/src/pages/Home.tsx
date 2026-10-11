@@ -6,6 +6,7 @@ import { Block, Html } from "../components/OSWindow";
 import { ReportView } from "../components/ReportView";
 import { Scanner } from "../components/Scanner";
 import { Seo } from "../components/Seo";
+import { SponsorSlot } from "../components/SponsorSlot";
 import { homeContent as c } from "../content/content";
 import { isScanId } from "../lib/api";
 
@@ -91,6 +92,8 @@ export function Home() {
       <Block>
         <Html html={c.pipelineHtml} />
       </Block>
+
+      <SponsorSlot />
 
       <AdSlot />
 
