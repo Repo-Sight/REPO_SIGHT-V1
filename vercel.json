@@ -3,6 +3,12 @@
   "installCommand": "npm install && npm --prefix frontend install",
   "buildCommand": "npm run build:analyser && npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
+  "crons": [
+    {
+      "path": "/api/keepalive",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "functions": {
     "api/analyze.js": {
       "includeFiles": "backend/bin/**",
@@ -25,11 +31,14 @@
     "api/rules.js": {
       "maxDuration": 10
     },
-     "api/badge/[scanId].js": {
+    "api/badge/[scanId].js": {
       "maxDuration": 10
     },
     "api/explain-finding.js": {
       "maxDuration": 25
+    },
+    "api/keepalive.js": {
+      "maxDuration": 10
     }
   }
 }
