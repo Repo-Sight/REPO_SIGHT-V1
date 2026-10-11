@@ -6,6 +6,7 @@ import { AuthMenu } from "./AuthMenu";
 import { AuthProvider } from "./AuthProvider";
 import { ConsentAndCta } from "./ConsentAndCta";
 import { Desktop } from "./DesktopIcons";
+import { ScoreWindow } from "./ScoreWindow";
 import { Wallpaper } from "./Wallpaper";
 
 // Window timings, same as the CSS animations (index.css).
@@ -93,8 +94,13 @@ function windowLabel(pathname: string): string {
   return pathname.endsWith("/") ? `${last}/` : last;
 }
 /** Window title: the app name on the home route, otherwise the page file name. */
-function windowTitle(pathname: string): string {
-  return pathname === "/" || pathname === "" ? SITE.name : windowLabel(pathname);
+function windowTitle(pathname: string, search: string): string {
+  if (pathname === "/" || pathname === "") {
+    if (search.includes("demo")) return "demo-report.json";
+    if (search.includes("scan=")) return "report.json";
+    return "home.mdx";
+  }
+  return windowLabel(pathname);
 }
 
 /** Taskbar clock. Renders empty until mounted so prerendered HTML and first hydration match. */
@@ -122,7 +128,12 @@ const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [phase, setPhase] = useState<WindowPhase>("idle");
   const [mobile, setMobile] = useState(false);
-  const { pathname, hash } = useLocation();
+  const { pathname, hash, search } = useLocation();
+  // Bare home (no ?scan= / ?demo=): the compact desktop view with the wallpaper showing.
+  // Starts true so the first render matches the prerendered HTML; the query string only counts after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const bareHome = pathname === "/" && (!mounted || search === "");
   const navigate = useNavigate();
   const scroller = useRef<HTMLDivElement>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -279,9 +290,12 @@ const [menuOpen, setMenuOpen] = useState(false);
             <div className="ml-auto flex items-center gap-2 lg:ml-0">
               <Clock />
               <AuthMenu />
-              <a href="/#analyze" className="rs-btn hidden !py-1 sm:inline-block"> 
-               Analyze a repo
-              </a>
+              {/* Wrapper hides it on phones: the unlayered .rs-btn display rule would beat a `hidden` utility on the link itself. */}
+              <span className="hidden sm:inline-block">
+                <a href="/#analyze" className="rs-btn !py-1">
+                  Analyze a repo
+                </a>
+              </span>
               <button
                 type="button"
                className="rounded-md border border-line bg-paper p-1.5 md:hidden"
@@ -307,10 +321,11 @@ const [menuOpen, setMenuOpen] = useState(false);
           <div data-app="WindowList" className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
             {open ? (
               <AppWindow
-                title={windowTitle(pathname)}
+                title={windowTitle(pathname, mounted ? search : "")}
                 expanded={expanded}
                 phase={phase}
                 wide={pathname === "/"}
+                compact={bareHome}
                 onToggleExpand={toggleExpanded}
                 onClose={closeWindow}
                 scrollerRef={scroller}
@@ -354,6 +369,7 @@ const [menuOpen, setMenuOpen] = useState(false);
                 </footer>
               </AppWindow>
             ) : null}
+            {open && bareHome && !expanded ? <ScoreWindow /> : null}
            </div>
 
         </div>
