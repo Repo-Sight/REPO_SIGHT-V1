@@ -134,6 +134,10 @@ const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const bareHome = pathname === "/" && (!mounted || search === "");
+  // Docked = the compact left window with the wallpaper showing. Every page uses it (same as home);
+  // only a scan/demo report (/?scan=, /?demo=) stays full width for its dense tables.
+  // Same first-render rule: prerendered HTML and first hydration are always docked.
+  const docked = !(pathname === "/" && mounted && search !== "");
   const navigate = useNavigate();
   const scroller = useRef<HTMLDivElement>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -325,7 +329,7 @@ const [menuOpen, setMenuOpen] = useState(false);
                 expanded={expanded}
                 phase={phase}
                 wide={pathname === "/"}
-                compact={bareHome}
+                compact={docked}
                 onToggleExpand={toggleExpanded}
                 onClose={closeWindow}
                 scrollerRef={scroller}
