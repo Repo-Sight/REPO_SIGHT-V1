@@ -867,9 +867,9 @@
 .rs-m8 { --n: #c9a56a; --m: radial-gradient(circle, rgb(201 165 106 / 0.7) 0 2px, transparent 2.6px) 0 0 / 10px 10px, linear-gradient(145deg, #4a3524, #261a11); }
 .rs-m9 { --n: #a8b4c2; --m: linear-gradient(145deg, #454e5a, #2b323b); }
 
-/* ---------- home desktop: compact home.mdx window + demo-report.json card ----------
-   On the bare home route (>= 1100px) the window is docked left so the REPO-SIGHT
-   cube wallpaper stays visible. Expand (Shift + Up) still fills the desktop. */
+/* ---------- docked desktop: compact window (every page) + demo-report.json card (home only) ----------
+   On every page except a scan/demo report (>= 1100px) the window is docked left so the
+   REPO-SIGHT cube wallpaper stays visible. Expand (Shift + Up) still fills the desktop. */
 @media (min-width: 1100px) {
   .rs-win[data-compact="true"]:not([data-expanded="true"]) {
     position: absolute;
@@ -880,9 +880,15 @@
     height: auto;
     max-width: none;
   }
-  .rs-win[data-compact="true"]:not([data-expanded="true"]) #hero-title {
+  .rs-win[data-compact="true"]:not([data-expanded="true"]) #hero-title,
+  .rs-win[data-compact="true"]:not([data-expanded="true"]) .rs-prose h1 {
     font-size: clamp(2rem, 2.9vw, 2.75rem);
     line-height: 1.12;
+  }
+  /* The 3-column card grid is viewport-based (>= 1024px); inside the narrow docked window it
+     would squeeze to ~150px columns, so landing pages fall back to the auto-fit grid here. */
+  .rs-win[data-compact="true"]:not([data-expanded="true"]) .rs-tool .features-grid--three {
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   }
 }
 
