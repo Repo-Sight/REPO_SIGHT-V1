@@ -1,9 +1,12 @@
 import { useEffect, useRef } from "react";
 import { SITE } from "../site";
 
-type AdQueue = unknown[] & { requestNonPersonalizedAds?: number };
+type AdQueue = unknown[];
 
-/** Same behaviour as the live site: non-personalized ads unless consent was accepted. */
+/**
+ * One responsive AdSense unit. Consent is handled by Google's certified message
+ * (EEA/UK/CH) via the AdSense script itself, so no consent flag is set here.
+ */
 export function AdSlot({ slot = "8550818093" }: { slot?: string }) {
   const pushed = useRef(false);
 
@@ -12,13 +15,6 @@ export function AdSlot({ slot = "8550818093" }: { slot?: string }) {
     pushed.current = true;
     const w = window as unknown as { adsbygoogle?: AdQueue };
     w.adsbygoogle = w.adsbygoogle || ([] as AdQueue);
-    try {
-      if (localStorage.getItem(SITE.consentKey) !== "accepted") {
-        w.adsbygoogle.requestNonPersonalizedAds = 1;
-      }
-    } catch {
-      /* storage unavailable: keep default */
-    }
     try {
       w.adsbygoogle.push({});
     } catch {
