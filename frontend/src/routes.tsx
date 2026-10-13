@@ -1,14 +1,14 @@
 import type { RouteRecord } from "vite-react-ssg";
 import { SiteLayout } from "./components/SiteLayout";
 import { pages, type PageEntry } from "./content/content";
-import { ContentPage } from "./pages/ContentPage";
-import { Home } from "./pages/Home";
+import { PageHead } from "./pages/ContentPage";
+import { HomeHead } from "./pages/Home";
 
 // One prerendered static HTML file per route. Route paths keep the ".html"
 // suffix so every live URL stays exactly as it is today (sitemap unchanged).
 const page = (entry: PageEntry) =>
   function Page() {
-    return <ContentPage entry={entry} />;
+    return <PageHead entry={entry} />;
   };
 
 const learnIndex = pages.find((p) => p.path === "/learn/");
@@ -25,7 +25,7 @@ export const routes: RouteRecord[] = [
     path: "/",
     Component: SiteLayout,
     children: [
-      { index: true, Component: Home },
+      { index: true, Component: HomeHead },
       ...topLevel.map((p) => ({ path: p.path.slice(1), Component: page(p) })),
       {
         path: "learn/",
