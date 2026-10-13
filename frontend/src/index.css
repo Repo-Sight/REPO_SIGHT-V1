@@ -60,22 +60,28 @@
     }
   }
 }
-/* ---------- desktop shell + window (behaviour modelled on posthog.com's window manager) ---------- */
+/* ---------- desktop shell + windows (a small window manager: see lib/windows.ts, components/WindowFrame.tsx) ---------- */
 
-/* The window layer sits over the desktop; only the window itself takes pointer events. */
+/* The window layer sits over the desktop; only the windows themselves take pointer events.
+   Geometry comes from data-geo: "default" = CSS below (this is what is prerendered), "custom" = --x/--y/--w/--h
+   written by drag / resize / cascade / tile. data-max wins over both. Under 768px every window is forced full-size. */
 .rs-win {
   pointer-events: auto;
-  position: relative;
+  position: absolute;
   display: flex;
   flex-direction: column;
-  width: 80%;
-  height: 95%;
   overflow: hidden;
+  container: rswin / inline-size;
   border: 1px solid var(--color-line);
   border-radius: 0.5rem; /* rounded-lg */
-  box-shadow: var(--shadow-soft-lg);
+  box-shadow: var(--shadow-soft);
   background: var(--color-paper);
   transform: translateZ(0);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    box-shadow 120ms ease,
+    visibility 0s linear 0s;
 }
 @supports (backdrop-filter: blur(1px)) {
   /* lightly frosted: surface at 94% over a soft blur (readable over the animated wallpaper) */
@@ -84,22 +90,69 @@
     backdrop-filter: blur(16px);
   }
 }
-@media (min-width: 768px) {
-  .rs-win[data-wide="true"]:not([data-expanded="true"]) {
-    max-width: 1200px;
+.rs-win[data-focused="true"] {
+  border-color: color-mix(in srgb, var(--color-signal) 38%, var(--color-line));
+  box-shadow: var(--shadow-soft-lg);
+}
+
+/* Default geometry: 80% x 95%, centred. */
+.rs-win[data-geo="default"] {
+  left: 10%;
+  top: 2.5%;
+  width: 80%;
+  height: 95%;
+}
+/* Reports are wide tables: centred, capped at 1200px. */
+.rs-win[data-geo="default"][data-kind="demo"],
+.rs-win[data-geo="default"][data-kind="report"] {
+  width: min(80%, 1200px);
+  left: calc((100% - min(80%, 1200px)) / 2);
+}
+/* The floating score card. */
+.rs-win[data-geo="default"][data-kind="card"] {
+  left: auto;
+  right: 142px;
+  top: 1.25rem;
+  width: 19rem;
+  height: auto;
+}
+/* Docked left on wide screens so the REPO-SIGHT cube wallpaper stays visible. */
+@media (min-width: 1100px) {
+  .rs-win[data-geo="default"][data-kind="home"],
+  .rs-win[data-geo="default"][data-kind="page"] {
+    left: 118px;
+    top: 0.75rem;
+    bottom: 0.75rem;
+    width: clamp(520px, 42%, 640px);
+    height: auto;
   }
 }
-/* Expanded: fills the desktop, square top corners, no shadow, 1px top border only. */
-.rs-win[data-expanded="true"] {
+.rs-win[data-geo="custom"] {
+  left: var(--x);
+  top: var(--y);
+  width: var(--w);
+  height: var(--h);
+}
+
+/* Maximised: fills the desktop, square top corners, no shadow, 1px top border only. */
+.rs-win[data-max="true"][data-geo][data-kind] {
+  left: 0;
+  top: 0;
+  right: auto;
+  bottom: auto;
   width: 100%;
   height: 100%;
   border-width: 1px 0 0;
   border-radius: 0 0 0.5rem 0.5rem;
   box-shadow: none;
 }
-/* Under 768px the window is forced full size and the expand button is hidden. */
+/* Under 768px the window is forced full size (no drag, resize or maximise); minimise and close stay. */
 @media (max-width: 767px) {
-  .rs-win {
+  .rs-win[data-geo][data-kind] {
+    left: 0;
+    top: 0;
+    right: auto;
+    bottom: auto;
     width: 100%;
     height: 100%;
     border-width: 1px 0 0;
@@ -111,12 +164,320 @@
     border-bottom-right-radius: 0;
   }
 }
+
+/* Minimised: shrinks toward the taskbar and stays mounted (a scan result or half-typed form survives). */
+.rs-win[data-min="true"] {
+  opacity: 0;
+  transform: translateY(-14px) scale(0.94);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 0s linear 160ms;
+}
+/* While dragging or resizing: no easing, and the page inside stops catching the pointer. */
+.rs-win[data-dragging="true"] {
+  transition: none;
+}
+.rs-win[data-dragging="true"] .rs-win-body {
+  pointer-events: none;
+  user-select: none;
+}
 .rs-win-body {
   scrollbar-gutter: stable;
 }
 @media (prefers-reduced-motion: no-preference) {
   .rs-win-body {
     scroll-behavior: smooth;
+  }
+}
+
+/* Title bar + the three window controls (always present: minimise, maximise / restore, close). */
+.rs-titlebar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.3rem 0.4rem 0.3rem 0.75rem;
+  background: var(--color-chrome);
+  border-bottom: 1px solid var(--color-line);
+  user-select: none;
+  touch-action: none;
+}
+@media (min-width: 768px) {
+  .rs-win:not([data-max="true"]) .rs-titlebar {
+    cursor: grab;
+  }
+  .rs-win[data-dragging="true"] .rs-titlebar {
+    cursor: grabbing;
+  }
+}
+.rs-title-icon {
+  color: var(--color-signal);
+}
+.rs-win[data-focused="false"] .rs-titlebar {
+  color: var(--color-muted);
+}
+.rs-win[data-focused="false"] .rs-title-icon {
+  color: var(--color-muted);
+}
+.rs-ctrls {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+.rs-ctl {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  color: var(--color-muted);
+  transition:
+    background-color 100ms,
+    color 100ms;
+}
+.rs-ctl:hover,
+.rs-ctl:focus-visible {
+  background: var(--color-line-soft);
+  color: var(--color-ink);
+}
+.rs-ctl-close:hover,
+.rs-ctl-close:focus-visible {
+  background: color-mix(in srgb, var(--color-rose) 78%, transparent);
+  color: #0a0e13;
+}
+/* Phones: windows are always full size, so there is nothing to maximise. Minimise and close stay. */
+@media (max-width: 767px) {
+  .rs-ctl-max {
+    display: none;
+  }
+}
+@media (pointer: coarse) {
+  .rs-ctl {
+    width: 2.25rem;
+    height: 2rem;
+  }
+}
+
+/* Resize handles: 4 edges + 4 corners, inside the border so overflow:hidden never clips them. */
+.rs-rz {
+  position: absolute;
+  z-index: 5;
+  touch-action: none;
+}
+.rs-rz[data-dir="n"] { left: 12px; right: 12px; top: 0; height: 5px; cursor: ns-resize; }
+.rs-rz[data-dir="s"] { left: 12px; right: 12px; bottom: 0; height: 5px; cursor: ns-resize; }
+.rs-rz[data-dir="e"] { top: 12px; bottom: 12px; right: 0; width: 5px; cursor: ew-resize; }
+.rs-rz[data-dir="w"] { top: 12px; bottom: 12px; left: 0; width: 5px; cursor: ew-resize; }
+.rs-rz[data-dir="ne"] { top: 0; right: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+.rs-rz[data-dir="nw"] { top: 0; left: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+.rs-rz[data-dir="se"] { bottom: 0; right: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+.rs-rz[data-dir="sw"] { bottom: 0; left: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+@media (max-width: 767px) {
+  .rs-rz {
+    display: none;
+  }
+  .rs-titlebar {
+    touch-action: auto;
+  }
+}
+
+/* Edge-snap preview while dragging a window to the top (maximise) or a side (half screen). */
+.rs-snap {
+  position: absolute;
+  z-index: 9999;
+  pointer-events: none;
+  border: 2px solid var(--color-signal);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-signal) 14%, transparent);
+  transition: all 120ms ease;
+}
+
+/* Narrow windows: viewport breakpoints cannot see the window width, so container queries tidy the page inside it. */
+@container rswin (min-width: 481px) and (max-width: 760px) {
+  #hero-title,
+  .rs-prose h1 {
+    font-size: clamp(2rem, 6cqw, 2.75rem);
+    line-height: 1.12;
+  }
+  /* The 3-column card grid is viewport-based (>= 1024px); in a narrow window it would squeeze to ~150px columns. */
+  .rs-tool .features-grid--three {
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  }
+}
+
+/* ---------- taskbar: start button, window chips, show-desktop strip ---------- */
+.rs-start-btn {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: 0.5rem;
+  color: var(--color-signal);
+}
+.rs-start-btn:hover,
+.rs-start-btn[aria-expanded="true"] {
+  background: var(--color-chrome);
+}
+.rs-chip {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: 11rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 100ms,
+    color 100ms;
+}
+.rs-chip:hover {
+  background: var(--color-line-soft);
+  color: var(--color-ink);
+}
+.rs-chip[data-active="true"] {
+  background: var(--color-chrome);
+  border-color: var(--color-line);
+  color: var(--color-ink);
+  box-shadow: inset 0 -2px 0 var(--color-signal);
+}
+.rs-chip[data-min="true"] {
+  opacity: 0.6;
+}
+.rs-showdesk {
+  flex-shrink: 0;
+  width: 0.9rem;
+  height: 1.5rem;
+  margin-left: 0.25rem;
+  border-left: 1px solid var(--color-line);
+}
+.rs-showdesk:hover {
+  background: var(--color-chrome);
+}
+
+.rs-start {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 60;
+  width: min(22rem, calc(100vw - 1rem));
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft-lg);
+  transform-origin: top left;
+}
+.rs-start-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.rs-start-item:hover,
+.rs-start-item:focus-visible {
+  background: var(--color-chrome);
+}
+.rs-start-cmd {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.5rem;
+  background: var(--color-paper);
+  text-align: left;
+  font-weight: 500;
+}
+.rs-start-cmd:hover,
+.rs-start-cmd:focus-visible {
+  background: var(--color-line-soft);
+}
+.rs-start-cmd[data-danger="true"]:hover {
+  background: color-mix(in srgb, var(--color-rose) 40%, transparent);
+}
+
+/* Right-click menus. */
+.rs-ctxmenu {
+  position: fixed;
+  z-index: 300;
+  min-width: 12.5rem;
+  padding: 0.3rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.6rem;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft-lg);
+}
+.rs-ctxmenu button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  text-align: left;
+}
+.rs-ctxmenu button:hover,
+.rs-ctxmenu button:focus-visible {
+  background: var(--color-chrome);
+}
+.rs-ctxmenu button[data-danger="true"]:hover,
+.rs-ctxmenu button[data-danger="true"]:focus-visible {
+  background: color-mix(in srgb, var(--color-rose) 40%, transparent);
+}
+.rs-ctxmenu button:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.rs-ctxmenu kbd {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-muted);
+}
+
+/* OS-style tab strip (report sections, scanner mode): tabs sit on a rule, the active one joins the panel. */
+.rs-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-line);
+}
+.rs-tab {
+  margin-bottom: -1px;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 0.5rem 0.5rem 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.rs-tab:hover {
+  background: var(--color-line-soft);
+  color: var(--color-ink);
+}
+.rs-tab[aria-selected="true"],
+.rs-tab[aria-pressed="true"] {
+  border-color: var(--color-line);
+  background: var(--color-chrome);
+  color: var(--color-ink);
+  box-shadow: inset 0 2px 0 var(--color-signal);
+}
+@media (min-width: 640px) {
+  .rs-tab {
+    font-size: 0.875rem;
   }
 }
 
@@ -202,6 +563,9 @@
   .rs-modal,
   .rs-overlay {
     animation: none !important;
+  }
+  .rs-win {
+    transition: none !important;
   }
 }
 /* ---------- shared bits ---------- */
@@ -867,56 +1231,7 @@
 .rs-m8 { --n: #c9a56a; --m: radial-gradient(circle, rgb(201 165 106 / 0.7) 0 2px, transparent 2.6px) 0 0 / 10px 10px, linear-gradient(145deg, #4a3524, #261a11); }
 .rs-m9 { --n: #a8b4c2; --m: linear-gradient(145deg, #454e5a, #2b323b); }
 
-/* ---------- docked desktop: compact window (every page) + demo-report.json card (home only) ----------
-   On every page except a scan/demo report (>= 1100px) the window is docked left so the
-   REPO-SIGHT cube wallpaper stays visible. Expand (Shift + Up) still fills the desktop. */
-@media (min-width: 1100px) {
-  .rs-win[data-compact="true"]:not([data-expanded="true"]) {
-    position: absolute;
-    left: 118px;
-    top: 0.75rem;
-    bottom: 0.75rem;
-    width: clamp(520px, 42%, 640px);
-    height: auto;
-    max-width: none;
-  }
-  .rs-win[data-compact="true"]:not([data-expanded="true"]) #hero-title,
-  .rs-win[data-compact="true"]:not([data-expanded="true"]) .rs-prose h1 {
-    font-size: clamp(2rem, 2.9vw, 2.75rem);
-    line-height: 1.12;
-  }
-  /* The 3-column card grid is viewport-based (>= 1024px); inside the narrow docked window it
-     would squeeze to ~150px columns, so landing pages fall back to the auto-fit grid here. */
-  .rs-win[data-compact="true"]:not([data-expanded="true"]) .rs-tool .features-grid--three {
-    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  }
-}
-
-.rs-card-win {
-  display: none;
-}
-@media (min-width: 1280px) {
-  .rs-card-win {
-    pointer-events: auto;
-    position: absolute;
-    top: 1.25rem;
-    right: 142px;
-    width: 19rem;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border: 1px solid var(--color-line);
-    border-radius: 0.5rem;
-    background: var(--color-paper);
-    box-shadow: var(--shadow-soft-lg);
-  }
-}
-@supports (backdrop-filter: blur(1px)) {
-  .rs-card-win {
-    background: color-mix(in srgb, var(--color-paper) 94%, transparent);
-    backdrop-filter: blur(16px);
-  }
-}
+/* ---------- score card (the content of the floating score-card.json window) ---------- */
 .rs-card-grade {
   font-family: var(--font-display);
   font-weight: 400;
