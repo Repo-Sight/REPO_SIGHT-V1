@@ -1,83 +1,55 @@
-import { useCallback, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { AdSlot } from "../components/AdSlot";
-import { DemoReport } from "../components/DemoReport";
 import { Block, Html } from "../components/OSWindow";
-import { ReportView } from "../components/ReportView";
 import { Scanner } from "../components/Scanner";
 import { Seo } from "../components/Seo";
 import { SponsorSlot } from "../components/SponsorSlot";
 import { homeContent as c } from "../content/content";
-import { isScanId } from "../lib/api";
+import { resolveApp } from "../lib/apps";
 
-export function Home() {
+/**
+ * Route element for "/": only the <head>. The page itself lives in its window
+ * (HomeBody here, DemoReport / ReportView for ?demo= and ?scan=). The query
+ * string only counts after mount so the prerendered head and the first hydrated
+ * render match.
+ */
+export function HomeHead() {
   const { search } = useLocation();
-  const navigate = useNavigate();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const app = resolveApp("/", mounted ? search : "");
 
-  // Read ?scan= only after mount: the prerendered HTML (and the first hydrated
-  // render) is always the marketing page, so there is no hydration mismatch
-  // for visitors who arrive on an existing /?scan=<id> report link.
-  const [scanId, setScanId] = useState<string | null>(null);
-  const [demo, setDemo] = useState(false);
-  useEffect(() => {
-    const params = new URLSearchParams(search);
-    const id = params.get("scan");
-    setScanId(isScanId(id) ? id : null);
-    setDemo(params.get("demo") === "1");
-  }, [search]);
-
-  const newScan = useCallback(() => {
-    navigate({ pathname: "/", search: "", hash: "#analyze" });
-  }, [navigate]);
-
-  if (demo && !scanId) {
+  if (app.kind === "demo") {
     return (
-      <div className="space-y-10">
-        <Seo
-          title="Sample code health report | REPO-SIGHT"
-          description={c.description}
-          canonical={c.canonical}
-          robots="noindex, follow"
-        />
-        <DemoReport onNewScan={newScan} />
-      </div>
+      <Seo title="Sample code health report | REPO-SIGHT" description={c.description} canonical={c.canonical} robots="noindex, follow" />
     );
   }
-
-  if (scanId) {
-    return (
-      <div className="space-y-10">
-        {/* Reports are per-scan pages: keep them out of the index, canonical stays on the homepage. */}
-        <Seo
-          title="Code health report | REPO-SIGHT"
-          description={c.description}
-          canonical={c.canonical}
-          robots="noindex, follow"
-        />
-        <ReportView scanId={scanId} onNewScan={newScan} />
-      </div>
-    );
+  if (app.kind === "report") {
+    // Reports are per-scan pages: keep them out of the index, canonical stays on the homepage.
+    return <Seo title="Code health report | REPO-SIGHT" description={c.description} canonical={c.canonical} robots="noindex, follow" />;
   }
+  return (
+    <Seo
+      title={c.title}
+      description={c.description}
+      canonical={c.canonical}
+      robots={c.robots}
+      ogTitle={c.ogTitle}
+      ogDescription={c.ogDescription}
+      jsonLd={c.jsonLd}
+    />
+  );
+}
 
+/** The marketing home page, rendered inside the home.mdx window. */
+export function HomeBody() {
   return (
     <div className="space-y-10">
-      <Seo
-        title={c.title}
-        description={c.description}
-        canonical={c.canonical}
-        robots={c.robots}
-        ogTitle={c.ogTitle}
-        ogDescription={c.ogDescription}
-        jsonLd={c.jsonLd}
-      />
-
-      {/* Left-aligned headline; the desktop icons live in the shell (SiteLayout), behind the window. */}
+      {/* Left-aligned headline; the desktop icons live in the shell (SiteLayout), behind the windows. */}
       <section aria-labelledby="hero-title" className="pt-2 sm:pt-6">
         <div className="max-w-4xl space-y-5">
-          <h1
-            id="hero-title"
-            className="rs-display text-balance text-4xl leading-[1.1] sm:text-5xl lg:text-6xl"
-          >
+          <h1 id="hero-title" className="rs-display text-balance text-4xl leading-[1.1] sm:text-5xl lg:text-6xl">
             {c.h1Lead} <span className="text-signal">{c.h1Highlight}</span>
           </h1>
           <p className="max-w-2xl text-base leading-relaxed text-muted sm:text-lg">{c.heroSub}</p>
