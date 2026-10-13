@@ -183,7 +183,11 @@ export function DesktopFolder({
         </summary>
         <div
  className={`rs-pop z-50 overflow-hidden rounded-xl border border-line bg-paper shadow-soft-lg max-lg:fixed max-lg:inset-x-4 max-lg:top-24 lg:absolute lg:w-64 ${pos}`}
-           >
+          onClick={(e) => {
+            // Picking a page opens its window; the folder closes behind it.
+            if ((e.target as HTMLElement).closest("a")) ref.current?.removeAttribute("open");
+          }}
+        >
           <div className="flex items-center gap-2 border-b border-line bg-chrome px-3 py-1.5 text-sm font-semibold">
             <span className="h-2.5 w-2.5 rounded-full bg-signal" aria-hidden="true" />
             {title}
@@ -211,7 +215,7 @@ export interface DesktopItem {
   folder?: { title: string; links: FolderLink[] };
 }
 
-const LEFT: DesktopItem[] = [
+export const LEFT: DesktopItem[] = [
   { href: "/", label: "Home", glyph: "home", tone: "ink" },
   { href: "/#analyze", label: "Analyze", glyph: "scan", tone: "red" },
   { href: "/?demo=1", label: "Demo report", glyph: "report", tone: "yellow" },
@@ -251,7 +255,7 @@ const LEFT: DesktopItem[] = [
   { href: "/learn/", label: "Learn", glyph: "book", tone: "ink" },
 ];
 
-const RIGHT: DesktopItem[] = [
+export const RIGHT: DesktopItem[] = [
   { href: "/about.html", label: "About", glyph: "info", tone: "blue" },
   { href: "/contact.html", label: "Contact", glyph: "mail", tone: "yellow" },
   { href: "/privacy.html", label: "Privacy", glyph: "lock", tone: "green" },
