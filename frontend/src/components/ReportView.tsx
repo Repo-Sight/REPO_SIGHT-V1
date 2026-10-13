@@ -134,7 +134,7 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
        <SharePanel report={report} />
        <AuditExport report={report} />
       
-      <div role="tablist" aria-label="Report sections" className="flex flex-wrap gap-2">
+      <div role="tablist" aria-label="Report sections" className="rs-tabs">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -144,9 +144,7 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
             aria-selected={tab === t.id}
             aria-controls={`rs-panel-${t.id}`}
             onClick={() => setTab(t.id)}
-            className={`rounded-md border border-line px-3 py-1.5 font-mono text-xs font-bold sm:text-sm ${
-              tab === t.id ? "bg-ink text-white shadow-soft-sm" : "bg-white hover:bg-chrome"
-            }`}
+            className="rs-tab"
           >
             {t.label}
             {t.id === "security" && securityCount > 0 ? ` (${formatNumber(securityCount)})` : ""}
