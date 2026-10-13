@@ -1,22 +1,42 @@
-import { Html } from "../components/OSWindow";
-import { Seo } from "../components/Seo";
-import { pageHtml, type PageEntry } from "../content/content";
+import type { RouteRecord } from "vite-react-ssg";
+import { SiteLayout } from "./components/SiteLayout";
+import { pages, type PageEntry } from "./content/content";
+import { PageHead } from "./pages/ContentPage";
+import { HomeHead } from "./pages/Home";
 
-/** Route element: only the <head> for the URL. The page itself is rendered inside its window (WindowContent). */
-export function PageHead({ entry }: { entry: PageEntry }) {
-  return (
-    <Seo
-      title={entry.title}
-      description={entry.description}
-      canonical={entry.canonical}
-      robots={entry.robots}
-      ogTitle={entry.ogTitle}
-      ogDescription={entry.ogDescription}
-    />
-  );
-}
+// One prerendered static HTML file per route. Route paths keep the ".html"
+// suffix so every live URL stays exactly as it is today (sitemap unchanged).
+const page = (entry: PageEntry) =>
+  function Page() {
+    return <PageHead entry={entry} />;
+  };
 
-/** The page body, verbatim legacy markup. */
-export function PageBody({ entry }: { entry: PageEntry }) {
-  return <Html html={pageHtml(entry.file)} className={`rs-${entry.kind}`} />;
-}
+const learnIndex = pages.find((p) => p.path === "/learn/");
+const notFound = pages.find((p) => p.kind === "notfound");
+if (!learnIndex || !notFound) throw new Error("content manifest is missing /learn/ or 404.html");
+
+const learnArticles = pages.filter((p) => p.path.startsWith("/learn/") && p.path !== "/learn/");
+const topLevel = pages.filter((p) => !p.path.startsWith("/learn/") && p.kind !== "notfound");
+
+const NotFound = page(notFound);
+
+export const routes: RouteRecord[] = [
+  {
+    path: "/",
+    Component: SiteLayout,
+    children: [
+      { index: true, Component: HomeHead },
+      ...topLevel.map((p) => ({ path: p.path.slice(1), Component: page(p) })),
+      {
+        path: "learn/",
+        children: [
+          { index: true, Component: page(learnIndex) },
+          ...learnArticles.map((p) => ({ path: p.path.replace("/learn/", ""), Component: page(p) })),
+        ],
+      },
+      // Static 404 page; Vercel serves /404.html with a 404 status for unknown URLs.
+      { path: "404.html", Component: NotFound },
+      { path: "*", Component: NotFound },
+    ],
+  },
+];
