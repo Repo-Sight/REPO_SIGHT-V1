@@ -9,11 +9,6 @@ const FILE_ACCEPT = ".cpp,.cc,.cxx,.c,.h,.hpp,.py,.java,.ts,.tsx,.js,.jsx,.mjs,.
 
 const inputClass =
   "w-full rounded-md border border-line bg-white px-3 py-2.5 font-mono text-sm shadow-soft-sm placeholder:text-ink/50";
-const tabClass = (active: boolean) =>
-  `rounded-md border border-line px-3 py-1.5 font-mono text-xs font-bold sm:text-sm ${
-    active ? "bg-ink text-white shadow-soft-sm" : "bg-white hover:bg-chrome"
-  }`;
-
 /**
  * Scan form. Both modes POST to our API, then navigate to /?scan=<id> (the same
  * URL shape existing shared reports already use). Works anonymously; sign-in
@@ -94,11 +89,11 @@ export function Scanner() {
 
   return (
     <form onSubmit={onSubmit} className="max-w-3xl space-y-4" aria-busy={busy}>
-      <div role="group" aria-label="What to analyze" className="flex flex-wrap gap-2">
-        <button type="button" className={tabClass(mode === "repo")} aria-pressed={mode === "repo"} onClick={() => setMode("repo")}>
+      <div role="group" aria-label="What to analyze" className="rs-tabs">
+        <button type="button" className="rs-tab" aria-pressed={mode === "repo"} onClick={() => setMode("repo")}>
           GitHub repo
         </button>
-        <button type="button" className={tabClass(mode === "file")} aria-pressed={mode === "file"} onClick={() => setMode("file")}>
+        <button type="button" className="rs-tab" aria-pressed={mode === "file"} onClick={() => setMode("file")}>
           Paste or upload a file
         </button>
       </div>
