@@ -78,6 +78,21 @@ for (const file of files) {
       problems.push("invalid JSON-LD");
     }
   }
+  // /learn/ articles: visible byline with dates + a valid Article JSON-LD (trust signals).
+  if (rel.startsWith("learn/") && rel !== "learn/index.html") {
+    const article = ld.map((m) => { try { return JSON.parse(m[1]); } catch { return null; } }).find((o) => o?.["@type"] === "Article");
+    if (!article) problems.push("missing Article JSON-LD");
+    else {
+      for (const k of ["headline", "datePublished", "dateModified", "author", "publisher"]) {
+        if (!article[k]) problems.push(`Article JSON-LD missing ${k}`);
+      }
+      const day = /^\d{4}-\d{2}-\d{2}$/;
+      if (!day.test(article.datePublished ?? "") || !day.test(article.dateModified ?? "")) problems.push("Article JSON-LD dates must be YYYY-MM-DD");
+      if (article.dateModified < article.datePublished) problems.push("dateModified is before datePublished");
+    }
+    if (!/<time datetime="\d{4}-\d{2}-\d{2}"/.test(html)) problems.push("missing visible byline date (<time>)");
+    if (!/rel="author"/.test(html)) problems.push("missing visible author link");
+  }
   if (/ronak\.reposight/i.test(html)) problems.push("uses ronak.reposight@ (canonical contact is contact.reposight@)");
 
   if (problems.length) {
