@@ -1,6 +1,6 @@
 {
-  "learn/cyclomatic-complexity-explained.html": { "published": "2026-08-25" },
-  "learn/reading-a-code-health-score.html": { "published": "2026-08-25" },
+  "learn/cyclomatic-complexity-explained.html": { "published": "2026-08-25", "modified": "2026-10-14" },
+  "learn/reading-a-code-health-score.html": { "published": "2026-08-25", "modified": "2026-10-14" },
   "learn/what-is-static-analysis.html": { "published": "2026-08-25" },
   "learn/benefits-of-static-code-analysis.html": { "published": "2026-09-07" },
   "learn/code-quality-checklist-for-students.html": { "published": "2026-09-07" },
