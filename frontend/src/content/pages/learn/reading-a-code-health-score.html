@@ -1,20 +1,20 @@
-    <h1>How to read a code health score</h1>
+<h1>How to read a code health score</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
-    <p>A single letter grade is convenient, but it's only useful if you know what's actually being measured underneath it. Here's exactly what goes into REPO-SIGHT's health score, in the same weights the analyzer uses.</p>
+    <p>A single letter grade is convenient, but it is only useful if you know what is measured underneath it. This guide shows exactly how REPO-SIGHT's health score is calculated, works through two real projects line by line, and lists the three things worth knowing before you trust any score &mdash; ours included.</p>
 
     <h2>The five components</h2>
-    <p>Each component is scored on a 0&ndash;100 scale by comparing your project's value against a "good" reference point and a "bad" reference point, then the five scores are combined by weight:</p>
+    <p>Each component is scored from 0 to 100 by comparing your project's value against two reference points. At or better than the "good" reference it scores 100. At or worse than the "bad" reference it scores 0. In between, the score slides in a straight line. The five scores are then combined by weight:</p>
     <ul>
-      <li><strong>Complexity density &mdash; 35%.</strong> Total cyclomatic complexity relative to lines of code. This is the single largest factor: a project can have plenty of code, but if a large share of it is branchy decision logic, the score drops fastest here.</li>
-      <li><strong>Average function length &mdash; 25%.</strong> Shorter, focused functions score higher than long ones that try to do several things at once.</li>
-      <li><strong>Comment coverage &mdash; 20%.</strong> The share of lines that are comments. Too little makes intent hard to recover later; the scoring rewards a healthy middle ground rather than maximizing comments for their own sake.</li>
-      <li><strong>TODO density &mdash; 10%.</strong> How often <code>TODO</code>/<code>FIXME</code>-style markers show up relative to code volume &mdash; a proxy for acknowledged, unfinished work.</li>
-      <li><strong>Max nesting depth &mdash; 10%.</strong> How deeply blocks nest inside each other. Deep nesting is a strong readability signal independent of raw complexity count.</li>
+      <li><strong>Complexity density &mdash; 35%.</strong> Total <a href="/learn/cyclomatic-complexity-explained.html">cyclomatic complexity</a> divided by lines of code. Full marks at 0.15 or lower, zero at 0.50 or higher.</li>
+      <li><strong>Average function length &mdash; 25%.</strong> Full marks at 15 lines or fewer, zero at 60 or more.</li>
+      <li><strong>Comment coverage &mdash; 20%.</strong> Comment lines divided by code lines. Full marks at 20% or more, zero at 2% or less.</li>
+      <li><strong>TODO density &mdash; 10%.</strong> <code>TODO</code>/<code>FIXME</code>-style markers divided by code lines. Full marks at 1% or lower, zero at 5% or higher.</li>
+      <li><strong>Max nesting depth &mdash; 10%.</strong> The deepest block nesting found anywhere in the project. Full marks at depth 3 or less, zero at depth 8 or more. See <a href="/learn/maximum-nesting-depth-explained.html">nesting depth explained</a>.</li>
     </ul>
 
     <h2>The grade thresholds</h2>
-    <p>The five weighted components sum to one overall score out of 100, which maps to a letter grade:</p>
+    <p>The five weighted scores sum to one overall number out of 100, which maps to a letter:</p>
     <ul>
       <li><strong>A</strong> &mdash; 90 and above</li>
       <li><strong>B</strong> &mdash; 80 to 89</li>
@@ -23,14 +23,43 @@
       <li><strong>F</strong> &mdash; below 60</li>
     </ul>
 
-    <h2>What to fix first on a low grade</h2>
-    <p>Because complexity density carries the most weight, it's usually the highest-leverage place to start. In practice that means:</p>
-    <ul>
-      <li>Sort functions by cyclomatic complexity and look at the top few outliers first, rather than trying to fix everything at once.</li>
-      <li>Check average function length alongside complexity &mdash; the two often move together, since a long function usually accumulates branches as it grows.</li>
-      <li>Look at max nesting depth on the same hotspot functions; flattening nested conditionals frequently improves both the nesting and complexity components at the same time.</li>
-      <li>Treat comment coverage and TODO density as secondary clean-up, not the first fix &mdash; they carry less weight and rarely explain a genuinely low grade on their own.</li>
-    </ul>
-    <p>A score is a starting point for triage, not a verdict on the whole codebase. A project graded C can still be well-designed with a couple of legitimately complex algorithms; a project graded A can still have logic bugs the metrics can't see. Use the grade to find where to look, then read the actual code.</p>
+    <h2>Worked example: a project that scores an A</h2>
+    <p>We scanned Google's Gson library (Java, commit <code>e2292f9</code>) on 14 October 2026. Its five component scores were 100 for complexity density, 100 for function length, 100 for comment coverage, 100 for TODO density &mdash; and 0 for nesting depth, because somewhere in the project a block nests 8 levels deep. The sum:</p>
+<pre><code>0.35 &times; 100 + 0.25 &times; 100 + 0.20 &times; 100 + 0.10 &times; 100 + 0.10 &times; 0 = 90</code></pre>
+    <p>That lands exactly on the A threshold. One deep spot cost the whole 10 points of the nesting component.</p>
 
-    <p>REPO-SIGHT computes this score automatically for any public C++, Python, Java, TypeScript, JavaScript, or C# repository. <a href="/#analyze">Paste a GitHub URL</a> to see your own grade and hotspot list.</p>
+    <h2>Worked example: a well-regarded project that scores a C</h2>
+    <p>Flask (Python, commit <code>d086db8</code>) scanned the same day gets 100 for complexity density, 100 for function length and 100 for TODO density. Its two weak components are comment coverage and nesting:</p>
+    <ul>
+      <li>Flask has 781 comment lines against 13,989 code lines, a comment density of about 5.6%. On the scale from 2% (zero) to 20% (full), that is a score of 19.9.</li>
+      <li>Its deepest nesting is 6, which on the scale from 8 (zero) to 3 (full) scores 40.</li>
+    </ul>
+<pre><code>0.35 &times; 100 + 0.25 &times; 100 + 0.20 &times; 19.9 + 0.10 &times; 100 + 0.10 &times; 40 = 77.98  &rarr; C</code></pre>
+    <p>A useful way to read this: instead of adding up what you earned, count what you lost. Comment coverage cost Flask 0.20 &times; (100 &minus; 19.9) = 16 points, and nesting cost 6. Everything else is full marks, so 100 &minus; 22 = 78.</p>
+    <p>There is an important detail behind that comment score. REPO-SIGHT counts comment lines, and a Python docstring is technically a string, so its lines are counted as code rather than comments. We confirmed this by scanning a function with a multi-line docstring: only its <code>#</code> comment was counted. Flask documents its code heavily this way &mdash; 257 of the 466 modules, classes and functions under <code>src/</code> carry a docstring &mdash; so a score of 19.9 understates how well documented it is. The grade is accurate to how the score is defined, but it is not a verdict on Flask's documentation.</p>
+
+    <h2>Three things to know before you trust a score</h2>
+    <ul>
+      <li><strong>Everything scanned counts, including tests and examples.</strong> A default scan reads every supported file in the repository. Across the 19 open-source projects we scanned, roughly two-thirds of rule findings sat in paths that look like tests, docs or examples (a path-name heuristic, so approximate). If a score looks harsh, check how much of it comes from non-production code.</li>
+      <li><strong>The nesting score reflects a single worst spot.</strong> It uses the project-wide maximum, so one deeply nested function &mdash; or one generated file &mdash; can dominate it. In the Fastify repository the deepest block we found was in a generated validator file, at depth 41.</li>
+      <li><strong>Complexity density rarely separates projects.</strong> It carries the largest weight, but to lose points a project needs a density above 0.15. Across the 19 projects we scanned, densities ranged from 0.038 to 0.125, so every one of them scored 100 on that component. In practice, the lower components &mdash; function length, comments and nesting &mdash; are what moved the grades.</li>
+    </ul>
+
+    <h2>What to fix first on a low grade</h2>
+    <p>Work out where the points went rather than guessing. For each component, points lost equal its weight times (100 minus its score). The component with the biggest loss is the highest-leverage fix.</p>
+    <ul>
+      <li>If <strong>function length</strong> is the biggest loss, sort functions by length and split the top few. This often drops complexity and nesting at the same time.</li>
+      <li>If <strong>nesting</strong> is the biggest loss, find the single deepest function and flatten it with early returns. One fix can recover up to 10 points.</li>
+      <li>If <strong>comment coverage</strong> is the biggest loss, add comments where the reasoning is not obvious from the code. Padding comments to move the number helps nobody; the component rewards a healthy level, not a maximum.</li>
+      <li>If <strong>complexity density</strong> is the biggest loss, look at the most branchy functions first.</li>
+    </ul>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Does a low grade mean the code is bad?</h3>
+    <p>No. A score is a starting point for triage. A C-graded project can be well designed with a couple of legitimately complex algorithms, and an A-graded one can still have logic bugs that metrics cannot see.</p>
+    <h3>Why did my small project's grade change so much after a small edit?</h3>
+    <p>Small codebases move quickly. Average function length is an average, and nesting depth is a maximum, so adding or restructuring one function can shift both noticeably.</p>
+    <h3>Which languages does the score cover?</h3>
+    <p>C++, Python, Java, TypeScript, JavaScript and C#, using the same weights and reference points for each.</p>
+
+    <p>REPO-SIGHT computes this score automatically for any public repository in those languages. <a href="/#analyze">Paste a GitHub URL</a> to see your own grade, the component breakdown and the hotspot list, or read about the <a href="/code-quality-checker.html">code quality checker</a>.</p>
