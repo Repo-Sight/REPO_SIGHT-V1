@@ -1,25 +1,91 @@
-    <h1>Cyclomatic complexity, explained</h1>
+<h1>Cyclomatic complexity, explained</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
-    <p>Cyclomatic complexity is a count of the independent paths through a function's logic. It was introduced by Thomas McCabe in 1976 as a way to put a number on something programmers already sensed intuitively: some functions are simple to reason about, and some are a tangle.</p>
+    <p>Cyclomatic complexity is a count of the independent paths through a piece of code. Thomas McCabe introduced it in 1976 to put a number on something programmers already sensed: some functions are easy to reason about, and some are a tangle. This guide covers exactly what gets counted, walks through a function by hand, shows what we measured on real open-source projects, and explains where the number misleads.</p>
 
     <h2>What actually gets counted</h2>
-    <p>Every function starts at a baseline of 1 &mdash; one straight-line path with no branching. From there, the count goes up by one for every point where execution can fork: an <code>if</code>, a loop (<code>for</code>, <code>while</code>), a <code>case</code> in a switch, a <code>catch</code> block, a ternary <code>?:</code>, and short-circuit boolean operators like <code>&amp;&amp;</code> and <code>||</code>. Each of these represents a decision point &mdash; a place where the function can take one of at least two routes.</p>
-    <p>The result is a rough measure of how many distinct paths a test suite would need to exercise every branch at least once. A function with a complexity of 1 has exactly one path. A function with a complexity of 12 has at least 12 meaningfully different routes through it.</p>
+    <p>A function starts at a baseline of 1 &mdash; one straight-line path with no branching. From there the count goes up by one at every point where execution can fork: an <code>if</code> or <code>elif</code>, a loop (<code>for</code>, <code>while</code>), a <code>case</code> in a switch or <code>match</code>, a <code>catch</code> or <code>except</code> block, a ternary <code>?:</code>, and short-circuit boolean operators like <code>&amp;&amp;</code>, <code>||</code>, <code>and</code> and <code>or</code>. Each one is a decision point &mdash; a place where execution can take one of at least two routes.</p>
+    <p>Two things are deliberately <em>not</em> counted. A bare <code>else</code> adds nothing, because it is just the other side of a decision already counted at its <code>if</code>. And a <code>try</code> adds nothing by itself; the branch comes from the <code>except</code> or <code>catch</code> that handles a failure. The result approximates the number of distinct paths a test suite would need to exercise every branch at least once.</p>
 
-    <h2>Why it correlates with bugs</h2>
-    <p>Complexity isn't inherently bad &mdash; some problems are genuinely branchy. But high complexity in practice tends to mean a few things at once: the function is doing more than one job, it's harder for a reader to hold the whole thing in their head, and it's harder to test thoroughly because the number of paths to cover grows fast. Research going back to McCabe's original work has repeatedly found a correlation between high cyclomatic complexity and higher defect rates &mdash; not because the number itself causes bugs, but because it's a proxy for exactly the kind of tangled logic that's easy to get wrong and hard to review.</p>
+    <h2>A worked example, by hand</h2>
+    <p>Here is a small Python function that prices shipping for an order:</p>
+<pre><code>def ship_cost(order, express, member):
+    if order is None:                              # +1
+        return 0
+    total = 0
+    for item in order.items:                       # +1
+        if item.weight &gt; 20 and not item.digital:  # +1 (if), +1 (and)
+            total += 12
+        elif item.weight &gt; 5 or express:           # +1 (elif), +1 (or)
+            total += 7
+        else:
+            total += 3
+    if member:                                     # +1
+        total = total * 0.9
+    return total</code></pre>
+    <p>Count the decision points: one <code>if</code>, one <code>for</code>, one <code>if</code> with an <code>and</code>, one <code>elif</code> with an <code>or</code>, and a final <code>if</code>. That is 7 decision points, plus the baseline of 1, for a complexity of <strong>8</strong>. The <code>else</code> and the plain <code>return</code> statements add nothing. We ran this exact function through REPO-SIGHT and it reports 8.</p>
 
-    <h2>What counts as "too high"</h2>
-    <p>There's no universal cutoff, but common conventions treat single-digit complexity as comfortable, 10&ndash;20 as worth a second look, and anything higher as a strong candidate for refactoring. The number matters less in isolation than relative to the rest of your codebase &mdash; a function that's a clear outlier compared to its neighbors is usually the one worth investigating first, regardless of the exact threshold you use.</p>
+    <h2>Two numbers, not one</h2>
+    <p>REPO-SIGHT reports complexity at two levels, and it helps to know which is which.</p>
+    <ul>
+      <li><strong>Per file.</strong> Each source file starts at 1 and gains one for every decision point anywhere in it. These per-file counts add up to the project-wide figure, and that figure divided by code lines is the "complexity density" that feeds the <a href="/learn/reading-a-code-health-score.html">health score</a>.</li>
+      <li><strong>Per function.</strong> A separate check counts decision points inside each function and raises a <code>-complex-function</code> finding when a function goes above 10. The finding names the function and its count, for example <em>"has cyclomatic complexity 16 (limit 10)"</em>.</li>
+    </ul>
+    <p>The per-function number is the one to act on, because a limit of 10 applies to a single function rather than a whole file. The per-file figure mostly tells you how branchy a codebase is overall.</p>
+
+    <h2>What we measured on real projects</h2>
+    <p>To see what the limit of 10 looks like in practice, we scanned six well-known open-source projects on 14 October 2026 and counted how many functions went over it. These are whole-repository scans, so tests and examples are included.</p>
+    <ul>
+      <li><strong>Flask</strong> (Python): 5 of 1,462 functions over the limit &mdash; 0.3%.</li>
+      <li><strong>Requests</strong> (Python): 5 of 711 &mdash; 0.7%.</li>
+      <li><strong>Django</strong> (Python): 348 of 33,201 &mdash; 1.0%.</li>
+      <li><strong>Gson</strong> (Java): 52 of 3,446 &mdash; 1.5%.</li>
+      <li><strong>Jackson Core</strong> (Java): 191 of 5,779 &mdash; 3.3%.</li>
+      <li><strong>Guava</strong> (Java): 261 of 56,738 &mdash; 0.5%.</li>
+    </ul>
+    <p>The pattern is that mature, widely reviewed projects keep the overwhelming majority of functions under 10, and the few that exceed it tend to be the ones with real branching to do: Flask's most complex function, <code>Blueprint.register</code>, scores 23 because it resolves name conflicts, sets up the static folder and recurses into nested blueprints. High complexity there is not an accident, but it is exactly the function a new contributor will find hardest to change safely.</p>
+    <p>One caveat on these figures: REPO-SIGHT counts decision points by reading tokens rather than building a full syntax tree. We cross-checked it against a syntax-tree count on Flask and Requests. The two agreed exactly on several of the most complex functions, but REPO-SIGHT undercounted a few others, so treat its numbers as a reliable ranking of where to look rather than an exact audit.</p>
+
+    <h2>Why it correlates with bugs &mdash; and why that is partly size</h2>
+    <p>High complexity usually means a function is doing more than one job, is hard to hold in your head, and needs many test cases to cover. Studies going back to McCabe's work have found a link between high complexity and defects. Later research is more cautious: much of that link shrinks once you account for function length, because long functions tend to have more branches. Complexity is best read as a proxy for tangled logic, not as a cause of bugs on its own.</p>
+
+    <h2>Counting differs between tools</h2>
+    <p>Tools disagree on details: whether every <code>case</code> counts or the whole switch counts once, whether boolean operators count, whether comprehensions and ternaries count. A function that scores 12 in one tool may score 10 or 15 in another. Compare numbers within one tool over time, not across tools.</p>
 
     <h2>Bringing it down</h2>
+    <p>Refactoring does not make decision points disappear &mdash; it moves them somewhere easier to read. Take the function above and pull the per-item pricing into a helper:</p>
+<pre><code>def item_cost(item, express):
+    if item.weight &gt; 20 and not item.digital:
+        return 12
+    elif item.weight &gt; 5 or express:
+        return 7
+    return 3
+
+
+def ship_cost(order, express, member):
+    if order is None:
+        return 0
+    total = 0
+    for item in order.items:
+        total += item_cost(item, express)
+    if member:
+        total = total * 0.9
+    return total</code></pre>
+    <p><code>item_cost</code> now scores 5 and <code>ship_cost</code> scores 4, down from 8 for the original. The file as a whole still reports 8, because the same seven decision points exist. That is the point: the worst single function dropped from 8 to 5, which is what makes the code easier to test, one function at a time.</p>
     <ul>
-      <li><strong>Extract sub-functions.</strong> Pulling a branchy block out into its own well-named function doesn't remove the complexity from the codebase, but it isolates it and makes the caller's path count drop.</li>
-      <li><strong>Replace nested conditionals with early returns.</strong> Guard clauses that exit early often reduce nesting depth even when the branch count stays the same, which makes the remaining logic easier to follow.</li>
-      <li><strong>Replace long if/else or switch chains with a lookup.</strong> A dictionary or map from condition to behavior can replace many branches with one lookup plus a call.</li>
-      <li><strong>Split functions that do two things.</strong> High complexity often means a function is validating, transforming, and reporting all at once &mdash; separating those responsibilities usually collapses the path count in each piece.</li>
+      <li><strong>Extract sub-functions.</strong> Isolate a branchy block behind a well-named function, as above.</li>
+      <li><strong>Use early returns.</strong> Guard clauses reduce nesting even when the branch count stays the same. See <a href="/learn/maximum-nesting-depth-explained.html">nesting depth</a> for why that matters.</li>
+      <li><strong>Replace long if/elif or switch chains with a lookup.</strong> A dictionary from condition to behaviour swaps many branches for one lookup.</li>
+      <li><strong>Split functions that do two things.</strong> Validating, transforming and reporting in one function is a common source of 15+ scores.</li>
     </ul>
 
+    <h2>Frequently asked questions</h2>
+    <h3>What is a good cyclomatic complexity score?</h3>
+    <p>For a single function, 1&ndash;10 is comfortable, 11&ndash;20 deserves a second look, and above that is a strong refactoring candidate. REPO-SIGHT flags functions above 10.</p>
+    <h3>Does an <code>else</code> add to the count?</h3>
+    <p>No. The decision was already counted at the <code>if</code>. An <code>else if</code> or <code>elif</code> does add one, because it introduces a new condition.</p>
+    <h3>Is high complexity always bad?</h3>
+    <p>No. A parser or a state machine can be legitimately branchy. What matters is whether the complexity is isolated, tested and understood. A function that is a clear outlier among its neighbours is usually the one to look at first.</p>
+
     <h2>How REPO-SIGHT reports it</h2>
-    <p>REPO-SIGHT's parser walks the token stream of each C++, Python, Java, TypeScript, JavaScript, or C# file and increments a per-function counter at every branch point &mdash; loops, conditionals, case labels, catch blocks, ternaries, and short-circuit operators &mdash; the same decision points described above. Per-function totals roll up into a project-wide cyclomatic complexity figure, and complexity density (complexity relative to code volume) feeds into the overall health score at a 35% weight, the single largest factor in the grade. <a href="/#analyze">Run it on a repo</a> to see your own numbers.</p>
+    <p>REPO-SIGHT reads each C++, Python, Java, TypeScript, JavaScript or C# file, increments a counter at every branch point, and reports both the per-file totals and any function above the limit of 10. Complexity density carries a 35% weight in the health score. <a href="/code-complexity-checker.html">Try the complexity checker</a> or <a href="/#analyze">run it on a repo</a> to see your own numbers.</p>
