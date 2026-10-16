@@ -270,7 +270,13 @@ std::vector<Violation> checkJavaRules(const std::string& path, const std::vector
                 if (tokens[j].value == "final")  isFinal  = true;
                 ++j;
             }
-            if (!(isStatic && isFinal)) {
+            // `public class X extends A, B {` / `public interface X<K,V> extends ...`
+            // is a type declaration, not a field -- the ',' in its extends/implements
+            // list otherwise ends the scan early and reports a supertype as a field.
+            const bool isTypeDecl = j < n && tokens[j].type == TokenType::KEYWORD &&
+                (tokens[j].value == "class" || tokens[j].value == "interface" ||
+                 tokens[j].value == "enum");
+            if (!(isStatic && isFinal) && !isTypeDecl) {
                 std::size_t k = j;
                 int depth = 0;
                 std::size_t nameIdx = n;
