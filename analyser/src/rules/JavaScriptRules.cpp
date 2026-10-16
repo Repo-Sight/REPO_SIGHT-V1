@@ -82,6 +82,21 @@ bool isPlausibleSecretLiteral(const std::string& raw) {
     return stripped.size() >= 6;
 }
 
+
+// True when the exec/execSync identifier at index i is a plausible shell
+// call: either a bare call (destructured import) or a call on a receiver
+// that looks like Node's child_process module. Calls on anything else
+// (regex.exec(...), pattern.exec(...)) are not shell execution.
+bool isShellExecReceiver(const std::vector<Token>& tokens, std::size_t i) {
+    if (i == 0) return true;
+    const Token& prev = tokens[i - 1];
+    if (!(prev.type == TokenType::OPERATOR && prev.value == ".")) return true;
+    if (i < 2 || tokens[i - 2].type != TokenType::IDENTIFIER) return false;
+    const std::string& recv = tokens[i - 2].value;
+    return recv == "child_process" || recv == "childProcess" || recv == "cp" ||
+           recv == "proc" || recv == "shell";
+}
+
 } // anonymous namespace
 
 std::vector<Violation> checkJavaScriptRules(const std::string& path, const std::vector<Token>& tokens,
@@ -169,9 +184,12 @@ std::vector<Violation> checkJavaScriptRules(const std::string& path, const std::
 
         // js-sec-child-process-exec: exec(...)/execSync(...) shell out to
         // the OS (typically via Node's child_process module).
+        // Member calls like regex.exec(...) are RegExp.prototype.exec, not a
+        // shell -- only bare exec(...) or <child_process-ish>.exec(...) count.
         if (tok.type == TokenType::IDENTIFIER &&
             (tok.value == "exec" || tok.value == "execSync") &&
-            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN) {
+            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN &&
+            isShellExecReceiver(tokens, i)) {
             out.push_back(makeSecurityViolation(path, tok.line, "js-sec-child-process-exec",
                 "'" + tok.value + "(...)' runs a shell command -- review that no part of it is "
                 "built from untrusted input", "warning"));
