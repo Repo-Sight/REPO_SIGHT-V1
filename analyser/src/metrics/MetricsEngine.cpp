@@ -195,12 +195,24 @@ void detectDuplicatesWithinLanguage(
     // partner file/location.
     std::set<std::tuple<std::string, int, std::string, int>> reported;
 
+    // Guard against pathological input: one huge generated literal (a
+    // 40,000-line dict, a lookup table) normalises to the same window
+    // thousands of times. Every pair in such a bucket then extends across
+    // the whole file, which is cubic and made a single file hang the
+    // analyser. Buckets above kMaxSeedLocations are truncated and their
+    // extension per pair is capped; ordinary buckets are unaffected.
+    constexpr std::size_t kMaxSeedLocations = 64;
+    constexpr std::size_t kMaxExtendTokens  = 4000;
+
     for (auto& seedEntry : seeds) {
         const auto& locations = seedEntry.second;
         if (locations.size() < 2) continue;
 
-        for (std::size_t i = 0; i < locations.size(); ++i) {
-            for (std::size_t j = i + 1; j < locations.size(); ++j) {
+        const bool crowded = locations.size() > kMaxSeedLocations;
+        const std::size_t limit = crowded ? kMaxSeedLocations : locations.size();
+
+        for (std::size_t i = 0; i < limit; ++i) {
+            for (std::size_t j = i + 1; j < limit; ++j) {
                 const ChunkLocation& locA = locations[i];
                 const ChunkLocation& locB = locations[j];
 
@@ -220,16 +232,22 @@ void detectDuplicatesWithinLanguage(
                 std::size_t startB = locB.tokenStart;
                 std::size_t matchLen = kDuplicationWindowTokens;
 
+                std::size_t extended = 0;
                 while (startA > 0 && startB > 0 &&
-                       tokensA[startA - 1].code == tokensB[startB - 1].code) {
+                       tokensA[startA - 1].code == tokensB[startB - 1].code &&
+                       (!crowded || extended < kMaxExtendTokens)) {
                     --startA;
                     --startB;
                     ++matchLen;
+                    ++extended;
                 }
+                extended = 0;
                 while (startA + matchLen < tokensA.size() &&
                        startB + matchLen < tokensB.size() &&
-                       tokensA[startA + matchLen].code == tokensB[startB + matchLen].code) {
+                       tokensA[startA + matchLen].code == tokensB[startB + matchLen].code &&
+                       (!crowded || extended < kMaxExtendTokens)) {
                     ++matchLen;
+                    ++extended;
                 }
 
                 // Same-file matches must not overlap themselves --
