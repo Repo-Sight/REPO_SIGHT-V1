@@ -1,27 +1,49 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/png" href="/favicon-32.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="google-adsense-account" content="ca-pub-9503894064247817" />
+<h1>Learn</h1>
+    <p class="legal-updated">Static analysis, explained plainly</p>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Samarkan&display=swap"
-    />
+    <p>These are short explainers on the metrics REPO-SIGHT reports and the ideas behind them — written for developers who want the "why," not a textbook.</p>
 
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9503894064247817" crossorigin="anonymous"></script>
-    <script>
-      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-    </script>
-    <script defer src="/_vercel/insights/script.js"></script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+    <h2>Static analysis fundamentals</h2>
+    <ul>
+      <li><strong><a href="/learn/what-is-static-analysis.html">What is static code analysis?</a></strong> — how reading source without running it catches problems early, and what it can't catch.</li>
+      <li><strong><a href="/learn/static-analysis-vs-dynamic-analysis.html">Static analysis vs. dynamic analysis</a></strong> — two fundamentally different ways to find problems, and why real pipelines use both.</li>
+      <li><strong><a href="/learn/benefits-of-static-code-analysis.html">The benefits of static code analysis</a></strong> — speed, consistency, and a shared vocabulary for describing code health.</li>
+      <li><strong><a href="/learn/static-code-analysis-for-beginners.html">Static code analysis for beginners</a></strong> — the three layers of tooling, and how to read your first report without panicking.</li>
+      <li><strong><a href="/learn/static-analysis-vs-code-review.html">Static analysis vs. code review</a></strong> — what a human catches that a tool can't, and vice versa.</li>
+    </ul>
+
+    <h2>Metrics, explained</h2>
+    <ul>
+      <li><strong><a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity, explained</a></strong> — what the number actually counts and how to bring a function back down.</li>
+      <li><strong><a href="/learn/what-is-code-complexity.html">What is code complexity?</a></strong> — cyclomatic complexity, cognitive complexity, and coupling are three different things.</li>
+      <li><strong><a href="/learn/maximum-nesting-depth-explained.html">What is maximum nesting depth?</a></strong> — why deep nesting is one of the fastest ways to make code unreadable.</li>
+      <li><strong><a href="/learn/reading-a-code-health-score.html">How to read a code health score</a></strong> — what REPO-SIGHT's A&ndash;F grade weighs and what to fix first.</li>
+      <li><strong><a href="/learn/how-to-measure-code-quality.html">How to measure code quality</a></strong> — quality isn't one number; here's what the common proxy metrics actually capture.</li>
+      <li><strong><a href="/learn/what-is-technical-debt.html">What is technical debt?</a></strong> — the financial metaphor, what a static analyzer can measure, and what 53 real projects show.</li>
+    </ul>
+
+    <h2>Language-specific fixes</h2>
+    <ul>
+      <li><strong><a href="/learn/improve-python-code-quality.html">How to improve Python code quality</a></strong> — bare except, mutable defaults, wildcard imports, with before/after code.</li>
+      <li><strong><a href="/learn/improve-cpp-code-quality.html">How to improve C++ code quality</a></strong> — raw new/delete, catch(...), magic numbers, with before/after code.</li>
+      <li><strong><a href="/learn/improve-java-code-quality.html">How to improve Java code quality</a></strong> — empty catch blocks, public fields, raw types, with before/after code.</li>
+    </ul>
+
+    <h2>Data from real repositories</h2>
+    <p>We scanned dozens of well-known open-source projects with REPO-SIGHT and published what we found. Every number links back to an <a href="/data/open-source-scan-2026-10.csv">open data file</a>.</p>
+    <ul>
+      <li><strong><a href="/learn/long-complex-functions-14-cpp-projects.html">Long and complex functions in 14 C++ projects</a></strong> &mdash; how many C++ functions go over 100 lines or complexity 10, where the longest ones live, and why most of them are parsers, formatters and test macros.</li>
+      <li><strong><a href="/learn/bare-except-and-mutable-defaults-18-python-projects.html">Bare except and mutable defaults: scanning 18 Python projects</a></strong> &mdash; how often two famous Python pitfalls turn up in 1.9 million lines of mature code, and why a bare except that re-raises is not the same bug.</li>
+      <li><strong><a href="/learn/longest-java-methods-13-open-source-projects.html">The longest Java methods in 13 open-source projects</a></strong> &mdash; what the longest Java methods in Guava, Jackson, Gson, Mockito and others look like, and why almost all of the very longest are tests.</li>
+      <li><strong><a href="/learn/todo-comments-vs-repository-age.html">Do older repositories carry more TODOs?</a></strong> &mdash; a scan of 53 open-source projects: median TODO density, the weak link with project age, and why a TODO count can mislead.</li>
+      <li><strong><a href="/learn/what-code-health-grades-measure-53-open-source-projects.html">What code health grades look like across 53 open-source projects</a></strong> &mdash; the grade distribution for 53 respected projects, the two components that decide most grades, and why you should compare within a language.</li>
+      <li><strong><a href="/learn/where-static-analysis-findings-live.html">Where static analysis findings actually live</a></strong> &mdash; how findings divide between production code and tests, docs and examples in 53 open-source projects, and what scanning real code taught us about false positives.</li>
+    </ul>
+
+    <h2>For students &amp; job seekers</h2>
+    <ul>
+      <li><strong><a href="/learn/code-quality-checklist-for-students.html">Code quality checklist for students</a></strong> — what to check before a project goes on your resume.</li>
+    </ul>
+
+    <h2>Try it on your own code</h2>
+    <p>Every metric described here is one REPO-SIGHT computes automatically. <a href="/#analyze">Paste a public GitHub URL</a> and get a full report in seconds — no signup required.</p>
