@@ -1,0 +1,74 @@
+<h1>Bare except and mutable defaults in 18 Python projects</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+    <p>Bare <code>except:</code>, mutable default arguments and wildcard imports are three of the most quoted Python pitfalls. We scanned 18 well-known Python projects &mdash; 1,892,200 lines of code &mdash; to see how often each really appears. In total there are 75 bare excepts, 60 mutable-default findings and 112 wildcard imports. That is about 0.13 findings per 1,000 lines, and the raw count overstates the problem once you read the code around them.</p>
+
+    <h2>How we measured</h2>
+    <p>The 18 projects are listed, with the commit scanned, in the <a href="/data/open-source-scan-2026-10.csv">open data file</a>. We counted findings from REPO-SIGHT&rsquo;s <code>py-bare-except</code>, <code>py-mutable-default-arg</code> and <code>py-wildcard-import</code> rules, then opened the code at every bare except and at the library-code mutable defaults to see what it did. A fourth rule, mutable class attributes, fired 1,988 times, more than these three combined, so we left it out. 4 projects have none of the three: click, jinja, requests and pytest.</p>
+
+    <h2>Bare except: 75 findings, 6 projects</h2>
+    <p>Only 6 of 18 projects contain a bare except at all, and one of them, SQLAlchemy, accounts for 49 of the 75. The rest are tornado (9), black (9), rich (6), scrapy (1) and flask (1).</p>
+    <p>A bare except catches everything, including <code>KeyboardInterrupt</code> and <code>SystemExit</code>. That is dangerous when the handler hides the error, and fine when it cleans up and passes the error on. This is how the 75 divide:</p>
+    <ul>
+      <li><strong>Re-raises: 29.</strong> The handler does some cleanup and raises again, as in the first example below. 23 are in library code and 6 in tests. This is a legitimate pattern, and the main reason the rule alone overstates the problem.</li>
+      <li><strong>Swallows with <code>pass</code>: 20.</strong> 17 are in tests or test-support code. 3 are in library code: two in SQLAlchemy&rsquo;s <code>orm/loading.py</code> and one in <code>dialects/oracle/provision.py</code>.</li>
+      <li><strong>Handles the error: 14.</strong> The handler returns a fallback value or records the failure, 7 in library code and 7 in tests.</li>
+      <li><strong>Test fixtures: 9.</strong> Every one of black&rsquo;s 9 hits is in <code>tests/data/cases</code>, which holds sample source files for the formatter to reformat. The bare excepts are the test input, not black&rsquo;s own code.</li>
+      <li><strong>Logs: 3.</strong> The handler logs the exception.</li>
+    </ul>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-good">Re-raises &mdash; usually fine</p>
+        <pre><code>try:
+    do_work()
+except:
+    cleanup()
+    raise</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-bad">Swallows &mdash; worth fixing</p>
+        <pre><code>try:
+    do_work()
+except:
+    pass</code></pre>
+      </div>
+    </div>
+    <p>Out of 75 findings, only the 3 library swallows and perhaps a few of the 7 library handlers merit a second look. That is the real size of the problem in this data set.</p>
+
+    <h2>Mutable defaults: 60 findings, 8 projects</h2>
+    <p>The classic bug is a default such as <code>items=[]</code>, which is created once and shared by every call. We found 60 findings at 49 distinct function definitions in 8 projects. 37 of the 49 are in tests or test-support code. Black has 17 findings, celery 13, django 9 and SQLAlchemy 8.</p>
+    <p>In the library cases we checked, the defaults were not mutated. Tornado&rsquo;s <code>ax_attrs</code> default is rebound with <code>set(ax_attrs)</code> before use. Black&rsquo;s <code>Node.__init__</code> takes a copy with <code>fixers_applied[:]</code>. SQLAlchemy&rsquo;s <code>inspect_formatargspec</code> replaces its <code>{}</code> defaults with <code>kwonlydefaults or {}</code>. FastAPI marks its own case with an explicit <code># noqa: B006</code>, a sign the maintainers know about the pattern and chose it. The pattern is still worth avoiding, because the next person to edit the function may not know any of this.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Shared between calls</p>
+        <pre><code>def add_item(item, items=[]):
+    items.append(item)
+    return items</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">One list per call</p>
+        <pre><code>def add_item(item, items=None):
+    items = [] if items is None else items
+    items.append(item)
+    return items</code></pre>
+      </div>
+    </div>
+
+    <h2>Wildcard imports: 112 findings, 8 projects</h2>
+    <p>74 of the 112 wildcard imports (66%) are in <code>__init__.py</code> files, where <code>from .module import *</code> is a common way to re-export a package&rsquo;s public names. Django has 36 of them, httpx 16, SQLAlchemy 15 and pydantic 10. Another 32 are in tests, and 6 are elsewhere: five in attrs&rsquo; re-export modules such as <code>attrs/validators.py</code> and one in Pillow&rsquo;s build backend.</p>
+    <p>Wildcard imports make it harder to see where a name comes from, so they are a poor habit in application code. In a package&rsquo;s <code>__init__.py</code> they are usually deliberate.</p>
+
+    <h2>What to take from this</h2>
+    <ul>
+      <li><strong>Read the handler, not just the rule.</strong> Half of the bare excepts here either re-raise or sit in tests and fixtures.</li>
+      <li><strong>Mature projects still have a few.</strong> Even in code with heavy review, a small number of swallowed exceptions exist. They are the ones to clean up first.</li>
+      <li><strong>Treat the count as a prompt.</strong> A rule that fires hundreds of times is telling you where to look, not how bad things are.</li>
+    </ul>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Is a bare except ever correct?</h3>
+    <p>It is acceptable when the handler cleans up and re-raises, which is the most common use in this data set. It is a bug when it silently discards the error. Catching <code>Exception</code> is usually the better default, because it leaves <code>KeyboardInterrupt</code> and <code>SystemExit</code> alone.</p>
+    <h3>Why does REPO-SIGHT report the re-raising ones too?</h3>
+    <p>The rule flags the syntax, and the report shows the code so you can judge. See <a href="/learn/improve-python-code-quality.html">how to improve Python code quality</a> for before-and-after fixes.</p>
+    <h3>How do I check my own project?</h3>
+    <p><a href="/#analyze">Paste a GitHub URL</a> to get a per-file list of findings. The <a href="/python-code-analyzer.html">Python code analyzer</a> page covers what is checked.</p>
