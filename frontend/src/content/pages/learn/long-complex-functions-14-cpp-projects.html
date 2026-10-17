@@ -1,0 +1,72 @@
+<h1>Long and complex functions in 14 C++ projects</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+    <p>We scanned 14 widely used open-source C++ projects &mdash; 19,876 functions in all &mdash; and counted how many cross two common limits: more than 100 lines, or a cyclomatic complexity above 10. Only 240 functions (1.2%) are longer than 100 lines and 461 (2.3%) are above complexity 10. The typical function is tiny, with a median of 6 lines. And 64% of the long ones sit in tests, benchmarks, examples or other non-production paths.</p>
+    <p>So the headline is not that C++ is full of monster functions. It is a short tail, and most of it is where you would expect to find it.</p>
+
+    <h2>How we measured</h2>
+    <p>The projects are Catch2, CLI11, cxxopts, doctest, FTXUI, Google Benchmark, GoogleTest, LevelDB, nlohmann/json, RapidJSON, RE2, spdlog, yaml-cpp, {fmt}. Each was scanned at a pinned commit, listed in the <a href="/data/open-source-scan-2026-10.csv">open data file</a>, using the same engine that powers the public scanner. Only C and C++ source and header files are counted.</p>
+    <ul>
+      <li><strong>Length</strong> is the number of lines from a function&rsquo;s first line to its closing brace, as REPO-SIGHT reports it.</li>
+      <li><strong>Complexity</strong> is the per-function cyclomatic complexity check, which raises a finding above 10. See <a href="/learn/cyclomatic-complexity-explained.html">cyclomatic complexity, explained</a> for how the count works.</li>
+      <li><strong>Non-production</strong> means a path with a directory named like test, tests, testing, spec, docs, examples, benchmark, fuzz, third_party or vendor, or a file named like a test.</li>
+    </ul>
+    <p>Two caveats. Test macros such as <code>TEST_CASE</code> are counted as function-like blocks, because that is how they behave. And some libraries ship a single-header copy of their own code, or bundle another library, so a few long functions are counted twice. About ten of the 240 sit in such copies.</p>
+
+    <h2>The shape of the distribution</h2>
+    <ul>
+      <li>The median function is 6 lines long. One function in a hundred is longer than about 120 lines.</li>
+      <li>723 functions (3.6%) are over 50 lines, 240 (1.2%) are over 100, and 97 are over 200.</li>
+      <li>Of the 461 functions above complexity 10, 331 score 11&ndash;20, 106 score 21&ndash;50 and 24 score above 50.</li>
+    </ul>
+
+    <h2>Where the long functions live</h2>
+    <p>154 of the 240 long functions (64%) are in non-production paths, and 128 of them are test macros: 101 <code>TEST_CASE</code>, 13 <code>TEST</code>, 11 <code>SECTION</code> and 3 <code>TEST_SUITE</code>. Frameworks like Catch2 and doctest encourage putting many assertions in one block, and a block of assertions is long without being hard to follow. The longest block in the whole data set is a <code>TEST_CASE</code> in nlohmann/json&rsquo;s <code>unit-bjdata.cpp</code>, at 2,967 lines.</p>
+    <p>The tail is also very uneven between projects. Here is the share of each project&rsquo;s functions that are over 100 lines:</p>
+    <ul>
+      <li><strong>nlohmann/json</strong>: 118 of 2,137 (5.52%)</li>
+      <li><strong>RE2</strong>: 23 of 964 (2.39%)</li>
+      <li><strong>doctest</strong>: 9 of 487 (1.85%)</li>
+      <li><strong>FTXUI</strong>: 14 of 1,133 (1.24%)</li>
+      <li><strong>RapidJSON</strong>: 22 of 2,132 (1.03%)</li>
+      <li><strong>cxxopts</strong>: 6 of 639 (0.94%)</li>
+      <li><strong>CLI11</strong>: 11 of 1,446 (0.76%)</li>
+      <li><strong>Google Benchmark</strong>: 4 of 573 (0.70%)</li>
+      <li><strong>Catch2</strong>: 10 of 1,574 (0.64%)</li>
+      <li><strong>spdlog</strong>: 8 of 1,389 (0.58%)</li>
+      <li><strong>LevelDB</strong>: 3 of 636 (0.47%)</li>
+      <li><strong>{fmt}</strong>: 7 of 2,192 (0.32%)</li>
+      <li><strong>yaml-cpp</strong>: 4 of 2,578 (0.16%)</li>
+      <li><strong>GoogleTest</strong>: 1 of 1,996 (0.05%)</li>
+    </ul>
+    <p>nlohmann/json alone supplies 118 of the 240 long functions (49%), mostly because of its large test suite. GoogleTest has one in nearly 2,000. The spread between projects is more than a hundredfold, which says more about how a project is organised than about its quality.</p>
+
+    <h2>The longest production functions</h2>
+    <p>Setting tests aside, the longest functions share a pattern:</p>
+    <ul>
+      <li><strong>Catch2</strong> <code>makeCommandLineParser</code>, 354 lines &mdash; builds the command-line parser and its option handlers.</li>
+      <li><strong>nlohmann/json</strong> <code>pow5_128</code>, 335 lines &mdash; a table of 128-bit approximations of powers of five in <code>pow5_table.hpp</code>, not logic.</li>
+      <li><strong>nlohmann/json</strong> <code>patch_inplace</code>, 304 lines &mdash; applies a JSON patch document.</li>
+      <li><strong>{fmt}</strong> <code>format_float</code>, 303 lines &mdash; and spdlog bundles a 297-line copy of it.</li>
+      <li><strong>CLI11</strong> <code>from_config</code>, 285 lines &mdash; reads configuration files.</li>
+      <li><strong>RapidJSON</strong> <code>ParseNumber</code>, 281 lines &mdash; parses numbers from JSON text.</li>
+    </ul>
+    <p>These are number formatting and parsing, configuration and command-line handling, and constant tables. Code that has to accept messy, varied input tends to grow branches, and code that holds a table tends to be long without being complicated.</p>
+
+    <h2>Complexity tells a similar story</h2>
+    <p>Of the 461 functions above complexity 10, 102 (22%) are in non-production paths, a smaller share than for length. The most complex production functions are again parsers: CLI11&rsquo;s <code>from_config</code> at 111, RapidJSON&rsquo;s <code>ParseNumber</code> at 95, CLI11&rsquo;s <code>_parse_arg</code> at 88 and {fmt}&rsquo;s <code>parse_chrono_format</code> at 82. Their branching follows the grammar of the input they read, so a high score here is a reason to test thoroughly rather than a reason to panic.</p>
+
+    <h2>What to do with this</h2>
+    <ul>
+      <li><strong>Read the list by path.</strong> Look at long functions in production code first. Treat test blocks as a separate, lower-priority question.</li>
+      <li><strong>Ask what kind of long it is.</strong> A constant table can move into data. A parser with many branches deserves tests for each branch. A function doing several jobs should be split.</li>
+      <li><strong>Watch the trend, not the zero.</strong> A handful of justified outliers is normal. A rising count between scans is the signal.</li>
+    </ul>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Is 100 lines too long for a C++ function?</h3>
+    <p>It is a reasonable point at which to look more closely, not a rule. In this data set 1.2% of functions pass it, and many of those are tests or tables.</p>
+    <h3>Why do the numbers differ from other tools?</h3>
+    <p>Counts depend on definitions: whether macros count as functions, whether single-header copies are included, and what counts as a branch. We publish ours so you can check them.</p>
+    <h3>Can I run this on my own project?</h3>
+    <p>Yes. <a href="/#analyze">Paste a GitHub URL</a> and the report lists your longest and most complex functions by file. The <a href="/cpp-code-analyzer.html">C++ code analyzer</a> page explains what is checked.</p>
