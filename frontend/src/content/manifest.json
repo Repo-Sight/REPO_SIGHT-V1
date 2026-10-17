@@ -411,10 +411,10 @@
     "file": "learn/where-static-analysis-findings-live.html",
     "kind": "legal",
     "title": "Where Static Analysis Findings Live: Tests, Docs, Production | REPO-SIGHT",
-    "description": "About 59% of static analysis findings in 53 open-source projects sit outside production code, and 86% of security findings. What that means for reading a report.",
+    "description": "About 58% of static analysis findings in 53 open-source projects sit outside production code, and 86% of security findings. What that means for reading a report.",
     "canonical": "https://www.repo-sight.com/learn/where-static-analysis-findings-live.html",
     "ogTitle": "Where Static Analysis Findings Live: Tests, Docs, Production | REPO-SIGHT",
-    "ogDescription": "About 59% of static analysis findings in 53 open-source projects sit outside production code, and 86% of security findings. What that means for reading a report.",
+    "ogDescription": "About 58% of static analysis findings in 53 open-source projects sit outside production code, and 86% of security findings. What that means for reading a report.",
     "robots": "index, follow"
   }
 ]
