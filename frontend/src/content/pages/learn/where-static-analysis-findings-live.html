@@ -1,0 +1,58 @@
+<h1>Where static analysis findings actually live</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+    <p>We scanned 53 well-regarded open-source projects, which produced 32,174 findings. About 58% of them (18,568) are in tests, documentation, examples, benchmarks or bundled third-party code rather than in the code that ships. For security findings the share is higher: 86% of the 1,258 are outside production code. If you read a report from any static analysis tool as one flat list, you will spend most of your time on the least important part of it.</p>
+
+    <h2>How we measured</h2>
+    <p>The 53 projects, the commit scanned in each and the finding counts are in the <a href="/data/open-source-scan-2026-10.csv">open data file</a>. For this article we classified a finding as non-production when its path has a directory named test, tests, testing, spec, docs, examples, samples, benchmark, fuzz, fixtures, third_party or vendor, or when the file is named like a test (<code>test_*.py</code>, <code>*Test.java</code>, <code>*.spec.ts</code> and similar). The rule is deliberately simple and blunt, which has two consequences. Generated website assets still count as production, so Retrofit&rsquo;s bundled documentation scripts are included in the production figure. And test directories with unusual names, such as celery&rsquo;s <code>t/</code>, are missed. Both push the true non-production share up, not down.</p>
+
+    <h2>Findings by language</h2>
+    <ul>
+      <li><strong>JavaScript</strong> (5 projects): 8,847 findings, 75% outside production.</li>
+      <li><strong>Python</strong> (18 projects): 6,158 findings, 62% outside production.</li>
+      <li><strong>TypeScript</strong> (1 projects): 2,600 findings, 58% outside production.</li>
+      <li><strong>Java</strong> (13 projects): 7,726 findings, 47% outside production.</li>
+      <li><strong>C++</strong> (14 projects): 5,503 findings, 44% outside production.</li>
+      <li><strong>C#</strong> (2 projects): 1,340 findings, 41% outside production.</li>
+    </ul>
+    <p>The share depends on how a language&rsquo;s projects lay out their tests and on which rules dominate, so it varies from 41% to 75%. Even the lowest, C#, puts about four in ten findings outside production code. Three of the six groups hold five projects or fewer, so read the per-language figures as indications and not as measurements.</p>
+
+    <h2>A few rules produce most of the findings</h2>
+    <p>The three most frequent rules produce 39% of all findings:</p>
+    <ul>
+      <li><code>js-var-usage</code>: 8,166 findings (25%), 70% outside production.</li>
+      <li><code>cpp-magic-number-literal</code>: 2,175 findings (7%), 28% outside production.</li>
+      <li><code>cpp-raw-new-delete</code>: 2,052 findings (6%), 62% outside production.</li>
+    </ul>
+    <p>The first is a style rule, flagging the <code>var</code> keyword in JavaScript. Three projects &mdash; lodash, Express and jQuery &mdash; produce 83% of it, and all three began before ES2015 introduced <code>let</code> and <code>const</code>. It is a legitimate finding, and also a good example of why counts mislead: it says more about a project&rsquo;s age than about its current quality.</p>
+    <p>Some rules are almost entirely about test code. <code>java-empty-catch-block</code> fired 1,512 times, 98% of them outside production, likely because tests often catch an exception on purpose to check that it is thrown. <code>py-mutable-class-attribute</code> fired 1,994 times, 81% outside production.</p>
+
+    <h2>Security findings, in particular</h2>
+    <p>Only 172 of the 1,258 security findings are in production paths. The largest group is <code>py-sec-hardcoded-secret</code>: 450 findings, of which 5 are outside tests. Most of these are in test files, where placeholder passwords and tokens are common, and a pattern matcher cannot tell a placeholder from a real credential. The next largest are <code>py-sec-pickle-load</code> (296), <code>ts-sec-inner-html</code> (128) and <code>py-sec-eval-exec</code> (103).</p>
+    <p>The 172 findings in production code are the ones worth reading first. They are led by <code>js-sec-inner-html</code> (61, of which 56 are in Retrofit&rsquo;s generated website scripts), then <code>py-sec-eval-exec</code>, <code>py-sec-pickle-load</code> and <code>py-sec-weak-hash</code>. A short list of real candidates is far more useful than a long one that is mostly test fixtures.</p>
+
+    <h2>What scanning real code taught us about false positives</h2>
+    <p>Preparing this data set led to a round of fixes in the engine, and every number above comes from the fixed version. The patterns are worth knowing, because other tools run into the same things:</p>
+    <ul>
+      <li>A deleted constructor, <code>Foo(const Foo&amp;) = delete;</code>, and an <code>operator new</code> declaration were being reported as raw <code>new</code>/<code>delete</code>.</li>
+      <li><code>hashlib.md5(data, usedforsecurity=False)</code>, the documented way to say a hash is only a checksum, was reported as a weak hash.</li>
+      <li>Method calls such as <code>regex.exec(...)</code> and <code>obj.eval(...)</code> were taken for shell execution or the built-in <code>eval</code>.</li>
+      <li><code>__slots__</code>, <code>__all__</code> and ALL_CAPS constants were reported as mutable class attributes.</li>
+      <li>A TypeScript test file containing a call such as <code>it("x", () =&gt; {...})</code> without a trailing semicolon made the parser invent a 4,000-line &ldquo;function&rdquo; that ran to the end of the block.</li>
+    </ul>
+    <p>The last one is a good reminder that long-function counts depend on the parser being right. It is also why we publish the data: anyone can rerun a project and check.</p>
+
+    <h2>What to do when you read a report</h2>
+    <ul>
+      <li><strong>Filter by path first.</strong> Look at production code, then separate the test findings into their own pass.</li>
+      <li><strong>Read the rule&rsquo;s explanation before the count.</strong> A rule that fires thousands of times is usually about style or convention.</li>
+      <li><strong>Treat security findings as a short list.</strong> Start with the few in production paths and check each for real input reaching it.</li>
+    </ul>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Are findings in tests worthless?</h3>
+    <p>No. A test that swallows an exception can hide a failing test, and test code needs to be maintained. They are lower priority, not irrelevant.</p>
+    <h3>Does REPO-SIGHT separate production from test code?</h3>
+    <p>The report lists every finding with its file path, so test and production findings are easy to tell apart. See <a href="/code-security-scanner.html">the code security scanner</a> for what the security checks cover and <a href="/learn/benefits-of-static-code-analysis.html">the benefits of static code analysis</a> for the wider picture.</p>
+    <h3>Can I try it on my project?</h3>
+    <p><a href="/#analyze">Paste a GitHub URL</a> and read the findings by file.</p>
