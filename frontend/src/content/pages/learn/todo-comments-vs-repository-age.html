@@ -1,0 +1,55 @@
+<h1>The longest Java methods in 13 open-source projects</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+    <p>Only 0.15% of the Java methods and constructors in 13 respected open-source projects are longer than 100 lines &mdash; 211 out of 140,090. We ranked the longest of them. The ten longest are all in test or benchmark code, and 159 of the 211 (75%) sit outside production paths. The long methods that do ship in production are a small, recognisable set.</p>
+
+    <h2>How we measured</h2>
+    <p>The projects are Guava, Guice, Gson, Jackson Core, Jsoup, Joda-Time, JUnit 5, Mockito, Retrofit, SLF4J and three Apache Commons libraries (Collections, IO and Lang). Each was scanned at a pinned commit listed in the <a href="/data/open-source-scan-2026-10.csv">open data file</a>. Only Java files are counted, so Retrofit&rsquo;s bundled website scripts are left out. Length is the number of lines from a method&rsquo;s first line to its closing brace, and a constructor counts as a method. &ldquo;Non-production&rdquo; means a path with a directory named like test, tests, benchmark, examples, docs or vendor, or a file named like <code>FooTest.java</code>.</p>
+
+    <h2>How rare is a long method?</h2>
+    <ul>
+      <li>The median method is 5 lines. One method in a hundred is longer than 50 lines.</li>
+      <li>1,340 methods (1.0%) are over 50 lines, 211 (0.15%) are over 100, and 49 are over 200.</li>
+      <li>The count is concentrated: Guava has 66 of the 211, Jackson Core 37, Commons Lang 30, Guice 26, Joda-Time 12 and Gson 9.</li>
+    </ul>
+
+    <h2>The longest of all: tables and test bodies</h2>
+    <p>The top of the ranking is not code anyone would call logic:</p>
+    <ul>
+      <li><strong>Jackson Core</strong>, <code>DoubleToDecimalChecker</code>: four methods named <code>hard0</code> to <code>hard3</code> of 5,004, 5,004, 5,004 and 4,549 lines. Each returns a single array of hard-coded double-precision values for a test.</li>
+      <li><strong>Commons Lang</strong>, <code>ArrayUtilsTest.testSameLengthAll</code>: 1,334 lines of setup and assertions in one test method.</li>
+      <li><strong>Guava</strong>, <code>CharMatcherBenchmark</code>: <code>populateProb2</code> at 720 lines and <code>populateProb1</code> at 633, both in benchmark code.</li>
+      <li><strong>Commons Lang</strong>, <code>SystemUtilsTest.testJavaVersionMatches</code>: 623 lines.</li>
+    </ul>
+    <p>All of the ten longest methods, and 19 of the 20 longest, are in tests or benchmarks. They are long because they list data or repeat one kind of assertion many times, not because they are tangled. Another 20 of the 211 are methods named <code>suite</code>, the JUnit 3 convention for collecting tests.</p>
+
+    <h2>The longest production methods</h2>
+    <p>Filtering to production paths leaves 52 methods over 100 lines. The longest are:</p>
+    <ul>
+      <li><strong>Retrofit</strong>, <code>RequestFactory.parseParameterAnnotation</code>: 456 lines &mdash; parses the annotations on a parameter.</li>
+      <li><strong>Jsoup</strong>, <code>HtmlTreeBuilderState.inBodyStartTag</code>: 357 lines &mdash; the HTML parser&rsquo;s rules for start tags inside the body.</li>
+      <li><strong>Mockito</strong>, <code>MockMethodAdvice.wrap</code>: 257 lines &mdash; bytecode advice for mocked methods.</li>
+      <li><strong>Guice</strong>, <code>FactoryProvider2.FactoryProvider2</code>: 227 lines &mdash; a constructor.</li>
+      <li><strong>Guice</strong>, <code>SingletonScope.scope</code>: 223 lines &mdash; singleton scope handling.</li>
+      <li><strong>Guice</strong>, <code>BindingProcessor.visit</code>: 217 lines &mdash; binding processing.</li>
+      <li><strong>Mockito</strong>, <code>MockMethodAdvice.visitCode</code>: 205 lines &mdash; bytecode advice for mocked methods.</li>
+      <li><strong>Commons Lang</strong>, <code>RandomStringUtils.random</code>: 202 lines &mdash; random string generation.</li>
+    </ul>
+    <p>Read down that list and the pattern is clear: parsers and annotation handlers, bytecode instrumentation, and framework internals. Retrofit&rsquo;s <code>parseParameterAnnotation</code> is an if/else-if chain with one branch for each annotation type, such as <code>Url</code>, <code>Path</code> and <code>Query</code>. Jsoup&rsquo;s <code>inBodyStartTag</code> follows the HTML specification&rsquo;s rules for start tags, which are themselves a long list of special cases. In both, the length mirrors the thing being modelled.</p>
+    <p>Complexity points the same way. The most complex production methods are Jsoup&rsquo;s <code>inBodyStartTag</code> at 124, Retrofit&rsquo;s <code>parseParameterAnnotation</code> at 120, and Commons Lang&rsquo;s <code>random</code> at 78. Across all 984 Java methods above complexity 10, 344 (35%) are in non-production paths.</p>
+
+    <h2>What this means for your own code</h2>
+    <ul>
+      <li><strong>Check the path before the number.</strong> A test with a 1,300-line body is a different problem from a 300-line method in production code.</li>
+      <li><strong>Long and branchy often means &ldquo;mirrors a spec&rdquo;.</strong> If a method follows an external grammar or protocol, the useful questions are whether it is tested and whether a new case is easy to add.</li>
+      <li><strong>Tables belong in data.</strong> A method that returns thousands of literal values is a candidate for a resource file.</li>
+      <li><strong>Set a limit and watch the trend.</strong> Projects this well maintained still have a few dozen long production methods. Zero is not the goal; a steady count is.</li>
+    </ul>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Are constructors counted as methods?</h3>
+    <p>Yes. Guice&rsquo;s <code>FactoryProvider2</code> constructor, at 227 lines, is in the list above.</p>
+    <h3>Why is the share so low compared with other languages?</h3>
+    <p>In this data set, 0.15% of Java methods pass 100 lines, against 1.2% of C++ functions and 0.45% of Python functions. These are 13 mature projects with strong conventions, so treat it as a picture of well-kept code and not a language ranking.</p>
+    <h3>How do I find the long methods in my project?</h3>
+    <p><a href="/#analyze">Paste a GitHub URL</a> and the report ranks your longest and most complex methods by file. The <a href="/java-code-analyzer.html">Java code analyzer</a> page lists what is checked, and <a href="/learn/improve-java-code-quality.html">how to improve Java code quality</a> shows common fixes.</p>
