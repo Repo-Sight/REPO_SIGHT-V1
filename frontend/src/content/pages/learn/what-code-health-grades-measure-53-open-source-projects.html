@@ -1,0 +1,55 @@
+<h1>What code health grades look like across 53 open-source projects</h1>
+    <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
+
+    <p>We scanned 53 well-regarded open-source projects and graded each one with REPO-SIGHT&rsquo;s code health score. The result: 15 As, 13 Bs, 22 Cs, 3 Ds and no Fs. Two of the five score components decide almost every grade, and the language a project is written in moves the result far more than most people expect. A C in this data set rarely means the code is bad.</p>
+
+    <h2>How the score works</h2>
+    <p>The score is a weighted average of five components, each scaled from 0 to 100 between a &ldquo;good&rdquo; and a &ldquo;bad&rdquo; reference point. <a href="/learn/reading-a-code-health-score.html">Reading a code health score</a> covers the idea in detail. The figures below come from the scoring code itself:</p>
+    <ul>
+      <li><strong>Complexity density</strong> (35%): cyclomatic complexity per line of code, from 0.15 (full marks) to 0.50 (zero).</li>
+      <li><strong>Average function length</strong> (25%): from 15 lines (full marks) to 60 lines (zero).</li>
+      <li><strong>Comment density</strong> (20%): comment lines per code line, from 0.20 (full marks) down to 0.02 (zero).</li>
+      <li><strong>TODO density</strong> (10%): TODO and FIXME markers per code line, from 0.01 (full marks) to 0.05 (zero).</li>
+      <li><strong>Maximum nesting depth</strong> (10%): from 3 levels (full marks) to 8 (zero).</li>
+    </ul>
+    <p>Grades are A at 90 and above, B at 80, C at 70 and D at 60. We recomputed every project&rsquo;s score from the published columns of the <a href="/data/open-source-scan-2026-10.csv">open data file</a> and matched each one to within a tenth of a point.</p>
+
+    <h2>The distribution</h2>
+    <p>The 53 projects split into 15 As (28%), 13 Bs, 22 Cs and 3 Ds. The top scorers are SLF4J (94) and Jsoup and Polly (92 each). The three Ds are axios (70), fastapi (70) and core (69). All three are within two points of a C. In fact 18 of the 53 projects score within one point of a grade boundary, so a single refactor or a pile of new comments can move a grade.</p>
+
+    <h2>Two components decide the grade</h2>
+    <p>Averaged over the 53 projects, here is how many of the 100 points each component costs:</p>
+    <ul>
+      <li><strong>Maximum nesting depth:</strong> 9.7 of 10 points lost. 48 of 53 projects score zero on it, because their deepest block is eight levels or more. The median project&rsquo;s deepest block is 10 levels.</li>
+      <li><strong>Comment density:</strong> 8.0 of 20 points lost.</li>
+      <li><strong>Average function length:</strong> 0.8 of 25 points lost.</li>
+      <li><strong>Complexity density:</strong> 0.1 of 35 points lost.</li>
+      <li><strong>TODO density:</strong> 0.0 of 10 points lost.</li>
+    </ul>
+    <p>Because nesting depth is a near-constant penalty &mdash; almost every large project has at least one deeply nested block &mdash; it barely separates one project from another. Comment density does. The average A-grade project scores 100 on comments, the average C-grade project scores 26, and the three Ds average 17. Complexity and TODO density cost almost nothing across these projects, which fits their reputation for well-maintained code.</p>
+    <p>The practical reading is that a project&rsquo;s grade here is mostly its comment density, with a fixed deduction for the one deeply nested block everyone has.</p>
+
+    <h2>Why the language matters so much</h2>
+    <ul>
+      <li><strong>Java:</strong> 13 projects, average score 90, grades 11 A and 2 B. Comments average 45 per 100 lines of code.</li>
+      <li><strong>C++:</strong> 14 projects, average 84, grades 3 A, 7 B and 4 C. Comments average 19 per 100 lines.</li>
+      <li><strong>JavaScript:</strong> 5 projects, average 76.</li>
+      <li><strong>Python:</strong> 18 projects, average 74, grades 2 B, 15 C and 1 D. Comments average 5 per 100 lines.</li>
+    </ul>
+    <p>The gap is mostly comment density, and part of it is a counting convention. REPO-SIGHT counts only <code>#</code> comments as comment lines in Python. We checked this with a small test file: a function with a three-line docstring and one <code>#</code> comment reports one comment line and six code lines. Python projects document themselves in docstrings, so they score low on this component even when they are thoroughly documented. Javadoc blocks in Java and <code>//</code> comments in C++ count in full.</p>
+    <p>The lesson is to compare a project with other projects in the same language. A Python project at 74 is a normal result; a Java project at 74 would be unusual.</p>
+
+    <h2>How to use your own grade</h2>
+    <ul>
+      <li><strong>Open the breakdown, not just the letter.</strong> The component scores tell you which of the five is costing points.</li>
+      <li><strong>Pick the component you can move.</strong> Splitting one very deep block is a quick win for nesting depth. Adding useful comments moves comment density, but only if the comments help.</li>
+      <li><strong>Track the change between scans.</strong> Moving from 69 to 72 matters more than the letter.</li>
+    </ul>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Is a C a bad grade?</h3>
+    <p>Not on its own. In this data set 22 of 53 respected projects score a C, and the cause is usually comment density or one deep block, not tangled logic.</p>
+    <h3>Why is there no F?</h3>
+    <p>An F needs a score below 60. The lowest project here scores 69. Complexity density and TODO density are almost always strong in mature projects, which sets a high floor.</p>
+    <h3>See your own grade</h3>
+    <p><a href="/#analyze">Paste a GitHub URL</a> for your score and component breakdown, or read about the <a href="/code-quality-checker.html">code quality checker</a>.</p>
