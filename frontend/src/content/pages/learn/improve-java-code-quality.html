@@ -1,21 +1,22 @@
-    <h1>How to improve Java code quality</h1>
+<h1>How to improve Java code quality</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
+    <p>Java's quality problems tend to cluster around encapsulation, error handling and a short list of classic security mistakes. They compile cleanly and pass a quick glance, but cause real maintenance pain later. This guide covers the patterns worth fixing first, with before-and-after code. Every example was run through REPO-SIGHT: the "before" version triggers the named rule and the "after" version comes back clean, with one exception we call out. We also use data from 13 well-known Java projects, 140,090 methods in all, to show how common these problems are in respected code.</p>
 
-    <p>Java's quality problems tend to cluster around encapsulation and error handling &mdash; patterns that compile cleanly and pass a quick glance, but cause real maintenance pain later. Here are the four worth fixing first.</p>
+    <h2>Part 1: Error handling and encapsulation</h2>
 
-    <h2>Empty catch blocks</h2>
-    <p>An empty <code>catch</code> block compiles fine and silently discards the exception, which means a real failure produces no signal anywhere &mdash; no log line, no stack trace, nothing to search for when something downstream breaks.</p>
+    <h3>Empty catch blocks</h3>
+    <p>An empty <code>catch</code> block compiles fine and silently discards the exception, which means a real failure produces no signal anywhere: no log line, no stack trace, nothing to search for when something downstream breaks. Rule: <code>java-empty-catch-block</code>. REPO-SIGHT rates it high severity with high confidence, and promotes it to the "fix now" card at the top of a report.</p>
     <div class="code-compare">
       <div>
-        <p class="code-label label-bad">Before &mdash; failure vanishes silently</p>
+        <p class="code-label label-bad">Before: failure vanishes silently</p>
         <pre><code>try {
     connection.send(payload);
 } catch (IOException e) {
 }</code></pre>
       </div>
       <div>
-        <p class="code-label label-good">After &mdash; failure is visible</p>
+        <p class="code-label label-good">After: failure is visible</p>
         <pre><code>try {
     connection.send(payload);
 } catch (IOException e) {
@@ -23,31 +24,33 @@
 }</code></pre>
       </div>
     </div>
+    <p>If ignoring the exception is genuinely correct, say so: put a comment inside the block explaining why, or catch the narrowest type possible. An empty block with no explanation is indistinguishable from a bug.</p>
 
-    <h2>Public fields</h2>
-    <p>A public field lets any caller mutate it directly, with no chance to validate the new value or react to the change &mdash; the entire point of encapsulation is to prevent exactly this.</p>
+    <h3>Public fields</h3>
+    <p>A public field lets any caller mutate it directly, with no chance to validate the new value or react to the change. The entire point of encapsulation is to prevent exactly this. Rule: <code>java-public-field</code>.</p>
     <div class="code-compare">
       <div>
-        <p class="code-label label-bad">Before &mdash; anyone can set a negative balance</p>
+        <p class="code-label label-bad">Before: anyone can set a negative balance</p>
         <pre><code>public class Account {
     public double balance;
 }</code></pre>
       </div>
       <div>
-        <p class="code-label label-good">After &mdash; validated on the way in</p>
+        <p class="code-label label-good">After: validated on the way in</p>
         <pre><code>public class Account {
     private double balance;
 
     public void setBalance(double value) {
-        if (value < 0) throw new IllegalArgumentException();
+        if (value &lt; 0) throw new IllegalArgumentException();
         this.balance = value;
     }
 }</code></pre>
       </div>
     </div>
+    <p>One exception is built in. A class that only holds data, with fields, constructors, <code>toString</code>/<code>equals</code>/<code>hashCode</code> and plain get/set/is accessors and nothing else, is treated as a deliberate DTO or POJO, and its public fields are not flagged. We checked this: a <code>UserDto</code> with two public fields and a getter and setter produces no finding, while the same public field on a class with real behaviour does. That keeps the rule from burying you in noise on data-transfer classes.</p>
 
-    <h2><code>printStackTrace()</code> in production paths</h2>
-    <p><code>printStackTrace()</code> writes straight to stderr, which is easy to lose entirely in a production environment with real log aggregation &mdash; a proper logger routes the same information somewhere it can actually be searched later.</p>
+    <h3><code>printStackTrace()</code> in production paths</h3>
+    <p><code>printStackTrace()</code> writes straight to stderr, which is easy to lose entirely in an environment with real log aggregation. A proper logger routes the same information somewhere it can be searched later. Rule: <code>java-printstacktrace</code>.</p>
     <div class="code-compare">
       <div>
         <p class="code-label label-bad">Before</p>
@@ -63,20 +66,93 @@
       </div>
     </div>
 
-    <h2>Raw generic types</h2>
-    <p>Using a generic type without its type parameter (a &quot;raw type&quot;) throws away the compile-time type checking generics exist to provide, pushing what should be a compile error into a runtime <code>ClassCastException</code> instead.</p>
+    <h3>Raw types</h3>
+    <p>Using a generic class without its type parameter turns off compile-time type checking for it, so a wrong element type surfaces as a <code>ClassCastException</code> at runtime instead of an error at compile time. Rule: <code>java-raw-type-usage</code>.</p>
     <div class="code-compare">
       <div>
-        <p class="code-label label-bad">Before &mdash; no compile-time safety</p>
-        <pre><code>List names = new ArrayList();
-names.add("Ada");</code></pre>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>List items = new ArrayList();</code></pre>
       </div>
       <div>
         <p class="code-label label-good">After</p>
-        <pre><code>List&lt;String&gt; names = new ArrayList&lt;&gt;();
-names.add("Ada");</code></pre>
+        <pre><code>List&lt;String&gt; items = new ArrayList&lt;&gt;();</code></pre>
       </div>
     </div>
 
-    <h2>How REPO-SIGHT checks for these</h2>
-    <p>These four are REPO-SIGHT's actual Java rules &mdash; <code>java-empty-catch-block</code>, <code>java-public-field</code>, <code>java-printstacktrace</code>, and <code>java-raw-type-usage</code> &mdash; alongside long-method, deep-nesting, and TODO-without-ticket checks. <a href="/#analyze">Run it on a Java repository</a> to see which of these show up in yours.</p>
+    <h2>Part 2: Security patterns to review</h2>
+    <p>These rules flag code that is dangerous <em>if</em> untrusted input reaches it. A finding is a prompt to check the data flow, not proof of a vulnerability.</p>
+
+    <h3>SQL built by string concatenation</h3>
+    <p>Gluing user input into a query string is the textbook route to SQL injection. A <code>PreparedStatement</code> sends the query and the values separately, so the values can never change the query's structure. Rule: <code>java-sec-sql-string-concat</code>.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>Statement s = c.createStatement();
+return s.executeQuery(
+    "SELECT * FROM users WHERE name = '"
+    + name + "'");</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>PreparedStatement s = c.prepareStatement(
+    "SELECT * FROM users WHERE name = ?");
+s.setString(1, name);
+return s.executeQuery();</code></pre>
+      </div>
+    </div>
+
+    <h3>Weak hashes and ciphers</h3>
+    <p>MD5 and SHA-1 are broken for collision resistance, and DES has a key far too small to be safe. Rules: <code>java-sec-weak-hash</code>, <code>java-sec-weak-cipher</code>.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>MessageDigest.getInstance("MD5");
+Cipher.getInstance("DES");</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>MessageDigest.getInstance("SHA-256");
+Cipher.getInstance("AES/GCM/NoPadding");</code></pre>
+      </div>
+    </div>
+    <p>For storing passwords, even SHA-256 is the wrong tool because it is fast. Use a slow, salted password hash such as bcrypt, scrypt or Argon2. MD5 is still fine for a non-security checksum, which is why the weak-hash rule is rated low confidence.</p>
+
+    <h3>Launching operating-system commands</h3>
+    <p><code>Runtime.getRuntime().exec(...)</code> with a single concatenated string lets user input add extra commands or arguments. Rule: <code>java-sec-runtime-exec</code>.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>Runtime.getRuntime()
+    .exec("convert " + arg);</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After: separate arguments</p>
+        <pre><code>new ProcessBuilder("convert", arg).start();</code></pre>
+      </div>
+    </div>
+    <p>This is the one exception to "the after version comes back clean". REPO-SIGHT flags any process launch for review, including <code>new ProcessBuilder(...)</code>, because it cannot tell whether <code>arg</code> was validated. The fix still matters: with separate arguments, <code>arg</code> is one argument and cannot smuggle in a second command. The finding that remains is the reminder to confirm the value is checked.</p>
+
+    <h3>Trust-everything certificate managers</h3>
+    <p>A custom <code>X509TrustManager</code> whose methods do nothing disables certificate validation, which makes every HTTPS connection open to interception. Rule: <code>java-sec-trust-manager-review</code>, which is deliberately low confidence because many custom managers are legitimate. If the class exists only to make an SSL error go away, delete it and fix the real certificate problem instead.</p>
+
+    <h2>Part 3: Structure</h2>
+    <p>Methods over 100 lines raise <code>java-long-method</code>, blocks nested more than 6 deep raise <code>java-deep-nesting</code>, and methods above <a href="/learn/cyclomatic-complexity-explained.html">cyclomatic complexity</a> 10 raise <code>java-complex-function</code>. Java is a good place to calibrate expectations, because mature projects keep these rare. Across the 13 projects we scanned, the median method was 5 lines, and only 211 of 140,090 methods (0.15%) were over 100 lines. About 984 were above complexity 10, and 35% of those were in tests or other non-production code.</p>
+    <p>The long methods that do ship in production are a recognisable set: parsers, annotation handlers and framework internals. Retrofit's <code>parseParameterAnnotation</code> runs 456 lines because it has one branch per annotation type. If your long methods are not parsers or protocol handlers, they are probably doing too many jobs. See <a href="/learn/longest-java-methods-13-open-source-projects.html">the longest Java methods in 13 open-source projects</a> for the full ranking.</p>
+
+    <h2>What to fix first</h2>
+    <ol>
+      <li>Empty catch blocks, because they hide failures and they are high-confidence.</li>
+      <li>String-built SQL and OS commands on input you do not control.</li>
+      <li>Weak ciphers and hashes used for security purposes.</li>
+      <li>Public fields on classes with real behaviour, raw types and <code>printStackTrace()</code>, as you touch the code.</li>
+    </ol>
+    <p>Java projects scored best in our data: 11 of 13 earned an A on REPO-SIGHT's <a href="/learn/reading-a-code-health-score.html">code health score</a>, partly because Javadoc and <code>//</code> comments count in full toward comment density. Check the path before the number: 47% of the 7,726 Java findings were outside production code. See <a href="/learn/where-static-analysis-findings-live.html">where static analysis findings actually live</a>.</p>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Does REPO-SIGHT understand Spring, Lombok or annotations?</h3>
+    <p>It reads Java source as tokens and does not expand annotation processors. Code generated by Lombok is not visible to it, so it analyses the source as written.</p>
+    <h3>Can it replace SpotBugs or PMD?</h3>
+    <p>No. Those tools work on bytecode or a full syntax tree and catch more subtle defects. REPO-SIGHT is quick, needs no build, and focuses on a ranked, plain-English list of the most important problems.</p>
+
+    <h2>Check your own project</h2>
+    <p>These are REPO-SIGHT's actual Java checks. <a href="/#analyze">Run it on a Java repository</a> or use the <a href="/java-code-analyzer.html">Java code analyzer</a> to see which show up in yours.</p>
