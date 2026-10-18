@@ -1,20 +1,66 @@
-    <h1>Static analysis vs. code review</h1>
+<h1>Static analysis vs. code review</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
 
-    <p>Both are trying to catch problems before they ship. They're good at catching different problems, for a simple reason: one of them understands intent, and the other one doesn't get tired.</p>
+    <p>Both are trying to catch problems before they ship, and they are good at catching different problems for a simple reason: a human understands intent, and a tool does not get tired. This guide shows what each one found in the same small pieces of code, summarises what is known about how reviewer attention fades, explains the part tools get wrong, and ends with a workflow that uses both, including what to do when you are working alone and there is nobody to review your pull request.</p>
 
-    <h2>What a human reviewer catches that a tool can't</h2>
-    <p>Whether the code solves the right problem. Whether the chosen approach makes sense given where the system is heading. Whether an abstraction will hold up under a change that hasn't happened yet. None of this is something a static rule can evaluate &mdash; it requires understanding intent, business context, and the roadmap, not just the text of the diff.</p>
+    <h2>An experiment: four small files, two kinds of reviewer</h2>
+    <p>We wrote four short files, one each in Python, Java, C++ and JavaScript, containing the sort of mistakes that turn up in real pull requests, and ran them through REPO-SIGHT. This is what the analyser reported (October 2026 build):</p>
+    <ul>
+      <li><strong>Python:</strong> a wildcard import (<code>py-wildcard-import</code>, line 1), a mutable default argument (<code>py-mutable-default-arg</code>, line 3) and a bare <code>except:</code> (<code>py-bare-except</code>, line 6).</li>
+      <li><strong>Java:</strong> a public field (<code>java-public-field</code>, line 2) and an empty catch block (<code>java-empty-catch-block</code>, line 6).</li>
+      <li><strong>C++:</strong> three raw <code>new</code> or <code>delete</code> uses (<code>cpp-raw-new-delete</code>, lines 4, 5 and 7) and an unsafe <code>strcpy</code> call, reported as a security warning (<code>cpp-sec-unsafe-buffer-fn</code>, line 6).</li>
+      <li><strong>JavaScript:</strong> <code>var</code> instead of <code>let</code> or <code>const</code>, a loose <code>==</code> comparison, an empty catch block, and a call to <code>eval</code> (<code>js-sec-eval</code>, line 6).</li>
+    </ul>
+    <p>Every one of those is a pattern a reviewer could spot, and every one is the kind of thing a reviewer skims past at the end of a long queue. The tool found all of them in well under a second and would find them again on the next file.</p>
+    <p>Now the other half. The Python file looks like this:</p>
+    <pre><code>def load(path, cache={}):
+    try:
+        data = open(path).read()
+    except:
+        pass
+    cache[path] = data
+    return data</code></pre>
+    <p>The analyser flagged the bare <code>except</code> and the mutable default, but it did not report the real bug: if the file cannot be opened, the exception is swallowed and <code>data</code> is never assigned. We ran it with a missing path and it crashed with <code>UnboundLocalError: cannot access local variable 'data' where it is not associated with a value</code>. A human reading the function sees the connection immediately, because it requires reading the code as a story: &ldquo;if this fails silently, what is on the next line?&rdquo; A pattern rule has no way to ask that question. That small gap is the whole case for keeping both.</p>
+
+    <h2>What a human reviewer catches that a tool cannot</h2>
+    <ul>
+      <li><strong>Whether the change solves the right problem.</strong> A rule cannot tell that a ticket asked for one thing and the code does another.</li>
+      <li><strong>Design fit.</strong> Whether the abstraction will hold when the next requirement arrives, or whether it duplicates something that already exists elsewhere in the system.</li>
+      <li><strong>Naming and clarity.</strong> Whether a name tells the truth about what a function does.</li>
+      <li><strong>Logic that is wrong but well-formed.</strong> An off-by-one error, a flipped condition or a missing authorisation check is syntactically perfect, so no structural rule sees it.</li>
+      <li><strong>Missing tests and missing cases.</strong> A reviewer can notice what is absent. A tool only analyses what is present.</li>
+    </ul>
 
     <h2>What a tool catches that a reviewer often misses</h2>
-    <p>A nesting depth of 9 buried on line 340 of a 400-line diff. A complexity number that's been quietly climbing for six months across a dozen small commits, none of which looked alarming in isolation. An empty <code>catch</code> block that compiles fine and doesn't visually stand out while skimming. Reviewers skim, especially by the sixth pull request of the day &mdash; a rule that checks the same thing every time doesn't.</p>
+    <p>A nesting depth of 9 on line 340 of a 400-line diff. A cyclomatic complexity that has crept up across a dozen small commits, none of which looked alarming alone. An empty <code>catch</code> that compiles and does not stand out on screen. A hardcoded token pasted into a config file. A reviewer needs to notice each of these on a given afternoon. A rule only needs to be written once.</p>
 
-    <h2>Review fatigue is a real, well-documented effect</h2>
-    <p>The quality of a code review measurably drops as reviewer fatigue sets in &mdash; more lines per minute skimmed, fewer comments left, later pull requests in a review queue get less scrutiny than the first one. A static analysis pass doesn't have a queue and doesn't get tired at 4:45pm.</p>
+    <h2>Review attention fades, and there is data on it</h2>
+    <p>The most cited study is a SmartBear analysis of code reviews at Cisco, covering about 2,500 reviews and 3.2 million lines of code. Its main findings, summarised in our words: reviews of fewer than roughly 200 to 400 lines found far more defects per line than larger ones, reviewers who moved faster than about 500 lines an hour found noticeably fewer, and effectiveness dropped when a single session ran past 60 to 90 minutes. The study also found that when authors annotated their own changes before review, results became more consistent. It came from one company and one tool, so treat the exact figures as a guide rather than a law. The direction, though, matches common experience: the sixth pull request of the day gets less scrutiny than the first.</p>
+    <p>That is the practical argument for automation. A tool has no queue and no afternoon slump. It spends the same attention on the last file as on the first, so the reviewer&rsquo;s limited attention can go to what only a person can judge.</p>
 
-    <h2>The right order to use them in</h2>
-    <p>Run static analysis before requesting human review, not after. If a tool would have caught the raw <code>new</code>/<code>delete</code> pair or the wildcard import, let it catch that automatically so the human reviewer's limited attention goes to the thing only they can evaluate: does this approach actually make sense. Using a tool to clear the mechanical issues first is what lets human review focus on judgment instead of pattern-matching.</p>
+    <h2>Where tools go wrong</h2>
+    <p>Static analysis is not free of cost. It produces false positives and sheer volume, and a person has to decide what matters. In our scan of 53 open-source projects, the tool produced 32,174 findings, and about 58% of them were in tests, documentation, examples, benchmarks or bundled third-party code rather than shipping code. For security findings the share outside production code was 86%, and the largest single group, <code>py-sec-hardcoded-secret</code>, was mostly placeholder passwords in test files. A pattern matcher cannot tell a placeholder from a real credential, and a human can in a second. The full breakdown is in <a href="/learn/where-static-analysis-findings-live.html">where static analysis findings actually live</a>. In other words, the tool narrows the search, and the reviewer still makes the call.</p>
 
-    <h2>Solo developers don't get a code review at all</h2>
-    <p>This is the actual gap REPO-SIGHT is built for. A team has a second pair of eyes by default &mdash; someone else has to approve the pull request. A solo developer, an indie hacker, or a student working alone doesn't. Running a structural analysis pass isn't a replacement for a human reviewer's judgment, but it's the closest thing to a second opinion available when there's no teammate to open a pull request against.</p>
+    <h2>A workflow that uses both</h2>
+    <ol>
+      <li><strong>Run the scan before asking for review.</strong> Fix what is plainly mechanical: the empty catch, the wildcard import, the leftover <code>eval</code>.</li>
+      <li><strong>Keep the change small.</strong> The Cisco data supports splitting work so that a reviewer sees a few hundred lines at a time.</li>
+      <li><strong>Tell the reviewer what you already checked.</strong> A line such as &ldquo;scanned, no findings above info, remaining nesting warning is in generated code&rdquo; saves them from re-checking it.</li>
+      <li><strong>Ask the reviewer the question only a person can answer.</strong> &ldquo;Does this approach fit how we handle retries?&rdquo; is a better request than &ldquo;please look it over.&rdquo;</li>
+      <li><strong>Rescan after the review.</strong> Compare the new result with the previous one to confirm the review round did not make the structure worse.</li>
+    </ol>
+
+    <h2>If you work alone</h2>
+    <p>A team has a second pair of eyes by default, because someone has to approve the pull request. A solo developer, an indie hacker or a student does not. A structural scan is not a substitute for a reviewer&rsquo;s judgement, but it is the closest thing to a second opinion when there is nobody to open a pull request against. Pair it with three habits that cost nothing: read your own diff in the pull-request view instead of your editor, since the different layout makes problems visible; leave the change for a day before merging when you can; and write a one-paragraph description of what the change is meant to do, then check that the code does exactly that, which is the step the <code>UnboundLocalError</code> above would have failed.</p>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Can static analysis replace code review?</h3>
+    <p>No. It checks structure and known risky patterns. It cannot judge intent, design or correctness of business logic, which is most of what a review is for.</p>
+    <h3>Should I fix every finding before requesting a review?</h3>
+    <p>Fix the warnings that apply to production code and note the ones you are deliberately leaving. Not every finding deserves action, and a reviewer would rather see a short, honest list than a perfect score.</p>
+    <h3>Does automation make reviewers lazy?</h3>
+    <p>It can if a clean scan is treated as approval. A clean scan means none of the known patterns fired, nothing more.</p>
+
+    <h2>Try it on your next change</h2>
+    <p><a href="/#analyze">Scan a repository</a> or paste a single file before you open your next pull request. For the other side of the comparison, read <a href="/learn/static-analysis-vs-dynamic-analysis.html">static analysis vs. dynamic analysis</a>, and see <a href="/learn/what-is-static-analysis.html">what static analysis is</a> if you are new to the idea.</p>
