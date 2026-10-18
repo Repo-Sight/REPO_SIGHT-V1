@@ -1,41 +1,67 @@
-    <h1>What is code complexity?</h1>
+<h1>What is code complexity?</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
+    <p>Code complexity is a measure of how hard a piece of code is to understand, change and test. It is not one number. Different measures capture different kinds of difficulty: how many paths a function has, how deeply its blocks are nested, how long it is, how many other things it depends on. This guide separates those measures, shows each on a small example, and uses data from 53 open-source projects to show what typical numbers look like.</p>
 
-    <p>&quot;Complexity&quot; gets used as if it's a single measurable thing. It isn't. At least three different, only loosely correlated properties get called complexity, and confusing them leads to fixing the wrong problem.</p>
+    <h2>Why complexity matters</h2>
+    <p>Nobody reads code to admire it. They read it to change it, and every extra branch is something the reader must hold in mind while doing so. Complex code is slower to review, easier to break and harder to cover with tests, because each independent path needs its own case. Complexity also hides bugs: the more combinations of conditions a function has, the more likely one of them was never thought about.</p>
+    <p>None of that makes complexity bad in itself. A tax calculation or a parser genuinely has many cases. The goal is to know where the complexity lives, keep it contained, and not let it spread into code that should be simple.</p>
 
-    <h2>Cyclomatic complexity &mdash; how many paths</h2>
-    <p>Introduced by Thomas McCabe in 1976, this counts the number of independent paths through a function's logic: every <code>if</code>, loop, <code>case</code>, and <code>catch</code> adds one to a baseline of 1. It's a path count, nothing more &mdash; it treats a flat sequence of 10 independent <code>if</code> statements the same as 10 statements nested five levels deep, even though the second is much harder to read.</p>
+    <h2>Four things people mean by "complexity"</h2>
 
-    <h2>Cognitive complexity &mdash; how hard to hold in your head</h2>
-    <p>A newer metric (introduced by SonarSource in 2016) built specifically to fix that blind spot. It penalizes nesting explicitly: a branch inside a branch inside a loop costs more than the same three branches laid out flat, because that's genuinely closer to how much harder the nested version is for a human to trace mentally. Two functions can have identical cyclomatic complexity and very different cognitive complexity, depending purely on how the branches are arranged.</p>
+    <h3>1. Cyclomatic complexity: how many paths</h3>
+    <p>Cyclomatic complexity counts the decision points in a function: each <code>if</code>, loop, <code>case</code>, <code>catch</code> and short-circuit operator adds one to a baseline of 1. It approximates how many test cases are needed to exercise every branch. Our <a href="/learn/cyclomatic-complexity-explained.html">cyclomatic complexity guide</a> counts one function by hand.</p>
 
-    <h2>Structural complexity &mdash; how tangled the codebase is</h2>
-    <p>This one isn't about a single function at all. Fan-out (how many other files a file depends on) and fan-in (how many files depend on it) measure coupling: a file with high fan-in is risky to change because everything touches it; a file with high fan-out is fragile because it depends on a lot of moving parts elsewhere. A codebase can have simple, low-complexity individual functions and still be a nightmare to change if the coupling between files is bad.</p>
+    <h3>2. Nesting depth: how deep</h3>
+    <p>Nesting depth is how many blocks sit inside one another. A loop containing an <code>if</code> containing another loop is three levels deep, and the reader must remember all three conditions at once. Here is a function that is only 8 lines long but deep:</p>
+<pre><code>def process(orders):
+    for o in orders:
+        if o.paid:
+            for line in o.lines:
+                if line.stock:
+                    for w in line.warehouses:
+                        if w.open:
+                            ship(w, line)</code></pre>
+    <p>REPO-SIGHT reports a maximum nesting of 7 for this file and raises <code>py-deep-nesting</code>, because the limit is 6. Its cyclomatic complexity is also 7, so both measures agree here. They do not always. A flat chain of <code>elif</code> branches can have high complexity and shallow nesting, and the reverse is possible too. See <a href="/learn/maximum-nesting-depth-explained.html">maximum nesting depth, explained</a>.</p>
 
-    <h2>A concrete comparison</h2>
-    <div class="code-compare">
-      <div>
-        <p class="code-label label-bad">High complexity, shallow nesting</p>
-        <pre><code>def classify(x):
-    if x == 1: return "a"
-    if x == 2: return "b"
-    if x == 3: return "c"
-    if x == 4: return "d"
-    if x == 5: return "e"
-    return "f"</code></pre>
-      </div>
-      <div>
-        <p class="code-label label-bad">Low complexity, deep nesting</p>
-        <pre><code>def process(items):
-    if items:
-        for i in items:
-            if i.valid:
-                if i.ready:
-                    i.run()</code></pre>
-      </div>
-    </div>
-    <p>The first function has higher cyclomatic complexity (six branches) but is trivial to read. The second has lower cyclomatic complexity (three branches) but is harder to trace because the reader has to track three nested conditions at once. Neither number alone tells the whole story.</p>
+    <h3>3. Function length: how much</h3>
+    <p>Length is the simplest measure and often the most revealing. A function that does not fit on one screen forces the reader to scroll and lose context. REPO-SIGHT flags functions over 100 lines (<code>py-long-function</code>, <code>java-long-method</code> and the equivalents), and the health score uses the <em>average</em> function length for the project, rewarding an average near 15 lines and giving nothing for 60 or more.</p>
 
-    <h2>Why REPO-SIGHT's health score blends more than one number</h2>
-    <p>This is exactly why a single score shouldn't rely on cyclomatic complexity alone. REPO-SIGHT's health score weighs five components together &mdash; complexity density (35%), average function length (25%), comment density (20%), TODO density (10%), and max nesting depth (10%) &mdash; specifically because complexity by itself misses the nesting problem, and nesting by itself misses the sheer-size problem. <a href="/learn/reading-a-code-health-score.html">See the full breakdown of how the grade is calculated.</a></p>
+    <h3>4. Coupling: how connected</h3>
+    <p>Coupling is how much a piece of code depends on other pieces. A function can be short and simple but impossible to change safely because ten other modules call it. Coupling is real and important, but it needs whole-program information to measure well, and REPO-SIGHT's headline metrics do not try to capture all of it. Keep that in mind: a low complexity score is not the same as a well-designed system.</p>
+
+    <h2>A related idea: cognitive complexity</h2>
+    <p>Cyclomatic complexity treats a flat list of ten <code>case</code> branches the same as ten nested <code>if</code> statements, although the second is far harder to read. <em>Cognitive complexity</em> was designed to fix this by adding extra weight for nesting. REPO-SIGHT does not compute a cognitive score; it reports cyclomatic complexity and nesting depth as separate numbers, which together approximate the same intuition. If a function scores high on both, it is the one to look at first.</p>
+
+    <h2>What typical numbers look like</h2>
+    <p>Abstract thresholds are hard to judge without a reference, so here is what we measured. REPO-SIGHT scores each project's <em>complexity density</em>: total cyclomatic complexity divided by lines of code. Across 53 well-regarded open-source projects:</p>
+    <ul>
+      <li>The median complexity density is <strong>0.080</strong>, or about 8 decision points per 100 lines of code.</li>
+      <li>The range runs from 0.038 (FastAPI) to 0.225 (Retrofit).</li>
+      <li>Only one of the 53 is above 0.15, the point at which the health score starts to deduct anything for it.</li>
+      <li>The median <em>average function length</em> is 10.8 lines, and 13 of the 53 average more than 15.</li>
+      <li>The median <em>maximum nesting depth</em> is 10. Almost every large project has at least one deeply nested block, and 48 of the 53 reach 8 or more.</li>
+    </ul>
+    <p>Two lessons follow. First, well-maintained projects keep complexity low <em>on average</em>, which is why density costs almost nothing in their scores. Second, a project-wide average hides the outliers, and outliers are where problems live. The single deepest block in a large project says little about the rest of its code. That is why REPO-SIGHT also flags individual functions rather than only reporting an average. For the long-function side of this, see <a href="/learn/long-complex-functions-14-cpp-projects.html">long and complex functions in 14 C++ projects</a>.</p>
+
+    <h2>Reading a complexity number sensibly</h2>
+    <ul>
+      <li><strong>Compare like with like.</strong> A parser, a compiler pass and a CRUD handler have different natural complexity. Compare a function with its neighbours.</li>
+      <li><strong>Look at the worst functions, not the average.</strong> One 25-branch function matters more than a hundred 2-branch ones.</li>
+      <li><strong>Check the path.</strong> Complexity in a test or an example matters less than the same number in code that ships.</li>
+      <li><strong>Watch the trend.</strong> A number that rises with every release is a better warning than a single high reading.</li>
+    </ul>
+
+    <h2>How to reduce it</h2>
+    <p>Reducing complexity usually means moving it rather than deleting it. Split a function that does two jobs into two functions. Replace a long <code>if</code>/<code>elif</code> chain with a lookup table. Use early returns to flatten nesting. Each change makes one function easier to read, even when the total number of decisions in the file stays the same. The <a href="/learn/improve-python-code-quality.html">Python</a>, <a href="/learn/improve-java-code-quality.html">Java</a> and <a href="/learn/improve-cpp-code-quality.html">C++</a> guides show concrete before-and-after examples.</p>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Is code complexity the same as code quality?</h3>
+    <p>No. Complexity is one input. Good code can be complex because the problem is, and simple code can be wrong or badly designed. Use complexity to decide where to look, not to give a verdict.</p>
+    <h3>What is a good complexity score?</h3>
+    <p>For a single function, 1 to 10 is comfortable. For a project, a complexity density below about 0.15 is considered healthy by REPO-SIGHT's score.</p>
+    <h3>Which complexity measure should I track first?</h3>
+    <p>Start with cyclomatic complexity per function and maximum nesting depth. Together they catch most of the code that is hard to follow.</p>
+
+    <h2>Measure your own code</h2>
+    <p><a href="/code-complexity-checker.html">Try the code complexity checker</a> or <a href="/#analyze">scan a repository</a> to see the complexity, nesting and length of every file, and which functions cross the limits.</p>
