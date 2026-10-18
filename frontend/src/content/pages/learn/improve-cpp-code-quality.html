@@ -1,82 +1,180 @@
-    <h1>How to improve C++ code quality</h1>
+<h1>How to improve C++ code quality</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
+    <p>C++ gives you enough rope to write extremely fast code and enough rope to leak memory doing it. Most of the patterns worth fixing are about ownership, error handling and a handful of old C habits that modern C++ has better replacements for. This guide covers them with before-and-after code. Every example was run through REPO-SIGHT: the "before" version triggers the named rule and the "after" version comes back clean. We also use numbers from scanning 14 widely used C++ projects, so you can judge which patterns deserve attention first.</p>
 
-    <p>C++ gives you enough rope to write extremely fast code and enough rope to leak memory doing it. Most of the patterns worth fixing are about ownership and error handling &mdash; here are the ones that matter most, with real before/after code.</p>
+    <h2>Part 1: Ownership and error handling</h2>
 
-    <h2>Raw <code>new</code>/<code>delete</code></h2>
-    <p>Manual <code>new</code>/<code>delete</code> pairs are the single most common source of leaks and double-frees in C++: every path through the function &mdash; including early returns and thrown exceptions &mdash; has to reach the matching <code>delete</code>, and it's easy to miss one.</p>
+    <h3>Raw <code>new</code>/<code>delete</code></h3>
+    <p>Manual <code>new</code>/<code>delete</code> pairs are the single most common source of leaks and double-frees in C++: every path through the function, including early returns and thrown exceptions, has to reach the matching <code>delete</code>, and it is easy to miss one. Rule: <code>cpp-raw-new-delete</code>.</p>
     <div class="code-compare">
       <div>
-        <p class="code-label label-bad">Before &mdash; leaks if validate() throws</p>
+        <p class="code-label label-bad">Before: leaks if validate() throws</p>
         <pre><code>Widget* w = new Widget();
-w->validate();
-w->run();
+w-&gt;validate();
+w-&gt;run();
 delete w;</code></pre>
       </div>
       <div>
-        <p class="code-label label-good">After &mdash; freed automatically on every path</p>
+        <p class="code-label label-good">After: freed automatically on every path</p>
         <pre><code>auto w = std::make_unique&lt;Widget&gt;();
-w->validate();
-w->run();</code></pre>
+w-&gt;validate();
+w-&gt;run();</code></pre>
       </div>
     </div>
+    <p>This is one of the two most frequent C++ findings in our data: 2,052 hits across the 14 C++ projects, 62% of them in tests, examples and other non-production paths. It is rated medium confidence, because there are legitimate uses such as placement new or interfacing with a C library that wants to own the pointer. Read each hit; most can become <code>std::make_unique</code> or <code>std::make_shared</code>.</p>
 
-    <h2><code>using namespace std;</code> in a header</h2>
-    <p>Inside a <code>.cpp</code> file, this is a matter of taste. Inside a header, it pollutes the global namespace of every single translation unit that includes that header, which can cause subtle name collisions in files that never intended to opt into it.</p>
+    <h3>Empty catch-all <code>catch(...)</code></h3>
+    <p>An empty ellipsis catch block swallows every exception, including ones the code has no idea how to recover from, and discards the information about what went wrong. Rule: <code>cpp-catch-all-ellipsis</code>.</p>
     <div class="code-compare">
       <div>
-        <p class="code-label label-bad">Before &mdash; widget.h</p>
-        <pre><code>#include &lt;string&gt;
-using namespace std;
-
-string describe(int id);</code></pre>
-      </div>
-      <div>
-        <p class="code-label label-good">After &mdash; widget.h</p>
-        <pre><code>#include &lt;string&gt;
-
-std::string describe(int id);</code></pre>
-      </div>
-    </div>
-
-    <h2>Catch-all <code>catch(...)</code></h2>
-    <p>An empty ellipsis catch block swallows every exception &mdash; including ones the code has no idea how to actually recover from &mdash; and discards the information about what went wrong, which makes the next debugging session much harder.</p>
-    <div class="code-compare">
-      <div>
-        <p class="code-label label-bad">Before &mdash; silent failure</p>
+        <p class="code-label label-bad">Before: silent failure</p>
         <pre><code>try {
     process(request);
 } catch (...) {
 }</code></pre>
       </div>
       <div>
-        <p class="code-label label-good">After &mdash; specific, logged</p>
+        <p class="code-label label-good">After: specific, logged</p>
         <pre><code>try {
     process(request);
-} catch (const std::exception& e) {
+} catch (const std::exception&amp; e) {
     log_error(e.what());
 }</code></pre>
       </div>
     </div>
+    <p>We checked the boundary: a <code>catch (...)</code> that does some cleanup and then rethrows with <code>throw;</code> is not flagged. That pattern is legitimate. Only the empty block is.</p>
 
-    <h2>Magic numbers in conditions</h2>
-    <p>A bare literal in a comparison forces the reader to guess what it means and makes the value harder to find and change consistently later.</p>
+    <h3><code>using namespace std;</code> in a header</h3>
+    <p>Inside a <code>.cpp</code> file, this is a matter of taste. Inside a header, it pollutes the global namespace of every translation unit that includes that header, which can cause subtle name collisions in files that never intended to opt in. Rule: <code>cpp-using-namespace-std-header</code>.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before: widget.h</p>
+        <pre><code>#include &lt;string&gt;
+using namespace std;
+
+string describe(int id);</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After: widget.h</p>
+        <pre><code>#include &lt;string&gt;
+
+std::string describe(int id);</code></pre>
+      </div>
+    </div>
+
+    <h3>Magic numbers in conditions</h3>
+    <p>A bare literal in a comparison forces the reader to guess what it means and makes the value harder to find and change consistently later. Rule: <code>cpp-magic-number-literal</code>.</p>
     <div class="code-compare">
       <div>
         <p class="code-label label-bad">Before</p>
-        <pre><code>if (retries > 3) {
+        <pre><code>if (retries &gt; 3) {
     giveUp();
 }</code></pre>
       </div>
       <div>
         <p class="code-label label-good">After</p>
         <pre><code>constexpr int kMaxRetries = 3;
-if (retries > kMaxRetries) {
+if (retries &gt; kMaxRetries) {
     giveUp();
 }</code></pre>
       </div>
     </div>
+    <p>This is the single most frequent C++ finding: 2,175 hits across the 14 C++ projects we scanned. It is also the lowest-rated, at low severity and low confidence, because many literals are perfectly clear in context. Treat it as housekeeping, not a defect.</p>
 
-    <h2>How REPO-SIGHT checks for these</h2>
-    <p>These four are REPO-SIGHT's actual C++ rules &mdash; <code>cpp-raw-new-delete</code>, <code>cpp-using-namespace-std-header</code>, <code>cpp-catch-all-ellipsis</code>, and <code>cpp-magic-number-literal</code> &mdash; alongside long-function, deep-nesting, and TODO-without-ticket checks. <a href="/#analyze">Run it on a C++ repository</a> to see which show up in yours.</p>
+    <h2>Part 2: Old C habits with modern replacements</h2>
+    <p>These rules flag calls that are dangerous when input is attacker-controlled. A finding is a prompt to check, not proof of a vulnerability, but the replacements are usually cleaner anyway.</p>
+
+    <h3>Unbounded buffer functions</h3>
+    <p><code>strcpy</code>, <code>sprintf</code> and friends do not check that the result fits in the destination, so a long input overruns the buffer. Rule: <code>cpp-sec-unsafe-buffer-fn</code>.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>void copy_name(char* dst, const char* src) {
+    strcpy(dst, src);
+}
+
+void print_label(const std::string&amp; name) {
+    char buf[32];
+    sprintf(buf, "item-%s", name.c_str());
+    puts(buf);
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>std::string copy_name(const std::string&amp; src) {
+    return src;
+}
+
+void print_label(const std::string&amp; name) {
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "item-%s", name.c_str());
+    std::puts(buf);
+}</code></pre>
+      </div>
+    </div>
+    <p>The best fix is to stop using character arrays: <code>std::string</code> grows to fit. Where you must keep a fixed buffer, <code>snprintf</code> takes the size and truncates instead of overflowing.</p>
+
+    <h3>Running shell commands</h3>
+    <p><code>system()</code> and <code>popen()</code> hand a string to the shell. If any part of it comes from a user, they can append their own command. Rules: <code>cpp-sec-system-call</code>, <code>cpp-sec-popen-call</code>.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>void run(const char* file) {
+    std::string cmd =
+        std::string("cat ") + file;
+    system(cmd.c_str());
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>void show(const std::string&amp; file) {
+    std::ifstream in(file);
+    std::cout &lt;&lt; in.rdbuf();
+}</code></pre>
+      </div>
+    </div>
+    <p>If you genuinely need another program, use the <code>exec</code> family with an argument array and validate the input, so nothing is parsed by a shell.</p>
+
+    <h3><code>rand()</code> for anything that matters</h3>
+    <p><code>rand()</code> is predictable and poorly distributed. It is fine for a visual effect and wrong for tokens, keys or anything an attacker might guess. Rule: <code>cpp-sec-weak-random</code>.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>int roll() {
+    return rand() % 6;
+}</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>int roll() {
+    static std::mt19937 gen{std::random_device{}()};
+    std::uniform_int_distribution&lt;int&gt; dist(1, 6);
+    return dist(gen);
+}</code></pre>
+      </div>
+    </div>
+    <p>The <code>&lt;random&gt;</code> version also removes the bias that <code>% 6</code> introduces. For security-sensitive randomness, such as session tokens, use the operating system's secure source or a vetted crypto library rather than <code>mt19937</code>, which is not designed to resist prediction.</p>
+
+    <h2>Part 3: Structure</h2>
+    <p>Two structural rules apply in every language: functions over 100 lines (<code>cpp-long-function</code>) and blocks nested more than 6 levels deep (<code>cpp-deep-nesting</code>), plus a flag for functions with <a href="/learn/cyclomatic-complexity-explained.html">cyclomatic complexity</a> above 10 (<code>cpp-complex-function</code>).</p>
+    <p>How worried should you be? Across 14 C++ projects and 19,876 functions, the median function was just 6 lines long. Only 240 (1.2%) were over 100 lines and 461 (2.3%) were above complexity 10, and 64% of the long ones sat in tests, benchmarks or examples, where test frameworks like Catch2 and doctest encourage long blocks of assertions. The full analysis is in <a href="/learn/long-complex-functions-14-cpp-projects.html">long and complex functions in 14 C++ projects</a>. If your code has many long functions in production paths, that is well outside the norm and worth attention.</p>
+    <p>The fix is the same as in any language: split a function that does two jobs, and flatten nesting with early returns. See <a href="/learn/maximum-nesting-depth-explained.html">maximum nesting depth, explained</a>.</p>
+
+    <h2>What to fix first</h2>
+    <ol>
+      <li>Unbounded buffer functions and <code>system()</code> calls on input you do not control.</li>
+      <li>Empty <code>catch (...)</code> blocks, and raw <code>new</code> in code that can throw.</li>
+      <li><code>using namespace std;</code> in headers, which is a one-line fix with a wide effect.</li>
+      <li>Magic numbers and long functions, gradually, in code you are touching anyway.</li>
+    </ol>
+    <p>Remember where findings cluster: 44% of the 5,503 C++ findings in our scan were outside production code. Check the path before the number. See <a href="/learn/where-static-analysis-findings-live.html">where static analysis findings actually live</a>.</p>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Does REPO-SIGHT replace clang-tidy or cppcheck?</h3>
+    <p>No. Those tools build a deeper model of the program, such as types and lifetimes. REPO-SIGHT reads tokens, so it is faster and works on code that does not build, but it catches fewer subtle defects. They complement each other.</p>
+    <h3>Does it need a build system or compile commands?</h3>
+    <p>No. It reads the source files directly, so it works without CMake, include paths or a successful compile.</p>
+
+    <h2>Check your own project</h2>
+    <p>These are REPO-SIGHT's actual C++ checks. <a href="/#analyze">Run it on a C++ repository</a> or use the <a href="/cpp-code-analyzer.html">C++ code analyzer</a> to see which show up in yours.</p>
