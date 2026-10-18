@@ -1,29 +1,74 @@
-    <h1>What is static code analysis?</h1>
+<h1>What is static analysis?</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
-    <p>Static code analysis means examining source code without executing it. The tool reads your files as text, builds up an understanding of their structure, and reports on what it finds — size, structure, complexity, and patterns that tend to cause bugs. Nothing runs. No build, no interpreter, no test suite.</p>
+    <p>Static analysis is the practice of examining source code without running it. A tool reads your files, breaks them into pieces it understands, and reports problems it can prove or strongly suspect from the text alone: a bare <code>except:</code>, a function that has grown to 300 lines, a password committed in plain text. Nothing is executed, so there is no test data to prepare, no server to start and no risk from analysing code you do not trust.</p>
+    <p>This guide explains how a static analyser actually works, shows real findings on a small file, is honest about what the approach cannot see, and ends with what we learned about reading findings after scanning 53 open-source projects.</p>
 
-    <h2>Why "static" matters</h2>
-    <p>The alternative is dynamic analysis: running the program and observing what actually happens at runtime — a debugger, a profiler, a test suite with coverage tracking. Dynamic tools see real behavior but only along the paths that were actually executed. A static analyzer instead looks at every line in the file, whether or not that line ever runs during a given test. That's its main advantage: full coverage of the source, with no need to get the program running first.</p>
-    <p>This is also why static analysis works on code that can't currently run at all — a repository with a broken build, a language you don't have a compiler installed for, or a project you just want to size up before cloning it.</p>
+    <h2>How a static analyser works, step by step</h2>
+    <p>Different tools differ in depth, but nearly all follow the same pipeline. REPO-SIGHT's engine, a C++ program, does it like this for each file:</p>
+    <ol>
+      <li><strong>Detect the language</strong> from the file extension, so <code>.py</code> goes to the Python front end and <code>.java</code> to the Java one.</li>
+      <li><strong>Tokenise.</strong> The lexer turns raw text into a stream of tokens: keywords, names, operators, string literals, comments. This is where <code>#</code> comments and <code>//</code> comments are told apart from code.</li>
+      <li><strong>Parse.</strong> The parser walks the tokens to find structure: where each function starts and ends, where a block opens and closes, how deeply it is nested.</li>
+      <li><strong>Measure.</strong> From that structure it counts lines, functions, decision points and nesting. See <a href="/learn/cyclomatic-complexity-explained.html">cyclomatic complexity</a> and <a href="/learn/maximum-nesting-depth-explained.html">nesting depth</a>.</li>
+      <li><strong>Apply rules.</strong> Each rule looks for one pattern, such as a call to <code>eval(...)</code> or an empty <code>catch</code> block, and records a finding with the file, line and a message.</li>
+      <li><strong>Score and report.</strong> The measurements are combined into a <a href="/learn/reading-a-code-health-score.html">health score</a>, and the findings are ranked so the important ones come first.</li>
+    </ol>
+    <p>Because the engine reads tokens rather than building a complete compiler-grade syntax tree, it is fast and forgiving: it can analyse a file that does not compile, and a malformed file does not crash it. The trade-off is precision. A token-level rule can be fooled by unusual formatting, and the numbers are best treated as a reliable ranking of where to look rather than an audit.</p>
 
-    <h2>What it typically measures</h2>
+    <h2>A small example with real output</h2>
+    <p>Here is a short Python file with four risky patterns and one stray comment in it. We ran it through REPO-SIGHT exactly as shown:</p>
+<pre><code>import os, subprocess, pickle
+
+API_KEY = "sk_live_51HxQ2eLkd93jfPzR8vTn40aB"
+
+def run_expression(user_input):
+    return eval(user_input)
+
+def ping(host):
+    os.system("ping -c 1 " + host)
+
+def load_session(f):
+    return pickle.load(f)
+
+# TODO fix this later
+def x():
+    pass</code></pre>
+    <p>The engine reports five findings: <code>py-sec-hardcoded-secret</code> on the <code>API_KEY</code> line, <code>py-sec-eval-exec</code> on the <code>eval</code>, <code>py-sec-os-system</code> on the shell call, <code>py-sec-pickle-load</code> on the unpickling, and <code>py-todo-without-ticket</code> on the comment. Every finding names the exact line and says why it matters; for instance the <code>eval</code> message explains that it executes a string as code, so any part of that string built from untrusted input is a way in.</p>
+    <p>Notice what the tool did not say. It did not claim the code is exploitable, because it cannot know whether <code>user_input</code> ever comes from an attacker. It flagged the <em>pattern</em> and asked a human to check the data flow. That is the honest shape of static analysis: it narrows a large codebase down to the handful of lines worth a person's attention.</p>
+
+    <h2>What static analysis is good at</h2>
     <ul>
-      <li><strong>Size and shape.</strong> Lines of code, comment density, file and function counts — the basic footprint of a project.</li>
-      <li><strong>Structure.</strong> How functions, classes, and modules relate to each other, and how deeply nested the logic gets.</li>
-      <li><strong>Complexity.</strong> How many independent paths exist through a function's logic — see cyclomatic complexity for the specifics.</li>
-      <li><strong>Rule violations.</strong> Known risky patterns — things like unchecked returns, overly long functions, or suspicious constructs specific to a language.</li>
+      <li><strong>Patterns that are wrong almost everywhere.</strong> Mutable default arguments, empty catch blocks, raw <code>new</code>/<code>delete</code>, hard-coded credentials.</li>
+      <li><strong>Measurable structure.</strong> Function length, nesting depth, complexity and comment density are facts about the text, so they can be computed exactly and compared over time.</li>
+      <li><strong>Whole-codebase consistency.</strong> A reviewer reading one pull request cannot see that the same unsafe call appears in 40 other files. A tool can.</li>
+      <li><strong>Safety.</strong> It never runs the code, so scanning an unfamiliar repository cannot trigger anything inside it.</li>
     </ul>
 
-    <h2>What it can't tell you</h2>
-    <p>Static analysis is pattern recognition over source text and structure, not proof of correctness. It won't tell you whether your business logic is right, whether an API integration actually works, or whether a feature does what a user expects. It also can't catch bugs that only show up from a specific runtime state — a race condition, a value that depends on live data, a third-party service returning something unexpected. For that, you still need tests, code review, and running the thing.</p>
-    <p>Where static analysis earns its keep is speed and consistency: it looks at 100% of the code, the same way, every time, in seconds — before anyone spends an hour manually reading through a repository to get a sense of it.</p>
-
-    <h2>Where it fits in a workflow</h2>
-    <p>Most teams use static analysis as a first pass, not a final verdict. It's useful for:</p>
+    <h2>What it cannot do</h2>
     <ul>
-      <li>Sizing up an unfamiliar repository before diving in — as a new contributor, or before code review.</li>
-      <li>Catching structural warning signs (a 400-line function, deep nesting, a pile of TODOs) before they compound.</li>
-      <li>Getting an objective baseline for a personal project, so "is this code okay?" has a number attached instead of a guess.</li>
+      <li><strong>It cannot see runtime behaviour.</strong> A static analyser does not know what values flow in, how the program behaves under load, or whether a race condition occurs. That is the job of testing and <a href="/learn/static-analysis-vs-dynamic-analysis.html">dynamic analysis</a>.</li>
+      <li><strong>It cannot judge intent.</strong> It cannot tell you that the function does the wrong thing, only that it is built in a risky or hard-to-maintain way.</li>
+      <li><strong>It produces false positives.</strong> A rule that matches a pattern will sometimes match harmless code, such as a bare <code>except:</code> that cleans up and re-raises. This is normal, and it is why findings carry a confidence level.</li>
+      <li><strong>It misses what has no pattern.</strong> A clean report does not mean correct code. It means none of the checks the tool knows about fired.</li>
     </ul>
-    <p>REPO-SIGHT runs this kind of analysis on C++, Python, Java, TypeScript, JavaScript, and C# repositories — paste a public GitHub URL and it reports size, structure, complexity, and rule violations in seconds, with no signup. <a href="/#analyze">Try it on a repo</a>.</p>
+
+    <h2>What 53 real projects taught us about reading findings</h2>
+    <p>We scanned 53 well-regarded open-source projects, which produced 32,174 findings. The most useful lesson was about where the findings are: about 58% (18,568) sit in tests, documentation, examples, benchmarks or bundled third-party code rather than in the code that ships. For security findings the share was higher, 86% of 1,258. The full breakdown is in <a href="/learn/where-static-analysis-findings-live.html">where static analysis findings actually live</a>.</p>
+    <p>The practical rule is to check the path before the severity. A scary-looking finding in a test fixture is a different problem from the same finding in a request handler. A good tool sorts for you; a flat list of thousands of warnings teaches people to ignore the tool.</p>
+
+    <h2>Static analysis, linting and code review</h2>
+    <p>A linter is a static analyser focused on style and simple mistakes. A broader static analysis tool adds metrics, security patterns and project-level views. A human <a href="/learn/static-analysis-vs-code-review.html">code review</a> catches design and intent problems no tool can, but is slow and inconsistent at checking every line for the same mechanical issues. They complement each other: let the tool handle the repeatable checks so reviewers can spend their attention on the questions only people can answer.</p>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Is static analysis the same as a linter?</h3>
+    <p>A linter is one kind of static analysis. Static analysis as a whole also covers complexity metrics, security patterns, duplication and project-level reporting.</p>
+    <h3>Does it need my code to compile?</h3>
+    <p>Not for a token-based engine like REPO-SIGHT's. It reads the source text directly, so it works on code that is mid-edit or missing dependencies. Tools that build a full compiler model usually need the project to build.</p>
+    <h3>Will it find all my bugs?</h3>
+    <p>No. It finds the bugs that have a recognisable shape. Use it alongside tests and review, not instead of them.</p>
+    <h3>Is it safe to scan code I do not trust?</h3>
+    <p>Yes, because the code is only read, never run. REPO-SIGHT does not execute a repository's code, tests or build scripts.</p>
+
+    <h2>Try it on your own code</h2>
+    <p>The fastest way to understand static analysis is to see it on code you know. <a href="/learn/static-code-analysis-for-beginners.html">Static code analysis for beginners</a> walks through a first scan step by step, or you can <a href="/#analyze">run REPO-SIGHT on a repository</a> or paste a single file and read the findings for yourself.</p>
