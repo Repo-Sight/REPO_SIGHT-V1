@@ -1,11 +1,12 @@
-    <h1>How to improve Python code quality</h1>
+<h1>How to improve Python code quality</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
+    <p>Most Python quality problems are not exotic. They are a small, repeatable set of patterns that look harmless when you write them and cause a confusing bug months later. This guide covers the ones worth fixing first, with before-and-after code for each. Every example was run through REPO-SIGHT: the "before" version triggers the named rule and the "after" version comes back clean. We also use data from scanning 18 well-known Python projects to show how common each pattern really is, so you can tell what is worth your time.</p>
 
-    <p>Most Python quality problems aren't exotic &mdash; they're a small, repeatable set of patterns that look harmless when you write them and cause a confusing bug months later. Here are the ones worth fixing first, with real before/after code for each.</p>
+    <h2>Part 1: Pitfalls that cause bugs</h2>
 
-    <h2>Bare <code>except:</code> blocks</h2>
-    <p>A bare <code>except:</code> catches everything &mdash; including <code>KeyboardInterrupt</code> and <code>SystemExit</code>, which almost never should be silently swallowed. It also hides the actual error, making the real bug harder to find later.</p>
+    <h3>Bare <code>except:</code> blocks</h3>
+    <p>A bare <code>except:</code> catches everything, including <code>KeyboardInterrupt</code> and <code>SystemExit</code>, which almost never should be silently swallowed. It also hides the actual error, making the real bug harder to find later. Rule: <code>py-bare-except</code>.</p>
     <div class="code-compare">
       <div>
         <p class="code-label label-bad">Before</p>
@@ -23,18 +24,19 @@ except (ValueError, KeyError) as exc:
     result = None</code></pre>
       </div>
     </div>
+    <p><strong>How common is it?</strong> Across the 18 projects, about 1.9 million lines of code, we found 75 bare excepts, and 49 of them were in one project (SQLAlchemy). Roughly 29 of the 75 were the harmless kind that clean up and then re-raise. Fix the handlers that swallow the error; leave the ones that re-raise. The details are in <a href="/learn/bare-except-and-mutable-defaults-18-python-projects.html">bare except and mutable defaults in 18 Python projects</a>.</p>
 
-    <h2>Mutable default arguments</h2>
-    <p>Default argument values are evaluated once, when the function is defined &mdash; not once per call. A mutable default like <code>[]</code> or <code>{}</code> is silently shared and mutated across every call that doesn't pass its own value, producing state that leaks between unrelated calls.</p>
+    <h3>Mutable default arguments</h3>
+    <p>Default argument values are evaluated once, when the function is defined, not once per call. A mutable default like <code>[]</code> or <code>{}</code> is silently shared and mutated across every call that does not pass its own value, producing state that leaks between unrelated calls. Rule: <code>py-mutable-default-arg</code>.</p>
     <div class="code-compare">
       <div>
-        <p class="code-label label-bad">Before &mdash; the list is shared across calls</p>
+        <p class="code-label label-bad">Before: the list is shared across calls</p>
         <pre><code>def add_item(item, items=[]):
     items.append(item)
     return items</code></pre>
       </div>
       <div>
-        <p class="code-label label-good">After &mdash; a fresh list every call</p>
+        <p class="code-label label-good">After: a fresh list every call</p>
         <pre><code>def add_item(item, items=None):
     if items is None:
         items = []
@@ -42,25 +44,27 @@ except (ValueError, KeyError) as exc:
     return items</code></pre>
       </div>
     </div>
+    <p>We found 60 of these across the 18 projects. This is a pattern where the bug is real even when the rule fires only occasionally, because the failure is silent: the function works the first time and misbehaves later.</p>
 
-    <h2>Mutable class attributes</h2>
-    <p>The same sharing problem, one level up: a mutable value assigned at the class level is one single object shared by every instance, not a fresh copy per instance.</p>
+    <h3>Mutable class attributes</h3>
+    <p>The same sharing problem, one level up: a mutable value assigned at the class level is one single object shared by every instance, not a fresh copy per instance. Rule: <code>py-mutable-class-attribute</code>.</p>
     <div class="code-compare">
       <div>
-        <p class="code-label label-bad">Before &mdash; every instance shares one list</p>
+        <p class="code-label label-bad">Before: every instance shares one list</p>
         <pre><code>class Cart:
     items = []</code></pre>
       </div>
       <div>
-        <p class="code-label label-good">After &mdash; initialized per instance</p>
+        <p class="code-label label-good">After: initialised per instance</p>
         <pre><code>class Cart:
     def __init__(self):
         self.items = []</code></pre>
       </div>
     </div>
+    <p>This is by far the noisiest of the four: it fired 1,988 times across the 18 projects, more than the other three combined. It is rated medium confidence for that reason. Class-level lists are sometimes deliberate constants, so read each hit rather than fixing them in bulk.</p>
 
-    <h2>Wildcard imports</h2>
-    <p><code>from module import *</code> pollutes the current namespace with everything the module exports, and hides exactly where any given name came from &mdash; both for readers and for tools trying to statically trace where a symbol is defined.</p>
+    <h3>Wildcard imports</h3>
+    <p><code>from module import *</code> pollutes the current namespace with everything the module exports, and hides exactly where any given name came from, both for readers and for tools trying to trace where a symbol is defined. Rule: <code>py-wildcard-import</code>.</p>
     <div class="code-compare">
       <div>
         <p class="code-label label-bad">Before</p>
@@ -72,5 +76,138 @@ except (ValueError, KeyError) as exc:
       </div>
     </div>
 
-    <h2>How REPO-SIGHT checks for these</h2>
-    <p>All four patterns above are REPO-SIGHT's actual Python rules &mdash; <code>py-bare-except</code>, <code>py-mutable-default-arg</code>, <code>py-mutable-class-attribute</code>, and <code>py-wildcard-import</code>, alongside long-function, deep-nesting, and TODO-without-ticket checks. <a href="/#analyze">Run it on a Python repository</a> to see which of these actually show up in your own code.</p>
+    <h2>Part 2: Security patterns to review</h2>
+    <p>These rules flag calls that are dangerous <em>if</em> untrusted input reaches them. A finding is a prompt to check the data flow, not proof of a vulnerability. The safer replacements are almost always no harder to write.</p>
+
+    <h3>Running strings as code or commands</h3>
+    <p><code>eval</code> and <code>exec</code> run a string as Python. <code>os.system</code> and <code>subprocess</code> with <code>shell=True</code> run a string through the shell. If any part of that string is built from user input, an attacker can add their own commands. Rules: <code>py-sec-eval-exec</code>, <code>py-sec-os-system</code>, <code>py-sec-subprocess-shell-true</code>.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>def run_expression(user_input):
+    return eval(user_input)
+
+def ping(host):
+    os.system("ping -c 1 " + host)
+
+def list_dir(path):
+    subprocess.run("ls " + path, shell=True)</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>def run_expression(user_input):
+    return ast.literal_eval(user_input)
+
+def ping(host):
+    subprocess.run(["ping", "-c", "1", host], check=True)
+
+def list_dir(path):
+    subprocess.run(["ls", path], check=True)</code></pre>
+      </div>
+    </div>
+    <p>Passing the command as a list means the host or path is a single argument, never parsed by a shell. <code>ast.literal_eval</code> only accepts literals such as numbers, strings and lists, so it cannot run code.</p>
+
+    <h3>Unsafe deserialisation</h3>
+    <p><code>pickle.load</code> can execute arbitrary code while reading data, and <code>yaml.load</code> without a safe loader can construct arbitrary Python objects. Never use either on data you did not produce yourself. Rules: <code>py-sec-pickle-load</code>, <code>py-sec-yaml-unsafe-load</code>.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>def load_session(f):
+    return pickle.load(f)
+
+def read_config(text):
+    return yaml.load(text)</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>def load_session(f):
+    return json.load(f)
+
+def read_config(text):
+    return yaml.safe_load(text)</code></pre>
+      </div>
+    </div>
+
+    <h3>Weak hashes and committed secrets</h3>
+    <p><code>hashlib.md5</code> is broken as a security hash, and a fast hash of any kind is the wrong tool for passwords. A password should go through a deliberately slow function such as <code>scrypt</code>. A string literal assigned to a name like <code>API_KEY</code> ends up in git history forever. Rules: <code>py-sec-weak-hash</code>, <code>py-sec-hardcoded-secret</code>.</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code>API_KEY = "sk_live_51HxQ2eLk..."
+
+def hash_password(pw):
+    return hashlib.md5(pw.encode()).hexdigest()</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code>API_KEY = os.environ["API_KEY"]
+
+def hash_password(pw, salt):
+    return hashlib.scrypt(
+        pw.encode(), salt=salt, n=2**14, r=8, p=1
+    ).hex()</code></pre>
+      </div>
+    </div>
+    <p>Two notes. If a secret was ever committed, treat it as leaked: rotate it, because deleting the line does not remove it from history. And MD5 is acceptable for non-security uses such as a cache key; <code>hashlib.md5(data, usedforsecurity=False)</code> states that intent and is not flagged.</p>
+
+    <h2>Part 3: Structure and upkeep</h2>
+
+    <h3>Deep nesting</h3>
+    <p>More than 6 levels of nested blocks raises <code>py-deep-nesting</code>. This function reports a maximum nesting of 7:</p>
+<pre><code>def process(orders):
+    for o in orders:
+        if o.paid:
+            for line in o.lines:
+                if line.stock:
+                    for w in line.warehouses:
+                        if w.open:
+                            ship(w, line)</code></pre>
+    <p>Use an early <code>continue</code> and pull the inner loop into its own function:</p>
+<pre><code>def ship_line(line):
+    for w in line.warehouses:
+        if w.open:
+            ship(w, line)
+
+
+def process(orders):
+    for o in orders:
+        if not o.paid:
+            continue
+        for line in o.lines:
+            if line.stock:
+                ship_line(line)</code></pre>
+    <p>Maximum nesting drops from 7 to 4 and the finding disappears. The number of decisions in the file is unchanged, but each function now fits in your head. More on this in <a href="/learn/maximum-nesting-depth-explained.html">maximum nesting depth, explained</a>.</p>
+
+    <h3>Long and complex functions</h3>
+    <p>Functions over 100 lines raise <code>py-long-function</code>, and those with a <a href="/learn/cyclomatic-complexity-explained.html">cyclomatic complexity</a> above 10 raise <code>py-complex-function</code>. The usual cure is to split a function that does two jobs, such as validating and then transforming, into two functions with clear names.</p>
+
+    <h3>Untracked TODOs</h3>
+    <p><code>py-todo-without-ticket</code> flags a TODO or FIXME with no ticket reference. Add one and the finding goes away:</p>
+    <div class="code-compare">
+      <div>
+        <p class="code-label label-bad">Before</p>
+        <pre><code># TODO fix this later</code></pre>
+      </div>
+      <div>
+        <p class="code-label label-good">After</p>
+        <pre><code># TODO(#142): remove after migration</code></pre>
+      </div>
+    </div>
+
+    <h2>What to fix first</h2>
+    <ol>
+      <li>Any hard-coded secret (rotate it too), then any shell, <code>eval</code> or unpickling of input you do not control.</li>
+      <li>Bare excepts that swallow errors and mutable default arguments, because they cause silent bugs.</li>
+      <li>Deeply nested or very long functions in code that changes often.</li>
+      <li>Wildcard imports, untracked TODOs and mutable class attributes, in your own time.</li>
+    </ol>
+    <p>Do not chase the raw count. In our data, 62% of Python findings were in tests, docs, examples or bundled code. Check the path before the number; see <a href="/learn/where-static-analysis-findings-live.html">where static analysis findings actually live</a>.</p>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Does REPO-SIGHT check type hints or PEP 8 style?</h3>
+    <p>No. It focuses on risky patterns, security checks and structural metrics. Pair it with a formatter such as Black or Ruff for style.</p>
+    <h3>Will it analyse my docstrings?</h3>
+    <p>For the comment-density part of the health score, only <code>#</code> comments are counted. A function with a three-line docstring and one <code>#</code> comment reports one comment line, so well-documented Python can still score low on that component.</p>
+
+    <h2>Check your own project</h2>
+    <p>These rules are REPO-SIGHT's actual Python checks. <a href="/#analyze">Run it on a Python repository</a> or use the <a href="/python-code-analyzer.html">Python code analyzer</a> to see which of them show up in your code.</p>
