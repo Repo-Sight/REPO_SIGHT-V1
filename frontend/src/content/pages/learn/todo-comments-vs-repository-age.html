@@ -1,55 +1,73 @@
-<h1>The longest Java methods in 13 open-source projects</h1>
+<h1>Do older repositories carry more TODOs? 53 projects scanned</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
-    <p>Only 0.15% of the Java methods and constructors in 13 respected open-source projects are longer than 100 lines &mdash; 211 out of 140,090. We ranked the longest of them. The ten longest are all in test or benchmark code, and 159 of the 211 (75%) sit outside production paths. The long methods that do ship in production are a small, recognisable set.</p>
+    <p>Developers joke that every old codebase is full of "TODO: fix this later" comments that nobody ever fixed. We tested the joke. We counted TODO and FIXME markers in 53 well-regarded open-source projects, about 4.38 million lines of code in all, and compared them with the age of each project. There is a link, but a weak one. A single project accounts for more than half of all the markers, and 10 of the 53 contain none at all.</p>
 
     <h2>How we measured</h2>
-    <p>The projects are Guava, Guice, Gson, Jackson Core, Jsoup, Joda-Time, JUnit 5, Mockito, Retrofit, SLF4J and three Apache Commons libraries (Collections, IO and Lang). Each was scanned at a pinned commit listed in the <a href="/data/open-source-scan-2026-10.csv">open data file</a>. Only Java files are counted, so Retrofit&rsquo;s bundled website scripts are left out. Length is the number of lines from a method&rsquo;s first line to its closing brace, and a constructor counts as a method. &ldquo;Non-production&rdquo; means a path with a directory named like test, tests, benchmark, examples, docs or vendor, or a file named like <code>FooTest.java</code>.</p>
-
-    <h2>How rare is a long method?</h2>
+    <p>The 53 projects, the commit scanned in each and every figure used here are in the <a href="/data/open-source-scan-2026-10.csv">open data file</a>. The set covers 18 Python, 14 C++, 13 Java, 5 JavaScript, 2 C# and 1 TypeScript projects. A few definitions matter:</p>
     <ul>
-      <li>The median method is 5 lines. One method in a hundred is longer than 50 lines.</li>
-      <li>1,340 methods (1.0%) are over 50 lines, 211 (0.15%) are over 100, and 49 are over 200.</li>
-      <li>The count is concentrated: Guava has 66 of the 211, Jackson Core 37, Commons Lang 30, Guice 26, Joda-Time 12 and Gson 9.</li>
+      <li><strong>Marker.</strong> REPO-SIGHT searches the text of every comment for the strings <code>TODO</code> and <code>FIXME</code> and counts each occurrence. The search is case-sensitive, and it counts comments only, not strings or code. A comment that merely mentions the word is counted too.</li>
+      <li><strong>Density.</strong> Markers per 1,000 lines of code, so large and small projects can be compared.</li>
+      <li><strong>Age.</strong> Years from the first commit in the repository's history to mid-October 2026. Projects that moved to git from an older system may show a first commit later than their real birth, so treat ages as approximate.</li>
+      <li><strong>Scope.</strong> Whole-repository scans, so tests, examples and bundled code are included.</li>
     </ul>
 
-    <h2>The longest of all: tables and test bodies</h2>
-    <p>The top of the ranking is not code anyone would call logic:</p>
-    <ul>
-      <li><strong>Jackson Core</strong>, <code>DoubleToDecimalChecker</code>: four methods named <code>hard0</code> to <code>hard3</code> of 5,004, 5,004, 5,004 and 4,549 lines. Each returns a single array of hard-coded double-precision values for a test.</li>
-      <li><strong>Commons Lang</strong>, <code>ArrayUtilsTest.testSameLengthAll</code>: 1,334 lines of setup and assertions in one test method.</li>
-      <li><strong>Guava</strong>, <code>CharMatcherBenchmark</code>: <code>populateProb2</code> at 720 lines and <code>populateProb1</code> at 633, both in benchmark code.</li>
-      <li><strong>Commons Lang</strong>, <code>SystemUtilsTest.testJavaVersionMatches</code>: 623 lines.</li>
-    </ul>
-    <p>All of the ten longest methods, and 19 of the 20 longest, are in tests or benchmarks. They are long because they list data or repeat one kind of assertion many times, not because they are tangled. Another 20 of the 211 are methods named <code>suite</code>, the JUnit 3 convention for collecting tests.</p>
+    <h2>The overall picture</h2>
+    <p>Across all 53 projects there are 2,951 markers in 4,383,346 lines of code, which is roughly 0.67 per 1,000 lines. The typical project is much quieter than that average suggests: the median density is 0.24 per 1,000 lines, or about one marker for every 4,000 lines. The projects range in age from 6.9 to 25.5 years, with a median of 16.2.</p>
 
-    <h2>The longest production methods</h2>
-    <p>Filtering to production paths leaves 52 methods over 100 lines. The longest are:</p>
+    <h2>Is there a link with age?</h2>
+    <p>Yes, but it is weak. The correlation between a project's age and its TODO density is 0.24 (Pearson), and 0.29 by rank, which means age explains only around 6% of the variation between projects. The direction is what you would expect: older projects tend to carry more notes to themselves. But it is far from a rule.</p>
+    <p>Grouping the projects by age shows why:</p>
     <ul>
-      <li><strong>Retrofit</strong>, <code>RequestFactory.parseParameterAnnotation</code>: 456 lines &mdash; parses the annotations on a parameter.</li>
-      <li><strong>Jsoup</strong>, <code>HtmlTreeBuilderState.inBodyStartTag</code>: 357 lines &mdash; the HTML parser&rsquo;s rules for start tags inside the body.</li>
-      <li><strong>Mockito</strong>, <code>MockMethodAdvice.wrap</code>: 257 lines &mdash; bytecode advice for mocked methods.</li>
-      <li><strong>Guice</strong>, <code>FactoryProvider2.FactoryProvider2</code>: 227 lines &mdash; a constructor.</li>
-      <li><strong>Guice</strong>, <code>SingletonScope.scope</code>: 223 lines &mdash; singleton scope handling.</li>
-      <li><strong>Guice</strong>, <code>BindingProcessor.visit</code>: 217 lines &mdash; binding processing.</li>
-      <li><strong>Mockito</strong>, <code>MockMethodAdvice.visitCode</code>: 205 lines &mdash; bytecode advice for mocked methods.</li>
-      <li><strong>Commons Lang</strong>, <code>RandomStringUtils.random</code>: 202 lines &mdash; random string generation.</li>
+      <li><strong>Under 10 years</strong> (8 projects): median 0.10 markers per 1,000 lines.</li>
+      <li><strong>10 to 15 years</strong> (14 projects): median 0.09.</li>
+      <li><strong>15 to 20 years</strong> (22 projects): median 0.39.</li>
+      <li><strong>20 years or more</strong> (9 projects): median 0.32.</li>
     </ul>
-    <p>Read down that list and the pattern is clear: parsers and annotation handlers, bytecode instrumentation, and framework internals. Retrofit&rsquo;s <code>parseParameterAnnotation</code> is an if/else-if chain with one branch for each annotation type, such as <code>Url</code>, <code>Path</code> and <code>Query</code>. Jsoup&rsquo;s <code>inBodyStartTag</code> follows the HTML specification&rsquo;s rules for start tags, which are themselves a long list of special cases. In both, the length mirrors the thing being modelled.</p>
-    <p>Complexity points the same way. The most complex production methods are Jsoup&rsquo;s <code>inBodyStartTag</code> at 124, Retrofit&rsquo;s <code>parseParameterAnnotation</code> at 120, and Commons Lang&rsquo;s <code>random</code> at 78. Across all 984 Java methods above complexity 10, 344 (35%) are in non-production paths.</p>
+    <p>Younger projects sit low, and the older groups sit higher, but the oldest group is not the highest, and there is a lot of overlap. The pattern also holds, weakly, inside individual languages: the rank correlation is 0.26 for the 18 Python projects, 0.37 for the 14 C++ projects and 0.29 for the 13 Java projects. In every case it is positive and modest. Age is one factor among several, and a minor one.</p>
+    <p>One more detail: 92% of all the markers sit in the 31 projects that are 15 years old or more. That sounds like strong support for the joke, but most of it comes from one project, which the next section explains.</p>
+
+    <h2>The big outlier: Guava</h2>
+    <p>Google Guava has 1,663 TODO and FIXME markers, which is 56% of the 2,951 in the whole data set. Its density is 3.24 per 1,000 lines, nearly three times the next project. The five that follow it are all close together:</p>
+    <ul>
+      <li>Guava (Java, 17.3 years): 3.24 per 1,000 lines, 1,663 markers.</li>
+      <li>Tornado (Python, 17.1 years): 1.18, 48 markers.</li>
+      <li>doctest (C++, 10.6 years): 1.15, 21 markers.</li>
+      <li>Guice (Java, 20.1 years): 1.14, 90 markers.</li>
+      <li>Catch2 (C++, 15.9 years): 1.07, 59 markers.</li>
+      <li>Mockito (Java, 18.9 years): 1.06, 69 markers.</li>
+    </ul>
+    <p>Take Guava out and the other 52 projects together hold 1,288 markers. The age link does not disappear: the correlation without Guava is 0.30, slightly stronger. But the headline average falls sharply, which is a reminder that in code metrics a single large project can dominate a total. It also explains why Java averages about 1.5 markers per 1,000 lines in this data, against about 0.3 to 0.4 for Python and C++ and under 0.1 for JavaScript and C#. The Java average here is mostly a Guava average: its 1,663 markers are 80% of the Java total.</p>
+    <p>High marker count does not mean low quality. Guava is one of the most widely used and carefully reviewed Java libraries. Its density says something about the project's habits and its size and history. It does not say how many defects it has.</p>
+
+    <h2>Ten projects with none</h2>
+    <p>Ten of the 53 projects contain no TODO or FIXME markers at all: Polly, axios, CLI11, Express, spdlog, JUnit 5, lodash, Click, Flask and attrs. They are not all new. Express is 17 years old, Flask 16.5 and lodash 17, so age alone does not predict it. They are also smaller than average, with a median of about 27,000 lines of code against about 47,000 for the whole set.</p>
+    <p>A zero is not necessarily cleaner code. A project may track unfinished work in an issue tracker and keep source comments free of it, which is an arguably better habit. Or its maintainers may remove such notes during review. A marker count measures where people write down unfinished business, not how much of it exists.</p>
 
     <h2>What this means for your own code</h2>
     <ul>
-      <li><strong>Check the path before the number.</strong> A test with a 1,300-line body is a different problem from a 300-line method in production code.</li>
-      <li><strong>Long and branchy often means &ldquo;mirrors a spec&rdquo;.</strong> If a method follows an external grammar or protocol, the useful questions are whether it is tested and whether a new case is easy to add.</li>
-      <li><strong>Tables belong in data.</strong> A method that returns thousands of literal values is a candidate for a resource file.</li>
-      <li><strong>Set a limit and watch the trend.</strong> Projects this well maintained still have a few dozen long production methods. Zero is not the goal; a steady count is.</li>
+      <li><strong>Do not treat a TODO count as a quality score.</strong> It is weakly tied to age, strongly tied to team habit, and easily dominated by one project.</li>
+      <li><strong>The useful question is whether notes have an owner.</strong> That is why REPO-SIGHT's TODO rules, such as <code>py-todo-without-ticket</code>, flag only markers that lack a ticket reference like <code>#142</code> or <code>PROJ-123</code>. Compare <code># TODO fix this later</code> with <code># TODO(#142): remove after migration</code>. The first is flagged; the second is not.</li>
+      <li><strong>Watch the trend, not the level.</strong> If your project's density rises on every scan, notes are piling up faster than they are resolved.</li>
+      <li><strong>Mind the cost.</strong> In the <a href="/learn/reading-a-code-health-score.html">health score</a>, TODO density is worth 10% of the grade, with full marks at 0.01 markers per line of code and nothing at 0.05. Across these 53 projects it cost almost nothing, since even Guava's 0.003 is well below the penalty zone.</li>
+    </ul>
+    <p>For the bigger picture on unfinished work, see <a href="/learn/what-is-technical-debt.html">what is technical debt?</a>.</p>
+
+    <h2>Limitations</h2>
+    <ul>
+      <li>Fifty-three projects is a small sample, chosen because they are respected and well known, so they are not representative of all code. Results from private or student projects may look very different.</li>
+      <li>Age is taken from the first commit, which can be misleading for projects that imported history.</li>
+      <li>Correlation is not causation. Older projects also tend to be larger and to have had more contributors, and either could explain a part of the effect.</li>
+      <li>The marker count is a simple text search and cannot judge whether a note is still relevant.</li>
     </ul>
 
     <h2>Frequently asked questions</h2>
-    <h3>Are constructors counted as methods?</h3>
-    <p>Yes. Guice&rsquo;s <code>FactoryProvider2</code> constructor, at 227 lines, is in the list above.</p>
-    <h3>Why is the share so low compared with other languages?</h3>
-    <p>In this data set, 0.15% of Java methods pass 100 lines, against 1.2% of C++ functions and 0.45% of Python functions. These are 13 mature projects with strong conventions, so treat it as a picture of well-kept code and not a language ranking.</p>
-    <h3>How do I find the long methods in my project?</h3>
-    <p><a href="/#analyze">Paste a GitHub URL</a> and the report ranks your longest and most complex methods by file. The <a href="/java-code-analyzer.html">Java code analyzer</a> page lists what is checked, and <a href="/learn/improve-java-code-quality.html">how to improve Java code quality</a> shows common fixes.</p>
+    <h3>Are TODO comments bad?</h3>
+    <p>No. A TODO attached to a ticket is a reasonable way to record a known gap. The problem is a note with no owner that nobody will ever read again.</p>
+    <h3>Does REPO-SIGHT count FIXME and TODO separately?</h3>
+    <p>It adds them together into one count per project, and flags the ones without a ticket reference.</p>
+    <h3>Can I download the data?</h3>
+    <p>Yes. The <a href="/data/open-source-scan-2026-10.csv">open data file</a> lists every project, the commit scanned and all the figures used in this article.</p>
+
+    <h2>Count the TODOs in your own project</h2>
+    <p><a href="/#analyze">Scan a repository</a> to see your TODO and FIXME count, and which of them have no ticket attached.</p>
