@@ -1,24 +1,71 @@
-    <h1>Static analysis vs. dynamic analysis</h1>
+<h1>Static analysis vs. dynamic analysis</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
 
-    <p>These are the two fundamentally different ways to find problems in a codebase. One reads the code. The other runs it. Most real engineering workflows use both, because each one is blind to exactly the kind of problem the other one is good at catching.</p>
+    <p>These are the two fundamentally different ways to find problems in a codebase. One reads the code. The other runs it. Most real engineering workflows use both, because each is blind to exactly the kind of problem the other catches. This guide defines each approach, then runs the same small C++ and Python programs through both so you can see the difference in actual output, and finishes with a practical order for using them together.</p>
 
     <h2>What static analysis does</h2>
-    <p>Static analysis examines source code without executing it. A tool tokenizes and parses the text, then checks it against rules and metrics: is this function too long, is this catch block empty, how many independent paths run through this branch. Nothing ever runs &mdash; there's no build step, no test harness, no runtime environment required. That's also why it's fast: REPO-SIGHT can return a full report on a repository in seconds, because it never compiles or executes a single line of the code it's reading.</p>
+    <p>Static analysis examines source code without executing it. A tool tokenizes and parses the text, then checks it against rules and metrics: is this function too long, is this catch block empty, how many independent paths run through this branch. There is no build step, no test harness and no runtime environment. That is also why it is fast. On our test run, REPO-SIGHT&rsquo;s engine analysed the Flask web framework (83 files, about 14,000 lines of code) in roughly 0.05 seconds, plus whatever time it takes to download the repository, because it never compiles or executes any of the code it reads.</p>
 
     <h2>What dynamic analysis does</h2>
-    <p>Dynamic analysis runs the program and observes what actually happens. Unit tests are the most familiar form. So are memory sanitizers (AddressSanitizer, Valgrind), profilers that watch real CPU/memory usage, and fuzzers that throw thousands of malformed inputs at a program to see what makes it crash. Dynamic analysis can only tell you about the paths that were actually exercised during the run &mdash; it has no opinion about code that was never called.</p>
+    <p>Dynamic analysis runs the program and observes what actually happens. Unit tests are the most familiar form. Others include memory checkers such as AddressSanitizer and Valgrind, profilers that watch real CPU and memory use, and fuzzers that send thousands of malformed inputs to see what breaks. Dynamic analysis can only report on the paths that were actually exercised during the run. It has no opinion about code that was never called.</p>
+
+    <h2>Why neither can be complete</h2>
+    <p>There is a theoretical reason the two approaches overlap rather than one replacing the other. Rice&rsquo;s theorem, a result from computability theory, says no algorithm can decide every non-trivial behavioural property of arbitrary programs, such as &ldquo;does this ever crash.&rdquo; A static tool that tries to answer such questions must therefore approximate, and approximation means false alarms, missed problems or both. Tools that stay close to the text of the code, which is what REPO-SIGHT does, avoid the problem by not claiming to know what the program will do. They report facts about the source (this function has 14 branches) and known risky patterns (this call has no bounds check). Dynamic analysis avoids the problem differently, by observing real behaviour, but only for the inputs it was given.</p>
+
+    <h2>The same code, analysed both ways</h2>
+    <p>We wrote a small C++ file that allocates a 16-byte buffer and copies a command-line argument into it with <code>strcpy</code>, then compiled it with AddressSanitizer and ran it twice.</p>
+    <pre><code>Buf* b = new Buf();
+b-&gt;p = new char[16];
+strcpy(b-&gt;p, src);
+delete b;</code></pre>
+    <ul>
+      <li><strong>Static result.</strong> REPO-SIGHT reported the <code>strcpy</code> on line 6 as a security warning (<code>cpp-sec-unsafe-buffer-fn</code>) and the manual allocation as three <code>cpp-raw-new-delete</code> notes. It reported these without being given any input, because the risk is in the code, not in a particular run.</li>
+      <li><strong>Dynamic result with a short input.</strong> Running with the two-character argument <code>hi</code> produced no overflow. AddressSanitizer did report something the static pass had only hinted at: <code>LeakSanitizer: detected memory leaks</code>, with a direct leak of 16 bytes. The code deletes the struct but never the buffer inside it.</li>
+      <li><strong>Dynamic result with a long input.</strong> Running with a 32-character argument produced <code>AddressSanitizer: heap-buffer-overflow</code> inside <code>strcpy</code>.</li>
+    </ul>
+    <p>So the same program gave three different answers depending on how it was examined, and each answer was true. The static tool warned about the overflow before anything ran, and it worked for every input. The dynamic tool proved the overflow was reachable and found a leak, but only when the input made it happen.</p>
+    <p>Then we reversed it with a Python function that swallows an exception:</p>
+    <pre><code>def load(path, cache={}):
+    try:
+        data = open(path).read()
+    except:
+        pass
+    cache[path] = data
+    return data</code></pre>
+    <p>The analyser flagged the bare <code>except</code> and the mutable default argument. It did not report the actual failure. Running the function with a missing file ended with <code>UnboundLocalError: cannot access local variable 'data' where it is not associated with a value</code>. The test found a real crash that the static check could only hint at, because it required running the failure path. Each approach found something the other missed, which is the point.</p>
 
     <h2>What each one misses</h2>
     <ul>
-      <li><strong>Static analysis can't tell you if the output is correct.</strong> It can tell you a function has 8 branches and no comments. It cannot tell you whether the function computes the right answer &mdash; that requires actually running it against known inputs.</li>
-      <li><strong>Dynamic analysis can't see code it never touches.</strong> A test suite with 60% coverage tells you nothing about the other 40%. A race condition that only appears under specific timing won't show up if the test that would trigger it never ran.</li>
-      <li><strong>Static analysis catches structural rot early; dynamic analysis catches behavioral bugs late.</strong> A cyclomatic complexity of 30 is visible the moment the function is written. The bug it eventually causes might not surface until a specific input hits production months later.</li>
+      <li><strong>Static analysis cannot tell you whether the output is correct.</strong> It can tell you a function has 8 branches and no comments. It cannot tell you the function computes the right answer. That requires running it against known inputs.</li>
+      <li><strong>Dynamic analysis cannot see code it never touches.</strong> A suite with 60% coverage says nothing about the other 40%. A race condition that depends on timing will not show up if the test that would trigger it never ran.</li>
+      <li><strong>Static analysis finds structural rot early; dynamic analysis finds behavioural bugs late.</strong> A cyclomatic complexity of 30 is visible the moment the function is written. The bug it eventually causes might not surface until a specific input reaches production months later.</li>
+      <li><strong>Dynamic tools cost more to run.</strong> They need a working build, a runtime and usually a test harness. Sanitizers slow programs down and fuzzers can run for hours.</li>
     </ul>
 
-    <h2>They're complementary, not competing</h2>
-    <p>A healthy pipeline typically runs static analysis first &mdash; fast, cheap, no build required &mdash; as an early gate before code even gets to tests. Dynamic tools (unit tests, integration tests, sanitizers) run afterward, closer to merge or deploy, because they're slower and need a working build. Neither replaces the other: a codebase can have 100% test coverage and still be an unmaintainable tangle of 400-line functions, and a codebase can have a perfect static-analysis grade and still have a logic bug that only a test would catch.</p>
+    <h2>Static findings need triage, and so do dynamic ones</h2>
+    <p>A fair comparison includes the cost side. Static tools produce volume: our scan of 53 open-source projects produced 32,174 findings, of which about 58% were in tests, documentation, examples or bundled code. <a href="/learn/where-static-analysis-findings-live.html">That article</a> explains how to sort them. Dynamic tools have their own noise, such as flaky tests that fail one run in fifty, or sanitizer reports in third-party code you cannot change. Neither kind of output can be trusted blindly.</p>
+
+    <h2>A sensible order of use</h2>
+    <ol>
+      <li><strong>While writing:</strong> static checks in the editor or a quick scan. Instant, no build.</li>
+      <li><strong>Before opening a pull request:</strong> a full static scan to clear the mechanical issues, then the unit tests.</li>
+      <li><strong>In continuous integration:</strong> the complete test suite, plus sanitizers on the build types that support them.</li>
+      <li><strong>Before release or for risky parsing code:</strong> fuzzing and soak tests, where inputs you did not think of are the whole point.</li>
+      <li><strong>In production:</strong> monitoring, which is dynamic analysis of real traffic.</li>
+    </ol>
+    <p>Static analysis comes first because it is cheap and needs nothing to exist. Dynamic analysis comes later because it needs a working program, and it is where correctness is actually established.</p>
 
     <h2>Where REPO-SIGHT sits</h2>
-    <p>REPO-SIGHT is a static analysis tool, deliberately. It tokenizes and parses your C++, Python, or Java source and never executes, builds, or installs anything from the repository it's given &mdash; that's both a speed decision (no build step means a scan finishes in seconds) and a security one (no arbitrary code from a random public GitHub repo ever runs). If you want the dynamic side of the picture &mdash; does the code actually work &mdash; that's still on your test suite, not on any static tool, REPO-SIGHT included.</p>
+    <p>REPO-SIGHT is a static analysis tool, deliberately. It tokenizes and parses your C++, Python, Java, TypeScript, JavaScript or C# source and never executes, builds or installs anything from the repository it is given. That is a speed decision, since there is no build step to wait for, and a security one, since no arbitrary code from a random public repository ever runs. If you want the dynamic half of the picture, does the code actually work, that remains the job of your tests, sanitizers and monitoring.</p>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Which is better, static or dynamic analysis?</h3>
+    <p>Neither. They find different problems, and a codebase can pass one and fail the other. We showed a case above in each direction.</p>
+    <h3>Is a unit test dynamic analysis?</h3>
+    <p>Yes. Any technique that runs the code and observes behaviour is dynamic, and tests are the most common example.</p>
+    <h3>Can static analysis find memory leaks?</h3>
+    <p>Some tools can reason about ownership, but simple pattern-based tools cannot be sure. In our example the static pass flagged the raw allocations as a smell, and the leak itself was confirmed only when the program ran under a sanitizer.</p>
+
+    <h2>See the static side for yourself</h2>
+    <p><a href="/#analyze">Scan a repository</a> or paste a single file to see what a static pass reports with no build and no setup. To read more on the human side of the same question, see <a href="/learn/static-analysis-vs-code-review.html">static analysis vs. code review</a>, or start with <a href="/learn/what-is-static-analysis.html">what static analysis is</a>.</p>
