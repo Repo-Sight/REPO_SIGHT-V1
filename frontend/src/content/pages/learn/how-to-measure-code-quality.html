@@ -1,24 +1,78 @@
-    <h1>How to measure code quality</h1>
+<h1>How to measure code quality</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
+    <p>Code quality cannot be captured in one number, but parts of it can be measured, and the parts that can be measured are worth tracking. This guide explains what "quality" is made of, which metrics are objective and which are only proxies, and walks through a real project's score step by step so you can see exactly how a number like 78 is produced. It also covers the ways measurement goes wrong, because a metric you optimise blindly stops being useful.</p>
 
-    <p>&quot;Code quality&quot; isn't directly measurable, because it isn't one thing. It's a bundle of separate properties &mdash; correctness, maintainability, readability, performance, security &mdash; and no single number captures all of them. What tools actually measure are proxies: things that are cheap to compute and correlate reasonably well with the properties you actually care about.</p>
-
-    <h2>The proxy metrics you'll see most often</h2>
+    <h2>What "quality" means</h2>
+    <p>People use the word for several different things, and mixing them up leads to arguments. A useful split:</p>
     <ul>
-      <li><strong>Lines of code (LOC)</strong> &mdash; the weakest proxy on this list. A large file isn't automatically bad, and a small one isn't automatically good, but LOC is cheap to compute and shows up everywhere as a rough size signal.</li>
-      <li><strong>Cyclomatic complexity</strong> &mdash; a count of independent paths through a function. Correlates with how hard a function is to test and reason about.</li>
-      <li><strong>Test coverage</strong> &mdash; the percentage of code exercised by an automated test suite. Says nothing about whether the tests are actually good, only that the lines were executed at least once.</li>
-      <li><strong>Duplication percentage</strong> &mdash; how much of the codebase is copy-pasted rather than shared. Rising duplication is one of the clearest early signals of a codebase getting harder to change safely.</li>
-      <li><strong>Defect density</strong> &mdash; bugs found per thousand lines of code, usually tracked after the fact from a bug tracker. The most direct proxy for real-world quality, and the hardest one to get before shipping.</li>
-      <li><strong>Maintainability index</strong> &mdash; a composite formula (originally from a 1992 paper, popularized by Microsoft's Visual Studio metrics) that blends complexity, size, and comment ratio into one number, conceptually similar to what REPO-SIGHT's health score does across all six of its supported languages.</li>
+      <li><strong>Maintainability:</strong> how easy the code is to read, change and extend. This is what most static metrics measure.</li>
+      <li><strong>Reliability:</strong> whether it behaves correctly under real conditions. Mostly measured by tests and production monitoring, not by reading source.</li>
+      <li><strong>Security:</strong> whether it resists misuse. Partly visible as risky patterns in the code.</li>
+      <li><strong>Performance:</strong> whether it is fast and frugal enough. Needs profiling, not static reading.</li>
+    </ul>
+    <p>A static analyser, REPO-SIGHT included, is strongest on maintainability and on the security patterns that have a recognisable shape. It does not measure reliability or performance, and it says nothing about whether the code does the right thing.</p>
+
+    <h2>Metrics you can compute from the source</h2>
+    <p>These five are the inputs to REPO-SIGHT's <a href="/learn/reading-a-code-health-score.html">health score</a>. Each is a plain fact about the text of the code, so it can be recomputed exactly:</p>
+    <ul>
+      <li><strong>Complexity density</strong> (35% of the score): total <a href="/learn/cyclomatic-complexity-explained.html">cyclomatic complexity</a> divided by lines of code. Full marks at 0.15 or below, zero at 0.50.</li>
+      <li><strong>Average function length</strong> (25%): full marks at 15 lines or fewer, zero at 60 or more.</li>
+      <li><strong>Comment density</strong> (20%): comment lines per line of code. Full marks at 0.20, zero at 0.02.</li>
+      <li><strong>TODO density</strong> (10%): TODO and FIXME markers per line of code. Full marks at 0.01 or below, zero at 0.05.</li>
+      <li><strong>Maximum nesting depth</strong> (10%): the deepest block in the project. Full marks at 3 levels, zero at 8. See <a href="/learn/maximum-nesting-depth-explained.html">maximum nesting depth</a>.</li>
+    </ul>
+    <p>Each component is scaled from 0 to 100 between its "good" and "bad" reference points, then the five are combined using the weights above. A score of 90 or more is an A, 80 a B, 70 a C and 60 a D.</p>
+
+    <h2>A worked example: scoring Flask by hand</h2>
+    <p>The best way to trust a score is to recompute it. Here are the figures from our October 2026 scan of Flask, the Python web framework:</p>
+    <ul>
+      <li>13,989 lines of code, 781 comment lines, 1,462 functions</li>
+      <li>Average function length 8.6 lines</li>
+      <li>Cyclomatic total 817, so complexity density = 817 &divide; 13,989 = 0.058</li>
+      <li>Maximum nesting depth 6</li>
+      <li>0 TODO or FIXME markers</li>
+    </ul>
+    <p>Now score each component:</p>
+    <ol>
+      <li><strong>Complexity density</strong> 0.058 is under 0.15, so it earns <strong>100</strong>.</li>
+      <li><strong>Function length</strong> 8.6 is under 15, so <strong>100</strong>.</li>
+      <li><strong>Comment density</strong> is 781 &divide; 13,989 = 0.056. That sits between 0.02 (zero) and 0.20 (full), at (0.056 &minus; 0.02) &divide; 0.18 = about <strong>20</strong>.</li>
+      <li><strong>TODO density</strong> is 0, so <strong>100</strong>.</li>
+      <li><strong>Nesting depth</strong> 6 sits between 3 (full) and 8 (zero), at (8 &minus; 6) &divide; 5 = <strong>40</strong>.</li>
+    </ol>
+    <p>Weight them: 0.35 &times; 100 + 0.25 &times; 100 + 0.20 &times; 20 + 0.10 &times; 100 + 0.10 &times; 40 = 35 + 25 + 4 + 10 + 4 = <strong>78</strong>. That is a C, and it matches the score REPO-SIGHT reported.</p>
+
+    <h2>What the example teaches</h2>
+    <p>First, a C here does not mean the code is poor. Flask scores full marks on three of five components and loses its points in two places: comments and nesting. The comment loss is mostly a counting convention. REPO-SIGHT counts only <code>#</code> comments in Python, and Flask documents itself heavily in docstrings, which do not count. We tested this on a small file: a function with a three-line docstring and one <code>#</code> comment reports one comment line.</p>
+    <p>Second, you can see exactly which levers move the score. Cutting maximum nesting from 6 to 3 would lift the nesting component from 40 to 100, which adds 6 points and moves Flask from 78 to 84, a B. Reaching 0.20 comment density would need about 2,000 more <code>#</code> comment lines for +16 points, which is the wrong goal because padding code with comments does nothing for readers. Knowing the formula lets you spot which improvements are real and which are gaming.</p>
+    <p>Third, compare like with like. Across the 53 open-source projects we scanned, Java projects averaged 90 and Python projects 74, almost entirely because of how comments are counted. The full picture is in <a href="/learn/what-code-health-grades-measure-53-open-source-projects.html">what code health grades look like across 53 open-source projects</a>. A Python project at 74 is a normal result; a Java project at 74 would be unusual.</p>
+
+    <h2>Ways measurement goes wrong</h2>
+    <ul>
+      <li><strong>Optimising the number, not the code.</strong> When a measure becomes a target it stops being a good measure. Adding comments to raise a score, or splitting a function in the middle of a thought to reduce its length, improves the metric and worsens the code.</li>
+      <li><strong>Reading averages and ignoring outliers.</strong> A healthy average hides the one 400-line function that everyone is afraid of. Look at the worst files and functions, not only the project total.</li>
+      <li><strong>Ignoring where the findings are.</strong> About 58% of the findings in our 53-project scan were in tests, docs, examples or bundled code. A number that mixes them with production code overstates the problem. See <a href="/learn/where-static-analysis-findings-live.html">where static analysis findings actually live</a>.</li>
+      <li><strong>Treating a clean report as proof.</strong> It means none of the checks the tool knows about fired. It says nothing about tests, design or whether the feature works.</li>
+      <li><strong>Comparing across languages.</strong> Conventions differ. Compare a project with others in the same language, or better, with its own past.</li>
     </ul>
 
-    <h2>What a single static scan can and can't tell you</h2>
-    <p>A one-time scan gives you a snapshot: the current structural shape of the repository. It cannot tell you whether that shape is improving or getting worse without a second scan later to compare against, and it can't measure defect density at all &mdash; that requires real production data a static tool never sees. Static metrics are a leading indicator, not a verdict.</p>
+    <h2>A practical way to measure your own code</h2>
+    <ol>
+      <li><strong>Take a baseline.</strong> Scan the whole repository once and save the result. The number matters less than having a starting point.</li>
+      <li><strong>Pick two or three metrics that fit your problem.</strong> If reviews drag on, watch function length and nesting. If bugs cluster in error handling, watch the empty-catch and bare-except findings.</li>
+      <li><strong>Fix the worst offenders first.</strong> Start from the ranked "fix these first" list, not from the longest list of low-severity items.</li>
+      <li><strong>Rescan and compare.</strong> The change since the last scan tells you whether your effort is working. A rising trend is a better warning than one high reading.</li>
+      <li><strong>Add what a static tool cannot see.</strong> Track test coverage, defects found in production and the time changes take, alongside the static numbers.</li>
+    </ol>
 
-    <h2>A practical starting point</h2>
-    <p>Don't try to track everything at once. Pick two or three numbers you'll actually look at on a recurring basis &mdash; complexity density and max nesting depth are a reasonable starting pair for most codebases &mdash; rather than drowning in a dashboard of metrics you'll stop checking after the first week.</p>
+    <h2>Frequently asked questions</h2>
+    <h3>What is a good code health score?</h3>
+    <p>90 or above is an A, but treat the grade as a conversation starter. In our data, only 15 of 53 respected projects earned an A, and many excellent projects scored a B or C.</p>
+    <h3>Is the score reproducible?</h3>
+    <p>Yes. It is computed from published constants, so you can recompute it from the five inputs, as we did for Flask. We recomputed every project's score in our 53-project data file and each matched to within a tenth of a point.</p>
+    <h3>Which single metric matters most?</h3>
+    <p>There is no single answer. If you must pick one place to look, find your functions with the highest complexity and deepest nesting, because they combine the two most common sources of hard-to-follow code.</p>
 
-    <h2>How REPO-SIGHT approaches this</h2>
-    <p>Rather than presenting five or six separate numbers and leaving you to weigh them yourself, REPO-SIGHT's health score bundles cyclomatic complexity density, average function length, comment density, TODO density, and max nesting depth into a single weighted A&ndash;F grade. <a href="/learn/reading-a-code-health-score.html">See exactly how each component is weighted.</a> You can still see the individual numbers behind the grade in the dashboard &mdash; the grade is a starting point, not a replacement for looking closer.</p>
+    <h2>Measure your own code</h2>
+    <p><a href="/code-quality-checker.html">Try the code quality checker</a> or <a href="/#analyze">scan a repository</a> to see your five component scores, the formula behind them and the files that cost you the most.</p>
