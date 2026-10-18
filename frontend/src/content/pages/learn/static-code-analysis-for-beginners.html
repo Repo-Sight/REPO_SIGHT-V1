@@ -1,30 +1,108 @@
-    <h1>Static code analysis for beginners</h1>
+<h1>Static code analysis for beginners</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
+    <p>If you have never run a static analysis tool, the output can look like a wall of warnings. This guide walks through a first scan from start to finish: what to scan, what the results mean, which ones to act on, and how to check that your fix worked. You need no setup, no signup and no knowledge of the tool. By the end you will have read a real report and know what to do with the next one.</p>
 
-    <p>If you've ever seen a red squiggly underline in your editor before you even ran your code, you've already used static analysis. This is a plain-language introduction to what it is, how it's organized, and how to read your first real report without panicking.</p>
+    <h2>What static analysis does, in one paragraph</h2>
+    <p>A static analysis tool reads your source code without running it and points at patterns that are risky, confusing or hard to maintain. Think of it as an automated first reviewer that never gets tired and checks every line for the same mechanical mistakes. It does not replace testing or a human reviewer, and it can be wrong. If you want the full background first, read <a href="/learn/what-is-static-analysis.html">what is static analysis?</a>. Otherwise, jump in.</p>
 
-    <h2>You're already using a primitive version of it</h2>
-    <p>Your editor's linter, the red underline under an unused variable, the warning your compiler prints about an unused import &mdash; all of that is static analysis. It reads your code as text and structure, without running it, and flags things that look wrong. What REPO-SIGHT and similar tools do is the same idea, taken further: instead of one rule at a time in your editor, a whole engine's worth of rules and metrics run across your entire repository at once.</p>
+    <h2>Step 1: Look at a demo report first</h2>
+    <p>On the REPO-SIGHT home page, the <strong>Try a demo report</strong> button opens a pre-analysed example, so you can see what a finished report looks like before you point the tool at your own code. Spend two minutes with it. Find the overall score and grade, the list headed "Fix these first", and the tabs along the top. You will recognise all of them in your own scan.</p>
 
-    <h2>The three layers, from shallow to deep</h2>
+    <h2>Step 2: Choose what to scan</h2>
+    <p>There are two ways in, and both are free, need no account and never run your code:</p>
     <ul>
-      <li><strong>Style and formatting</strong> &mdash; indentation, line length, naming conventions. Tools like Prettier, Black, or gofmt live here. Not a correctness concern, just consistency.</li>
-      <li><strong>Structural bugs</strong> &mdash; a bare <code>except:</code> block, an empty <code>catch</code>, a mutable default argument. These are patterns known to cause real bugs, independent of style.</li>
-      <li><strong>Metrics and architecture</strong> &mdash; cyclomatic complexity, nesting depth, function length, coupling between files. This is where REPO-SIGHT lives: not &quot;is this line formatted right&quot; but &quot;is this codebase, as a whole, getting harder to work in.&quot;</li>
+      <li><strong>GitHub repo.</strong> Paste the address of a public repository, for example <code>https://github.com/owner/repo</code>, and press <strong>Analyze now</strong>. Good for a whole project.</li>
+      <li><strong>Paste or upload a file.</strong> Give the file a name such as <code>app.py</code>, paste the code or choose a file, and press <strong>Analyze now</strong>. Good for a first try or a single script.</li>
     </ul>
-    <p>Beginners usually meet layer one first (their editor yells about formatting) and don't discover layers two and three until much later &mdash; often only once they've inherited someone else's large codebase.</p>
+    <p>REPO-SIGHT supports C++, Python, Java, TypeScript, JavaScript and C#. For a first scan, a small project you wrote yourself is best, because you will understand the findings. Avoid starting with a giant framework: it will produce thousands of results and teach you little.</p>
 
-    <h2>Your first report will look alarming. That's normal.</h2>
-    <p>Run a real-world repository through any static analysis tool for the first time and you'll typically see dozens of violations: long functions, missing docstrings, TODOs without a ticket number. This is completely normal for code that's never been scanned before &mdash; it doesn't mean the code is bad, it means nobody's looked at it through this particular lens yet. The mistake beginners make is trying to fix everything at once. Don't.</p>
+    <h2>Step 3: A worked example on one small file</h2>
+    <p>Here is a short Python file with a few deliberate mistakes. If you paste it in as <code>app.py</code>, you will get the findings listed below it. We ran this exact file through REPO-SIGHT.</p>
+<pre><code>import os, subprocess, pickle
 
-    <h2>How to actually use it as a beginner</h2>
-    <ol style="margin:8px 0 8px 20px; color:var(--text-muted); font-family:var(--sans); line-height:1.65;">
-      <li>Look at the overall grade or score first, not the violation list.</li>
-      <li>Find the two or three worst outliers &mdash; the single longest function, the deepest nesting, not the 40th minor info-level note.</li>
-      <li>Fix those first. Re-run. Watch the number move.</li>
-      <li>Treat the rest as a backlog, not a checklist you need to clear today.</li>
-    </ol>
+API_KEY = "sk_live_51HxQ2eLkd93jfPzR8vTn40aB"
 
-    <h2>A five-minute first run</h2>
-    <p>Pick any public GitHub repository &mdash; one of your own class projects is a good start &mdash; and <a href="/#analyze">paste the URL into REPO-SIGHT</a>. No signup, no install. Look at the grade, then look at the single longest function it found. That's usually the most honest five-minute introduction to what static analysis actually feels like in practice.</p>
+def run_expression(user_input):
+    return eval(user_input)
+
+def ping(host):
+    os.system("ping -c 1 " + host)
+
+def load_session(f):
+    return pickle.load(f)
+
+# TODO fix this later
+def x():
+    pass</code></pre>
+    <p>The tool reports five findings. Here is how to read each one:</p>
+    <ul>
+      <li><strong><code>py-sec-hardcoded-secret</code>, line 3.</strong> A password-like string is written directly in the code. Anyone who can see the repository can see it, and it stays in the history even if you delete the line. Move it to an environment variable. If it was a real key, replace it.</li>
+      <li><strong><code>py-sec-eval-exec</code>, line 6.</strong> <code>eval</code> runs a string as code. If any part of the string comes from a user, they can run their own code on your machine. Use <code>ast.literal_eval</code> for plain data.</li>
+      <li><strong><code>py-sec-os-system</code>, line 9.</strong> The command is built by joining text, so a "host" value could contain extra commands. Pass the arguments as a list to <code>subprocess.run</code>.</li>
+      <li><strong><code>py-sec-pickle-load</code>, line 12.</strong> Loading a pickle file can execute code hidden inside it. Use JSON for data you receive.</li>
+      <li><strong><code>py-todo-without-ticket</code>, line 14.</strong> A note to yourself with no issue number attached. Add one, such as <code>TODO(#142)</code>, or delete the note.</li>
+    </ul>
+    <p>Notice the tone of the messages: each one says what the code does and what to check. The tool is not telling you the code is broken, only that these are the spots worth a human look. That is the right way to treat every finding you will ever see.</p>
+
+    <h2>Step 4: Read a full report</h2>
+    <p>For a repository, the report opens on the <strong>Overview</strong> tab. These are the pieces worth knowing:</p>
+    <ul>
+      <li><strong>Score and grade.</strong> A single number out of 100 and a letter, from five measurements: complexity, function length, comments, TODO markers and nesting. The <strong>Scoring</strong> tab shows each component, so you can see why you got the grade. See <a href="/learn/reading-a-code-health-score.html">reading a code health score</a>.</li>
+      <li><strong>Fix these first.</strong> The most important findings, ranked by severity and confidence, so you do not have to sort a long list yourself.</li>
+      <li><strong>Fix now.</strong> A card that appears above the rest when there are high-severity, high-confidence problems such as an empty error handler that hides failures. If you see it, start there.</li>
+      <li><strong>Language mix.</strong> The share of each language in the project, useful when a repository contains, say, a Java backend and some Python scripts.</li>
+      <li><strong>Tabs.</strong> <strong>Languages</strong>, <strong>Files</strong>, <strong>Findings</strong>, <strong>Security</strong>, <strong>Scoring</strong> and <strong>Duplication</strong> each show one slice in more detail. The Files tab tells you which files hold the most trouble, which is usually where to begin.</li>
+    </ul>
+
+    <h2>Step 5: Fix one thing and scan again</h2>
+    <p>Do not try to clear everything. Pick the top item, fix it, and scan again. Here is the earlier file after fixing all five findings:</p>
+<pre><code>import ast, os, subprocess, json
+
+API_KEY = os.environ["API_KEY"]
+
+def run_expression(user_input):
+    return ast.literal_eval(user_input)
+
+def ping(host):
+    subprocess.run(["ping", "-c", "1", host], check=True)
+
+def load_session(f):
+    return json.load(f)
+
+# TODO(#142): fix this later
+def x():
+    pass</code></pre>
+    <p>Run it through REPO-SIGHT and it reports no findings. This before-and-after loop is the real habit to build: scan, fix the most important thing, scan again and compare. The difference between two scans is how you know you made progress, and it is far more motivating than a single number.</p>
+
+    <h2>Common beginner mistakes</h2>
+    <ul>
+      <li><strong>Chasing a perfect score.</strong> A 100 is not the goal. Only 15 of the 53 respected open-source projects we scanned earned an A, and several widely admired ones scored a C. Use the score to decide where to look, not to judge yourself.</li>
+      <li><strong>Fixing in the order of the list.</strong> A tool can show a long list of low-priority style issues before the one serious problem. Start with the ranked items.</li>
+      <li><strong>Ignoring the file path.</strong> A finding in a test or an example file matters much less than the same finding in code that ships. About 58% of findings in our scan sat in non-production paths. See <a href="/learn/where-static-analysis-findings-live.html">where static analysis findings actually live</a>.</li>
+      <li><strong>Believing every warning.</strong> Tools produce false positives. A bare <code>except:</code> that cleans up and re-raises is fine. If you read the code and it is correct, move on.</li>
+      <li><strong>Believing a clean report means safe code.</strong> It means the checks the tool knows did not fire. You still need tests and review.</li>
+    </ul>
+
+    <h2>A tiny glossary</h2>
+    <ul>
+      <li><strong>Finding:</strong> one place where a rule matched, with a file, a line and a message.</li>
+      <li><strong>Rule:</strong> one check, such as <code>py-bare-except</code>. The prefix shows the language.</li>
+      <li><strong>Severity:</strong> how serious a finding is: critical, high, medium or low.</li>
+      <li><strong>Confidence:</strong> how likely the tool is to be right about this finding.</li>
+      <li><strong><a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity</a>:</strong> how many different paths run through a function.</li>
+      <li><strong><a href="/learn/maximum-nesting-depth-explained.html">Nesting depth</a>:</strong> how many blocks sit inside one another.</li>
+    </ul>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Do I have to sign up?</h3>
+    <p>No. Scanning is free and needs no account. Your code is read, never executed.</p>
+    <h3>Will it work if my code does not compile?</h3>
+    <p>Yes. It reads the source text directly, so unfinished or broken code can still be analysed.</p>
+    <h3>How long does a scan take?</h3>
+    <p>A single file takes moments. A repository takes longer in proportion to its size, and very large ones may hit time limits.</p>
+    <h3>What should I learn next?</h3>
+    <p>Read the language guide for your stack: <a href="/learn/improve-python-code-quality.html">Python</a>, <a href="/learn/improve-java-code-quality.html">Java</a> or <a href="/learn/improve-cpp-code-quality.html">C++</a>, each of which shows before-and-after fixes for the findings you are most likely to meet.</p>
+
+    <h2>Run your first scan</h2>
+    <p>Open the <a href="/#analyze">analyzer</a>, choose a file or a public repository, and press <strong>Analyze now</strong>. Start with something small that you wrote, and fix the top finding.</p>
