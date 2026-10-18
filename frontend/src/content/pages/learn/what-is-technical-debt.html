@@ -1,24 +1,71 @@
-    <h1>What is technical debt?</h1>
+<h1>What is technical debt?</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
+    <p>Technical debt is the future cost of choosing a quick or convenient solution now instead of a better one. Like financial debt, it lets you move faster today and charges interest later: every change to the affected code takes longer, breaks more often and is harder to explain to a new teammate. This guide explains where the idea comes from, the different kinds of debt, which parts of it a tool can actually measure, and what we saw when we counted one visible symptom, TODO comments, across 53 open-source projects.</p>
 
-    <p>Technical debt is a metaphor, coined by Ward Cunningham in 1992, comparing a rushed piece of code to a financial loan. Taking the shortcut buys you speed today. Like a loan, it accrues interest &mdash; every future change to that code costs a little more than it would have if the shortcut had never been taken, until eventually someone pays down the principal by refactoring it properly.</p>
+    <h2>Where the metaphor comes from</h2>
+    <p>Ward Cunningham, one of the authors of the Agile Manifesto, coined the term in the early 1990s. His point was subtle and is often lost: shipping code that reflects your current, incomplete understanding of a problem is fine, <em>provided you go back and fix it as you learn more</em>. The debt becomes harmful when the repayment never happens and the shortcuts pile up.</p>
+    <p>The word has since stretched to cover almost any code people dislike, which makes it less useful. A cleaner definition is the one we use here: debt is a known gap between how the code is and how it needs to be for the next change to be cheap and safe.</p>
 
-    <h2>Deliberate debt vs. accidental debt</h2>
-    <p>Martin Fowler's technical debt quadrant splits it two ways: deliberate versus inadvertent, and reckless versus prudent. Prudent-deliberate debt is a team knowingly cutting a corner to hit a real deadline, with a plan to come back to it. Reckless-inadvertent debt is code written without the experience to know a better way existed &mdash; nobody chose to take on debt, it simply accumulated. Both look identical in the codebase months later; the difference is whether it was a decision or a byproduct.</p>
-
-    <h2>What it actually looks like</h2>
-    <p>Rarely a single dramatic decision. Usually a slow accretion: a function that started at cyclomatic complexity 4 gains one more <code>elif</code> for each new edge case a customer reports, until eighteen months later it's sitting at 30 and nobody remembers which branch handles which case anymore. A file that &quot;just gains one more responsibility&quot; each sprint until it's doing five unrelated jobs. Nothing about any single commit looked alarming.</p>
-
-    <h2>Why this is a sharper problem for AI-generated code specifically</h2>
-    <p>An AI coding assistant will add the fifteenth <code>elif</code> branch exactly as willingly as the first, because it has no memory of how the function looked six prompts ago and no instinct that says &quot;this function has grown enough, time to refactor before adding more.&quot; A human developer working alone in the same file for months at least has some felt sense that a function is getting unwieldy. An assistant generating a function fresh in each prompt doesn't accumulate that discomfort &mdash; which means the debt can compound faster and more invisibly than it would in code written by hand.</p>
-
-    <h2>Paying it down without a &quot;quality week&quot; that never happens</h2>
+    <h2>Not all debt is the same</h2>
+    <p>Martin Fowler's well-known quadrant sorts debt along two lines: was it deliberate or accidental, and was it prudent or reckless?</p>
     <ul>
-      <li><strong>Measure before guessing.</strong> Don't refactor the file that feels worst from memory &mdash; check which one actually has the highest complexity or the deepest nesting.</li>
-      <li><strong>Budget a fixed slice of time, not a special event.</strong> A recurring 10&ndash;15% of each work cycle spent on the worst-scoring file beats waiting for a dedicated &quot;quality sprint&quot; that keeps getting bumped for new features.</li>
-      <li><strong>Fix outliers, not everything.</strong> The file that's 3x the codebase's average complexity is worth your time. The file that's 10% above average usually isn't, yet.</li>
+      <li><strong>Deliberate and prudent.</strong> "We will ship now and refactor after launch." A conscious trade with a plan to repay it. This is the healthy kind.</li>
+      <li><strong>Deliberate and reckless.</strong> "We have no time for design." The team knows better and does it anyway.</li>
+      <li><strong>Accidental and prudent.</strong> "Now we know how we should have built it." Learning only arrives after the code exists. Unavoidable, and worth fixing when you notice.</li>
+      <li><strong>Accidental and reckless.</strong> The team did not know the basics and built something fragile without realising it.</li>
     </ul>
+    <p>A tool cannot tell you which quadrant a piece of debt belongs to, because that depends on why the code was written. It can show you where the code is hard to change, and you can supply the reasons.</p>
 
-    <h2>How REPO-SIGHT fits in</h2>
-    <p>REPO-SIGHT doesn't have access to your git history in the current version, so it can't compute a true churn-weighted &quot;hotspot&quot; score the way tools with full commit history can. What it gives you instead is a structural proxy from a single point-in-time scan &mdash; complexity, nesting, and function length per file &mdash; which is usually enough to spot the worst offenders even without historical data.</p>
+    <h2>What you can measure and what you cannot</h2>
+    <p>Technical debt is partly visible in the source text and partly not. Be clear about which is which, because a score that implies it captures everything would mislead you.</p>
+    <p><strong>Visible in the code, and measurable by static analysis:</strong></p>
+    <ul>
+      <li><strong>Long functions.</strong> REPO-SIGHT flags functions over 100 lines. See <a href="/learn/long-complex-functions-14-cpp-projects.html">long and complex functions in 14 C++ projects</a>.</li>
+      <li><strong>High <a href="/learn/cyclomatic-complexity-explained.html">cyclomatic complexity</a>.</strong> Functions above 10 are flagged individually.</li>
+      <li><strong>Deep <a href="/learn/maximum-nesting-depth-explained.html">nesting</a>.</strong> Blocks nested more than 6 levels deep are flagged.</li>
+      <li><strong>Unticketed TODO and FIXME comments.</strong> A note that says "fix this later" with nothing tracking it is debt that nobody owns.</li>
+      <li><strong>Known-risky patterns.</strong> Empty catch blocks, mutable default arguments, raw <code>new</code>/<code>delete</code>: shortcuts that tend to turn into bugs.</li>
+      <li><strong>Thin documentation.</strong> Comment density is a rough proxy for how much of the code's intent is written down.</li>
+    </ul>
+    <p><strong>Not visible from the source alone:</strong></p>
+    <ul>
+      <li>Missing or weak automated tests.</li>
+      <li>Outdated dependencies and unpatched libraries.</li>
+      <li>Architectural debt: a module boundary in the wrong place, a database schema that no longer fits.</li>
+      <li>Knowledge debt: the one person who understands a subsystem has left.</li>
+    </ul>
+    <p>REPO-SIGHT measures the first list and says so. It does not put a dollar figure or a "days to fix" estimate on debt, because any such number would be invented. What it gives you is a ranked list of specific places where the code is expensive to change.</p>
+
+    <h2>A symptom we counted: TODO comments</h2>
+    <p>Of all the visible signs, TODO and FIXME markers are the easiest to count and the easiest to misread, so we measured them across the 53 projects in our <a href="/data/open-source-scan-2026-10.csv">open data file</a>. Together the projects hold about 4.38 million lines of code and 2,951 TODO or FIXME markers, roughly 0.67 per 1,000 lines. Several findings stand out:</p>
+    <ul>
+      <li><strong>The count is very uneven.</strong> Google Guava alone accounts for 1,663 of the 2,951, which is 56%. Take Guava out and the other 52 projects together hold 1,288.</li>
+      <li><strong>10 of the 53 projects have none at all</strong>, including Flask, Click, axios, Express and lodash.</li>
+      <li><strong>Language and culture matter.</strong> The Java projects average about 1.5 markers per 1,000 lines, Python about 0.3, and the two C# projects almost none.</li>
+    </ul>
+    <p>The full breakdown, including how marker density relates to project age, is in <a href="/learn/todo-comments-vs-repository-age.html">do older repositories carry more TODOs?</a>. The lesson for debt is that a TODO count is a weak signal by itself. A project with none may track its debt in an issue tracker instead; a project with many may simply be honest about it. What the count <em>can</em> tell you is whether notes are being left behind with nobody assigned to them.</p>
+    <p>That is why REPO-SIGHT's TODO rules (<code>py-todo-without-ticket</code>, <code>java-todo-without-ticket</code> and the C++ equivalent) do not flag every TODO. They flag the ones <em>without a ticket reference</em>. For example:</p>
+<pre><code># TODO fix this later          &lt;- flagged
+# TODO(#142): remove after migration   &lt;- not flagged</code></pre>
+    <p>We ran both lines through REPO-SIGHT. The first is reported; the second, which points at issue #142 or a key like <code>PROJ-123</code>, is not. The second form turns an anonymous wish into a tracked piece of work.</p>
+
+    <h2>Managing debt without drowning in it</h2>
+    <ol>
+      <li><strong>Make it visible.</strong> Debt you cannot see cannot be prioritised. A scan that lists the worst functions and files gives the team a shared starting point.</li>
+      <li><strong>Rank by cost of change, not by ugliness.</strong> A tangled function nobody touches costs little. A moderately messy one that changes every week costs a lot. REPO-SIGHT's hotspot view combines complexity with how often a file changes when git history is available.</li>
+      <li><strong>Pay a little every time.</strong> Leave each file slightly better than you found it. Steady repayment beats a big rewrite that never gets approved.</li>
+      <li><strong>Attach every TODO to a ticket.</strong> It forces a decision: either it matters enough to track, or the comment should go.</li>
+      <li><strong>Re-measure.</strong> Rescan after a cleanup and compare. A before-and-after number is how you show that repayment is working.</li>
+    </ol>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Is technical debt always bad?</h3>
+    <p>No. Deliberate, tracked debt is a normal engineering trade-off. It is bad when it is hidden, untracked, or never repaid.</p>
+    <h3>Can a tool calculate how much debt I have?</h3>
+    <p>It can find and rank the places where code is long, tangled or risky. Turning that into a single money or time figure requires assumptions a tool cannot know, so treat any such number sceptically.</p>
+    <h3>Does a high code health score mean no debt?</h3>
+    <p>No. The <a href="/learn/reading-a-code-health-score.html">score</a> covers complexity, function length, comments, TODOs and nesting. It says nothing about tests, dependencies or architecture.</p>
+
+    <h2>See where your debt is</h2>
+    <p><a href="/#analyze">Scan a repository</a> to see its longest functions, most complex files and untracked TODOs, then rescan after you clean up to see the difference.</p>
