@@ -1,16 +1,27 @@
-    <h1>What is maximum nesting depth?</h1>
+<h1>What is maximum nesting depth?</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
 
-    <p>Nesting depth counts how many blocks &mdash; <code>if</code>, <code>for</code>, <code>while</code>, <code>try</code> &mdash; are stacked inside one another at the deepest point in a function. A function with no branching has a depth of 0 or 1 depending on how you count the outer scope. A function with an <code>if</code> inside a <code>for</code> inside another <code>if</code> has a depth of 3.</p>
+    <p>Nesting depth counts how many blocks are stacked inside one another at a single point in the code. An <code>if</code> inside a <code>for</code> inside a function is three levels deep. <em>Maximum</em> nesting depth is the deepest point anywhere in a file or project. It is one of the cheapest metrics to compute and one of the most useful to read, because it points at exactly the code that is hardest to hold in your head. This guide explains how REPO-SIGHT counts it, shows tested before-and-after examples with the real numbers, and covers the cases where a high value is not a problem.</p>
+
+    <h2>How REPO-SIGHT counts depth</h2>
+    <p>Counting conventions differ between tools, and the difference matters when you compare numbers. REPO-SIGHT counts every enclosing block, including the function itself and any class or namespace around it. We checked this by running small files through the analyser (October 2026 build):</p>
+    <ul>
+      <li><strong>Python:</strong> a <code>class</code> containing a method containing one <code>if</code> reports a depth of 3.</li>
+      <li><strong>Java:</strong> the same shape, a class, a method and one <code>if</code>, also reports 3.</li>
+      <li><strong>C++:</strong> a <code>namespace</code>, a class, a member function and one <code>if</code> reports 4.</li>
+      <li><strong>JavaScript:</strong> a function containing a callback containing another callback containing an <code>if</code> reports 4.</li>
+    </ul>
+    <p>So a depth of 3 in a Java file means a single <code>if</code> in an ordinary method, not three nested conditions. Keep that in mind when you read the number: in class-based languages two levels are already spent before any logic begins.</p>
 
     <h2>Why depth matters more than raw branch count</h2>
-    <p>Human working memory can reliably track only a handful of things at once &mdash; the classic reference is Miller's 1956 estimate of roughly seven, plus or minus two. Each level of nesting is one more condition the reader has to keep active while parsing the innermost line: &quot;we're inside this <code>if</code>, which is inside this loop, which only runs if this earlier check passed.&quot; Past four or five levels, most readers lose track and have to scroll back up to re-derive the state.</p>
+    <p>Each level of nesting is one more condition the reader has to keep active while reading the innermost line: &ldquo;we are inside this <code>if</code>, which is inside this loop, which only runs if the earlier check passed.&rdquo; Psychology has long cited George Miller&rsquo;s 1956 figure of about seven items for short-term memory; later work, notably by Nelson Cowan, argues the real limit is closer to four chunks. Either way, the limit is small. Past four or five levels most readers stop tracking the state and scroll back up to rebuild it, which is where misreadings and wrong edits come from.</p>
+    <p>Depth also measures something that <a href="/learn/cyclomatic-complexity-explained.html">cyclomatic complexity</a> does not. Complexity counts independent paths through a function. Depth counts how those paths are arranged. Two functions can have identical complexity and very different readability, and the next example shows it.</p>
 
-    <h2>A real before/after</h2>
+    <h2>A tested before and after</h2>
     <div class="code-compare">
       <div>
-        <p class="code-label label-bad">Nesting depth 4</p>
+        <p class="code-label label-bad">Reports nesting depth 5</p>
         <pre><code>def handle_order(order):
     if order is not None:
         if order.items:
@@ -19,7 +30,7 @@
                     ship(item)</code></pre>
       </div>
       <div>
-        <p class="code-label label-good">Nesting depth 1&ndash;2, guard clauses</p>
+        <p class="code-label label-good">Reports nesting depth 3, guard clauses</p>
         <pre><code>def handle_order(order):
     if order is None or not order.items:
         return
@@ -29,14 +40,54 @@
         ship(item)</code></pre>
       </div>
     </div>
-    <p>Nothing about what the function does changed. Every condition still gets checked. Flattening the early exits with guard clauses (<code>return</code> and <code>continue</code>) instead of wrapping the rest of the function in more <code>if</code> blocks removes two full levels of nesting a reader would otherwise have to track.</p>
+    <p>Counting the function body as level 1, the left version stacks four more levels on top and reports 5. The right version reports 3. Every condition is still checked and the behaviour is identical. What changed is that the failure cases now exit at the top instead of wrapping everything that follows.</p>
+    <p>Two details from the actual output are worth noticing. First, the nesting component of the health score moved from 60 to 100, because the score treats a depth of 3 as fully good and a depth of 8 as fully bad, and scales linearly between them: (8 &minus; 5) &divide; 5 = 0.6. Second, cyclomatic complexity was <strong>5 for both versions</strong>. Flattening the code removed no decision points. It only made them easier to see, which is exactly the gap between the two metrics.</p>
 
-    <h2>How deep is too deep</h2>
-    <p>REPO-SIGHT flags a file once its deepest function passes a nesting depth of 6 (<code>cpp-deep-nesting</code>, <code>py-deep-nesting</code>, <code>java-deep-nesting</code>, <code>ts-deep-nesting</code>, <code>js-deep-nesting</code>, <code>csharp-deep-nesting</code> &mdash; same threshold across all six supported languages). In the health score, nesting depth is scored against a &quot;good&quot; reference of 3 and a &quot;bad&quot; reference of 8, at a 10% weight. It's a smaller slice of the overall grade than complexity density, but it's often the fastest single thing to fix once you spot it.</p>
+    <h2>What a flagged file looks like</h2>
+    <p>REPO-SIGHT raises a finding once a file passes a nesting depth of 6 (<code>cpp-deep-nesting</code>, <code>py-deep-nesting</code>, <code>java-deep-nesting</code>, <code>ts-deep-nesting</code>, <code>js-deep-nesting</code> and <code>csharp-deep-nesting</code>; the threshold is the same across all six languages). We tested the boundary: a function with five nested <code>if</code> statements reports 6 and is not flagged, and one with six reports 7 and is. Here is a function that crosses it:</p>
+    <pre><code>def reconcile(accounts, ledger):
+    for acct in accounts:
+        if acct.active:
+            for entry in ledger.get(acct.id, []):
+                if entry.pending:
+                    for line in entry.lines:
+                        if line.amount &gt; 0:
+                            try:
+                                post(line)
+                            except ValueError:
+                                log(line)</code></pre>
+    <p>The analyser reports a depth of 8, a nesting score of 0 and one finding, <code>py-deep-nesting</code>, with the message &ldquo;File reaches nesting depth 8 &mdash; consider extracting helper functions.&rdquo; The severity is <em>info</em>, not a warning, and the finding is attached to the file rather than a single line. That is a deliberate choice: depth is a readability signal, not a defect, and the rule is meant to start a conversation about the structure rather than demand a fix.</p>
 
-    <h2>The fix pattern</h2>
+    <h2>Four ways to bring depth down</h2>
+    <h3>1. Guard clauses</h3>
+    <p>Return or <code>continue</code> early on the failure case instead of wrapping the success case in another <code>if</code>. This is the fix shown above, and it is usually the cheapest because it changes no logic.</p>
+    <h3>2. Extract the inner block</h3>
+    <p>Move the innermost loop into a function with a name that says what it does. In the <code>reconcile</code> example, the inner loop becomes <code>post_pending_lines(entry)</code>. The nesting does not disappear from the project, but each function now reads on one screen and the name carries the meaning the indentation was hiding.</p>
+    <h3>3. Invert the condition</h3>
+    <p>Checking for the case you want to reject and leaving immediately is often clearer than checking for the case you want and nesting the rest under it. If you find yourself writing a long <code>if</code> body with a short <code>else</code> that only returns, flip them.</p>
+    <h3>4. Flatten callbacks with async and await</h3>
+    <p>In JavaScript and TypeScript, depth often comes from nested callbacks rather than from branching. We tested a three-step lookup written with callbacks and error checks at each level. It reports a nesting depth of 4 and a cyclomatic complexity of 4. The same logic with <code>async</code> and <code>await</code> reports a depth of 1 and a complexity of 1, in five lines instead of twelve. Errors propagate through <code>try</code> and <code>catch</code> or the rejected promise, so the repeated <code>if (err)</code> checks are no longer needed.</p>
+
+    <h2>What counts as nesting and what does not</h2>
+    <p>A flat chain of alternatives is not nesting. We tested a Python function with an <code>if</code>, four <code>elif</code> branches and an <code>else</code>. It reports a depth of 2 (the function and the chain) while its complexity is 6. Six outcomes, read top to bottom, do not require the reader to remember anything from the line above. This is why a long, regular <code>elif</code> ladder or <code>switch</code> is usually fine on this metric even when it is flagged by others.</p>
+
+    <h2>What the numbers look like in real projects</h2>
+    <p>Our October 2026 scan of 53 well-regarded open-source projects shows that deep nesting is common even in respected code. The maximum nesting depth was 7 or higher in 51 of the 53 projects, and the median across all projects was 10. The lowest was 6. The highest, in the Fastify project, was 41. Those figures are a project-wide maximum, meaning the single deepest block anywhere in the repository, including tests, examples and benchmarks. A project maximum is therefore almost always an outlier, and it is why nesting carries only 10% of the <a href="/learn/reading-a-code-health-score.html">health score</a>. The useful question is not &ldquo;what is the maximum&rdquo; but &ldquo;which file holds it, and is that production code?&rdquo; The <a href="/learn/where-static-analysis-findings-live.html">article on where findings live</a> explains why that distinction changes what you fix first. The full table is in the <a href="/data/open-source-scan-2026-10.csv">open data file</a>.</p>
+
+    <h2>When high nesting is acceptable</h2>
     <ul>
-      <li><strong>Guard clauses.</strong> Return or continue early on the failure case instead of wrapping the success case in another <code>if</code>.</li>
-      <li><strong>Extract the inner block into its own function.</strong> The nesting doesn't vanish from the codebase, but it's isolated to a well-named helper instead of buried in the middle of a larger function.</li>
-      <li><strong>Invert the condition.</strong> Checking for the failure case and exiting is often more readable than checking for the success case and nesting everything else inside it.</li>
+      <li><strong>Generated code.</strong> Parsers, protocol buffers and template output are not written to be read. Exclude them.</li>
+      <li><strong>Table-driven or state-machine code.</strong> Where each level corresponds to a genuine state, restructuring can scatter the logic and make it harder to follow.</li>
+      <li><strong>Test code.</strong> Frameworks that express tests as nested callbacks or describe blocks inflate depth without making the production code harder to read.</li>
     </ul>
+
+    <h2>Frequently asked questions</h2>
+    <h3>What is a good maximum nesting depth?</h3>
+    <p>Under REPO-SIGHT&rsquo;s counting, 3 or less earns full marks in the score and 8 or more earns zero. A practical aim for new functions is to stay at or below 4, remembering that the function itself, and any class around it, uses one or two levels already.</p>
+    <h3>Does <code>else if</code> add depth?</h3>
+    <p>No. An <code>else if</code> or <code>elif</code> continues the same chain, as the tested example above shows.</p>
+    <h3>Can I compare depth across languages?</h3>
+    <p>Roughly. The rule and the score use the same thresholds in all six supported languages, but class-based languages spend levels on class and namespace blocks and JavaScript spends them on callbacks. Compare a project with others written in the same language, or with its own earlier scans.</p>
+
+    <h2>Check your own code</h2>
+    <p><a href="/#analyze">Scan a repository</a> or paste a single file to see your deepest function, the files that hold it and your nesting score. If you want to see how nesting fits with the other four inputs, read <a href="/learn/how-to-measure-code-quality.html">how to measure code quality</a>.</p>
