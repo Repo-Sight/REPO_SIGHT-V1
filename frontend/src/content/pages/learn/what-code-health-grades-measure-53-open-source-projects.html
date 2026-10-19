@@ -14,6 +14,28 @@
     </ul>
     <p>Grades are A at 90 and above, B at 80, C at 70 and D at 60. We recomputed every project&rsquo;s score from the published columns of the <a href="/data/open-source-scan-2026-10.csv">open data file</a> and matched each one to within a tenth of a point.</p>
 
+    <h2>Recompute a score yourself</h2>
+    <p>The data file has every input the score needs: <code>code_lines</code>, <code>cyclomatic_total</code>, <code>avg_function_lines</code>, <code>comment_lines</code>, <code>todo_fixme_markers</code> and <code>max_nesting</code>. This short Python function reproduces the scoring code. We ran it over all 53 rows, and every result lands within 0.05 of the published score.</p>
+    <pre><code>def part(v, good, bad):
+    return 100 * min(1, max(0, (v - bad) / (good - bad)))
+
+def score(r):
+    n = int(r["code_lines"])
+    parts = [
+        (0.35, part(int(r["cyclomatic_total"]) / n, 0.15, 0.50)),
+        (0.25, part(float(r["avg_function_lines"]), 15, 60)),
+        (0.20, part(int(r["comment_lines"]) / n, 0.20, 0.02)),
+        (0.10, part(int(r["todo_fixme_markers"]) / n, 0.01, 0.05)),
+        (0.10, part(int(r["max_nesting"]), 3, 8)),
+    ]
+    return sum(w * s for w, s in parts)</code></pre>
+    <p>Two worked examples show how the pieces combine, one from each end of the table:</p>
+    <ul>
+      <li><strong>SLF4J, 94.0 (A).</strong> It has 14,919 code lines and a cyclomatic total of 1,521, a density of 0.102, which is under the 0.15 full-marks line, so complexity scores 100. Functions average 7.0 lines, which scores 100. It has 13,005 comment lines, 0.87 per code line, far above the 0.20 line, so comments score 100. One TODO scores 100. The deepest block is 6 levels, which scores 40. Weighted: 35 + 25 + 20 + 10 + 4 = 94.</li>
+      <li><strong>FastAPI, 69.9 (D).</strong> It has 103,217 code lines and a cyclomatic total of 3,901, a density of 0.038, which scores 100. Functions average 15.2 lines, which scores 99.6. It has 857 comment lines, 0.008 per code line, which is under the 0.02 floor, so comments score 0. Its 25 TODOs score 100. The deepest block is 16 levels, which scores 0. Weighted: 35 + 24.9 + 0 + 10 + 0 = 69.9.</li>
+    </ul>
+    <p>FastAPI&rsquo;s code is not tangled. It earns near-full marks on the two components that measure tangle. Its D comes from two zeroes, one for comments and one for a single deep block, and it sits 0.1 below a C.</p>
+
     <h2>The distribution</h2>
     <p>The 53 projects split into 15 As (28%), 13 Bs, 22 Cs and 3 Ds. The top scorers are SLF4J (94) and Jsoup and Polly (92 each). The three Ds are axios (70), fastapi (70) and core (69). All three are within two points of a C. In fact 18 of the 53 projects score within one point of a grade boundary, so a single refactor or a pile of new comments can move a grade.</p>
 
@@ -29,6 +51,18 @@
     <p>Because nesting depth is a near-constant penalty &mdash; almost every large project has at least one deeply nested block &mdash; it barely separates one project from another. Comment density does. The average A-grade project scores 100 on comments, the average C-grade project scores 26, and the three Ds average 17. Complexity and TODO density cost almost nothing across these projects, which fits their reputation for well-maintained code.</p>
     <p>The practical reading is that a project&rsquo;s grade here is mostly its comment density, with a fixed deduction for the one deeply nested block everyone has.</p>
 
+    <h2>What one unit of each input is worth</h2>
+    <p>Because every component is a straight line between its good and bad reference points, you can work out how much a change should move the score. Inside the ramp, these are the sizes:</p>
+    <ul>
+      <li><strong>One level less nesting:</strong> 2.0 points, anywhere between depth 8 and depth 3.</li>
+      <li><strong>One fewer TODO or FIXME per 100 code lines:</strong> 2.5 points, between 5 and 1 per 100.</li>
+      <li><strong>One more comment line per 100 code lines:</strong> 1.1 points, between 2 and 20 per 100.</li>
+      <li><strong>One fewer branch per 100 code lines:</strong> 1.0 point, between a complexity density of 0.50 and 0.15.</li>
+      <li><strong>Each line off the average function length:</strong> 0.56 points, between 60 and 15 lines.</li>
+    </ul>
+    <p>Outside those ranges nothing moves, because each component is clamped at 0 and 100. That has a practical consequence for the comment component. Below 2 comment lines per 100 code lines, adding comments earns exactly nothing. FastAPI sits at 0.8 per 100 and Rich at 1.1, so both are under the floor. By the arithmetic, FastAPI would need roughly 1,300 more comment lines (857 to about 2,157, or 0.8 to 2.1 per 100) to reach a C. Axios, at 69.6, is already above the floor, and would need about 140 more. Vue&rsquo;s core, at 68.8, would need roughly 1,500.</p>
+    <p>That is arithmetic, not advice. Comments written to move a number do not help the next reader, and a project near a boundary may have a better lever. Nesting is the obvious one, with a caveat: it is a maximum, so cutting one deep block only helps if no other block in the project is deeper than the new target.</p>
+
     <h2>Why the language matters so much</h2>
     <ul>
       <li><strong>Java:</strong> 13 projects, average score 90, grades 11 A and 2 B. Comments average 45 per 100 lines of code.</li>
@@ -37,7 +71,17 @@
       <li><strong>Python:</strong> 18 projects, average 74, grades 2 B, 15 C and 1 D. Comments average 5 per 100 lines.</li>
     </ul>
     <p>The gap is mostly comment density, and part of it is a counting convention. REPO-SIGHT counts only <code>#</code> comments as comment lines in Python. We checked this with a small test file: a function with a three-line docstring and one <code>#</code> comment reports one comment line and six code lines. Python projects document themselves in docstrings, so they score low on this component even when they are thoroughly documented. Javadoc blocks in Java and <code>//</code> comments in C++ count in full.</p>
+    <p>The medians per language in the data file show the same split. Comment lines per 100 code lines: Java 38, C# 23, C++ 18, JavaScript 11, TypeScript 8 (one project) and Python 4. Complexity density barely separates the languages: the medians run from 0.067 for Python to 0.092 for C++, all below the 0.15 full-marks line. Two Python projects, FastAPI and Rich, fall under the 2-per-100 comment floor.</p>
     <p>The lesson is to compare a project with other projects in the same language. A Python project at 74 is a normal result; a Java project at 74 would be unusual.</p>
+
+    <h2>What these grades do not tell you</h2>
+    <ul>
+      <li><strong>They are not a sample of typical repositories.</strong> We chose 53 projects because they are well regarded. A random GitHub repository would score differently, and nothing here says what it would score.</li>
+      <li><strong>Each project is one snapshot.</strong> We scanned a single pinned commit per project, so a grade is where the project stood on one day.</li>
+      <li><strong>Each project counts as one language.</strong> Mixed repositories are filed under their primary language. With two C# projects and one TypeScript project, those groups are too small for conclusions.</li>
+      <li><strong>The score is structural.</strong> It says nothing about whether the code is correct, secure, well tested or pleasant to maintain. A project can earn an A and still have bugs, and a D and be excellent.</li>
+    </ul>
+    <p>If you recompute a number and it does not match the data file, the formula above and the <a href="/data/open-source-scan-2026-10.csv">data file</a> are all you need to check it, and we would like to hear about the difference through the <a href="/contact.html">contact page</a>.</p>
 
     <h2>How to use your own grade</h2>
     <ul>
