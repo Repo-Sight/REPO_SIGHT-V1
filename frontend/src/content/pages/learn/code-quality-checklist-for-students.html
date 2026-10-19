@@ -1,34 +1,77 @@
-    <h1>Code quality checklist for students</h1>
+<h1>Code quality checklist for students</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
 
-    <p>A class project graded on whether it runs is a different bar than a GitHub repo you're linking from your resume. Here's a practical checklist for the second case &mdash; the one a recruiter or a hiring manager might actually open.</p>
+    <p>A class project graded on whether it runs is a different bar from a GitHub repository you link on your resume. This checklist is for the second case, the one a recruiter, interviewer or open-source maintainer might actually open. It is split into things you can check by eye, things a scan can check for you, and a worked example with real before-and-after output, including one result that surprised us and that you should know about before you start chasing a grade.</p>
 
-    <h2>Before you link a repo on your resume</h2>
+    <h2>Part 1: the repository itself</h2>
     <ul>
-      <li><strong>Does it have a README?</strong> One paragraph on what the project does and how to run it. An empty or default README is one of the fastest ways to look unfinished.</li>
-      <li><strong>Is there a LICENSE file?</strong> Doesn't need to be complicated &mdash; MIT or Apache 2.0 is fine &mdash; but an unlicensed public repo technically has no clear terms for anyone to reuse it.</li>
-      <li><strong>Are commit messages readable?</strong> A history of &quot;fix&quot;, &quot;fix2&quot;, &quot;asdf&quot; is a minor thing individually and a pattern reviewers notice collectively.</li>
-      <li><strong>Does the longest function fit on one screen?</strong> A 300-line function is a specific, checkable red flag &mdash; not a vague impression, an actual number you can look up.</li>
-      <li><strong>Are there any bare <code>except:</code> blocks or empty <code>catch</code> blocks?</strong> These are exactly the kind of thing an interviewer skimming your code will notice, because they're a known anti-pattern taught in most CS courses.</li>
-      <li><strong>Is there at least one test?</strong> Doesn't need full coverage &mdash; one test file signals you know testing exists as a practice.</li>
+      <li><strong>Does it have a README?</strong> One paragraph on what the project does, how to install it and how to run it. An empty or default README is one of the quickest ways to look unfinished.</li>
+      <li><strong>Is there a LICENSE file?</strong> It does not need to be complicated. MIT or Apache 2.0 is fine. A public repository with no licence gives other people no clear terms for reusing it.</li>
+      <li><strong>Is there a <code>.gitignore</code>?</strong> A repository with <code>node_modules/</code>, a virtual environment or compiled binaries committed signals unfamiliarity with basic tooling.</li>
+      <li><strong>Are commit messages readable?</strong> A history of &ldquo;fix&rdquo;, &ldquo;fix2&rdquo; and &ldquo;asdf&rdquo; is minor individually and a pattern collectively.</li>
+      <li><strong>Is there at least one test?</strong> It does not need full coverage. One test file shows you know testing exists as a practice.</li>
+      <li><strong>Can a stranger run it?</strong> Follow your own README on a clean checkout, ideally on another machine. Missing steps show up immediately.</li>
     </ul>
 
-    <h2>Common mistakes that stand out for the wrong reasons</h2>
+    <h2>Part 2: secrets and safety</h2>
+    <p>This is the section where a mistake costs the most, so check it first.</p>
     <ul>
-      <li>Hardcoded credentials or API keys committed to the repo &mdash; an instant red flag for any technical reviewer, independent of code quality.</li>
-      <li>A single 1000-line file holding the entire project, with no separation between logic, I/O, and configuration.</li>
-      <li>Copy-pasted boilerplate left in from a tutorial, including the tutorial's own comments and variable names.</li>
-      <li>No <code>.gitignore</code> &mdash; a repo with <code>node_modules/</code> or a virtual environment committed directly signals unfamiliarity with basic tooling.</li>
+      <li><strong>No keys, tokens or passwords in the code.</strong> Read configuration from environment variables and keep a <code>.env.example</code> with dummy values. REPO-SIGHT flags hardcoded credentials and provider-style tokens, for example <code>py-sec-hardcoded-secret</code> and <code>py-sec-secret-token</code> in Python and the matching rules in each other language.</li>
+      <li><strong>If a real key was ever committed, revoke it.</strong> Deleting the line in a later commit does not remove it from the repository history, where anyone can still read it. Treat the key as leaked, create a new one and use that.</li>
+      <li><strong>Avoid the obviously dangerous calls</strong> unless you truly need them: <code>eval</code>, shell commands built from user input, SQL built by string concatenation, and disabled certificate checks. The scanner has a rule for each.</li>
     </ul>
+
+    <h2>Part 3: the code</h2>
+    <ul>
+      <li><strong>Does the longest function fit on one screen?</strong> REPO-SIGHT reports a project&rsquo;s longest function by name and length. A 300-line function is a concrete number you can look up, not a vague impression. Anything over 100 lines is flagged (<code>py-long-function</code>, <code>java-long-method</code> and equivalents).</li>
+      <li><strong>Are there any bare <code>except:</code> or empty <code>catch</code> blocks?</strong> They hide failures, and most CS courses teach them as an anti-pattern, so an interviewer skimming your code will notice. They are flagged as <code>py-bare-except</code>, <code>java-empty-catch-block</code> and so on.</li>
+      <li><strong>Is nesting reasonable?</strong> More than about four levels deep is hard to read. See <a href="/learn/maximum-nesting-depth-explained.html">maximum nesting depth</a> for how to flatten it with early returns.</li>
+      <li><strong>Are there leftover TODOs?</strong> A handful with a ticket number is normal. Dozens of &ldquo;TODO: fix this&rdquo; comments look abandoned.</li>
+      <li><strong>Has tutorial boilerplate been removed?</strong> Leftover comments, variable names and sample code from the tutorial you followed stand out.</li>
+      <li><strong>Is everything in one 1,000-line file?</strong> Split logic, input and output, and configuration.</li>
+    </ul>
+
+    <h2>A worked example</h2>
+    <p>We wrote a deliberately typical student file, about 17 lines of Python that call a web API, and ran it through REPO-SIGHT. It contained a hardcoded key (a dummy value starting <code>sk-ant-</code>), a hardcoded password, a TODO with no ticket, a bare <code>except:</code>, a mutable default argument, and a loop with three nested <code>if</code> statements. The scan reported five findings:</p>
+    <ul>
+      <li><code>py-sec-secret-token</code>, line 2 (warning)</li>
+      <li><code>py-sec-hardcoded-secret</code>, line 3 (warning)</li>
+      <li><code>py-todo-without-ticket</code>, line 6 (info)</li>
+      <li><code>py-bare-except</code>, line 10 (warning)</li>
+      <li><code>py-mutable-default-arg</code>, line 13 (warning)</li>
+    </ul>
+    <p>The maximum nesting depth was 5 and the grade was F at a score of 50. We then fixed it the way you would: the key now comes from <code>os.environ</code>, the <code>except</code> names <code>requests.RequestException</code>, the default argument is <code>None</code>, the TODO references a ticket, a request timeout was added, and the nested conditions became a single guard clause with <code>continue</code>.</p>
+    <pre><code>def total(items=None):
+    # TODO #12: handle discounts
+    s = 0
+    for i in items or []:
+        if not (i and i.price and i.qty):
+            continue
+        s += i.price * i.qty
+    return s</code></pre>
+    <p>The rescan reported <strong>zero findings</strong> and a nesting depth of 3. The score, however, went from 50.0 to 50.1, and the grade stayed an F.</p>
+
+    <h2>Why the grade did not move, and what to do about it</h2>
+    <p>This is the most useful lesson on the page. On a file of under twenty lines, two of the five score components dominate. Complexity density is total cyclomatic complexity divided by lines of code, and a few branches in a very short file produce a high ratio. Comment density is also low, because the file has one comment. Neither improved by removing the findings, so the number stayed put. The <a href="/learn/reading-a-code-health-score.html">health score</a> was designed for whole projects, where the ratios average out. On a tiny file it is noisy.</p>
+    <p>So read the checklist in this order: <strong>findings first, grade second.</strong> The five findings above are real problems that a person reading your code would notice, and removing them is what makes the repository look better. A grade on a 20-line file tells you very little. A grade on a full project is more meaningful, and even there it is a rough guide. In our study of 53 respected open-source projects, only 15 earned an A, and the most common grade was a C. A B on your project is a good result.</p>
+    <p>If you write Python, one more thing to know: REPO-SIGHT counts only <code>#</code> comments in its comment score, not docstrings. A well-documented Python project can still score low on that component. We explain this, with measurements, in <a href="/learn/what-code-health-grades-measure-53-open-source-projects.html">what code health grades look like across 53 projects</a>.</p>
 
     <h2>A five-minute pre-submission routine</h2>
-    <ol style="margin:8px 0 8px 20px; color:var(--text-muted); font-family:var(--sans); line-height:1.65;">
-      <li>Read the README as if you'd never seen the project before. Does it actually explain what to do?</li>
-      <li><a href="/#analyze">Run the repo through REPO-SIGHT</a> &mdash; no signup, no install. Look at the grade and the single longest function it finds.</li>
-      <li>Fix the worst one or two things it flags. You don't need a perfect score &mdash; you need to not have an obvious, fixable outlier sitting in a repo someone's about to open.</li>
-      <li>Re-run it once, confirm the grade moved, and move on. Don't chase a perfect score on a student project &mdash; a clean, honest B is more convincing than a suspiciously perfect A on something that was clearly never really tested.</li>
+    <ol>
+      <li>Read the README as if you had never seen the project. Does it say what to do?</li>
+      <li><a href="/#analyze">Run the repository through REPO-SIGHT</a>. No signup is needed for a public repository. Look at the security findings first, then the longest function.</li>
+      <li>Fix the worst one or two things it flags. You are not after a perfect score. You are removing obvious, fixable outliers from a repository someone is about to open.</li>
+      <li>Rescan and confirm the findings you fixed are gone. Do not chase the grade past that point. A clean, honest B is more convincing than a suspiciously perfect A on something that was never really tested.</li>
     </ol>
 
+    <h2>Frequently asked questions</h2>
+    <h3>Do recruiters actually run code analysis tools on student repositories?</h3>
+    <p>We do not know of any reliable data on this, and we would not claim it. What a reader can see without any tool is the README, the file layout and whichever file they click first, and the checklist above is about making sure those hold up.</p>
+    <h3>Should I add tests just to look good?</h3>
+    <p>Add tests that check something real, even if there are only a few. A test file with nothing meaningful in it is easy to spot and looks worse than none.</p>
+    <h3>What grade should I aim for?</h3>
+    <p>Aim for no security findings and no obvious outliers, not for a letter. For a full project, a B or a C in a language that scores low on comments is a normal, respectable result.</p>
+
     <h2>Why this matters more than it seems</h2>
-    <p>A recruiter or interviewer who opens your linked repo is spending maybe two or three minutes there. They're not going to read every file &mdash; they're forming an impression from the README, the file structure, and whichever function they happen to click into first. A five-minute pass before you submit is genuinely cheap insurance against that impression being the wrong one.</p>
+    <p>A reader who opens your linked repository will form an impression from the README, the structure and one or two files. They will not read everything. A short pass before you submit is cheap insurance against that impression being the wrong one. For more on the habits behind it, see <a href="/learn/how-to-measure-code-quality.html">how to measure code quality</a> and <a href="/learn/improve-python-code-quality.html">how to improve Python code quality</a>.</p>
