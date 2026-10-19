@@ -20,6 +20,22 @@
       <li>Of the 461 functions above complexity 10, 331 score 11&ndash;20, 106 score 21&ndash;50 and 24 score above 50.</li>
     </ul>
 
+    <h2>Long and complex are different problems</h2>
+    <p>The two limits measure different things, and it helps to see them separately. We wrote four small C++ files and ran REPO-SIGHT over each:</p>
+    <ul>
+      <li><strong>A 112-line <code>switch</code> with 107 cases</strong> reports a cyclomatic complexity of 109. Both rules fire: <code>cpp-complex-function</code> as a warning and <code>cpp-long-function</code> as an info note. Every <code>case</code> is a separate path, so a long switch is a complex function.</li>
+      <li><strong>The same table written as an array initializer</strong>, 114 lines of values inside a function that returns <code>table[k]</code>, reports a complexity of 1. Only <code>cpp-long-function</code> fires, as info. This is the kind of function that is long without being hard to follow.</li>
+      <li><strong>A 14-line function with eleven <code>if</code> statements</strong> joined by <code>&amp;&amp;</code> and <code>||</code> reports a complexity of 22. Only <code>cpp-complex-function</code> fires, as a warning. It is short and still hard to hold in your head, because each condition is another path.</li>
+      <li><strong>A <code>TEST_CASE</code> with 130 assertions</strong> is 132 lines with a complexity of 1. It gets only the length note, and the function name is reported as <code>TEST_CASE</code>, which is how the test macros in the data above are counted.</li>
+    </ul>
+    <p>Two practical points follow. First, severity differs: in the October 2026 build a complexity finding is a warning and a length finding is info. Second, the useful question is which quadrant a function is in:</p>
+    <ul>
+      <li><strong>Short and simple</strong> is almost every function. In this data set the median is 6 lines.</li>
+      <li><strong>Long and simple</strong> is a table, a block of assertions or a sequence of similar steps. Usually leave it, or move the table into data.</li>
+      <li><strong>Short and complex</strong> is dense branching. Test every branch, and consider naming the conditions.</li>
+      <li><strong>Long and complex</strong> is the real candidate for splitting, and the first thing to look at in production code.</li>
+    </ul>
+
     <h2>Where the long functions live</h2>
     <p>154 of the 240 long functions (64%) are in non-production paths, and 128 of them are test macros: 101 <code>TEST_CASE</code>, 13 <code>TEST</code>, 11 <code>SECTION</code> and 3 <code>TEST_SUITE</code>. Frameworks like Catch2 and doctest encourage putting many assertions in one block, and a block of assertions is long without being hard to follow. The longest block in the whole data set is a <code>TEST_CASE</code> in nlohmann/json&rsquo;s <code>unit-bjdata.cpp</code>, at 2,967 lines.</p>
     <p>The tail is also very uneven between projects. Here is the share of each project&rsquo;s functions that are over 100 lines:</p>
@@ -55,6 +71,22 @@
 
     <h2>Complexity tells a similar story</h2>
     <p>Of the 461 functions above complexity 10, 102 (22%) are in non-production paths, a smaller share than for length. The most complex production functions are again parsers: CLI11&rsquo;s <code>from_config</code> at 111, RapidJSON&rsquo;s <code>ParseNumber</code> at 95, CLI11&rsquo;s <code>_parse_arg</code> at 88 and {fmt}&rsquo;s <code>parse_chrono_format</code> at 82. Their branching follows the grammar of the input they read, so a high score here is a reason to test thoroughly rather than a reason to panic.</p>
+
+    <h2>What to do with each kind</h2>
+    <ul>
+      <li><strong>Constant tables:</strong> move them to a <code>static const</code> array or a data file. The function shrinks to a lookup and the complexity stays at 1.</li>
+      <li><strong>Parsers and format handlers:</strong> split along the grammar, one function per construct, and write at least one test per branch. The branching is real, so the aim is to make each piece readable and testable, not to remove it.</li>
+      <li><strong>Test blocks:</strong> group related assertions into helper functions or sections, so a failure points at one scenario. Do this for readability only, and do not chase the count.</li>
+      <li><strong>Functions that do several jobs:</strong> extract each job into a function whose name states it. This is where splitting pays off most.</li>
+    </ul>
+
+    <h2>What this data does not show</h2>
+    <ul>
+      <li><strong>It is 14 well-known projects.</strong> They are widely used libraries, and most are heavily reviewed. Application code may look different, and we have not measured it here.</li>
+      <li><strong>It is one commit per project.</strong> The pinned commits are in the data file, and a later commit will give different counts.</li>
+      <li><strong>Length includes blank lines and comments.</strong> A function is measured from its first line to its closing brace, so a function with a long comment block counts as long.</li>
+      <li><strong>Neither limit is a defect.</strong> 100 lines and a complexity of 10 are conventional points at which to look, not proof of a problem.</li>
+    </ul>
 
     <h2>What to do with this</h2>
     <ul>
