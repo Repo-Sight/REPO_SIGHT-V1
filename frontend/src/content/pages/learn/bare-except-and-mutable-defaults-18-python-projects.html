@@ -58,11 +58,52 @@ except:
     <p>74 of the 112 wildcard imports (66%) are in <code>__init__.py</code> files, where <code>from .module import *</code> is a common way to re-export a package&rsquo;s public names. Django has 36 of them, httpx 16, SQLAlchemy 15 and pydantic 10. Another 32 are in tests, and 6 are elsewhere: five in attrs&rsquo; re-export modules such as <code>attrs/validators.py</code> and one in Pillow&rsquo;s build backend.</p>
     <p>Wildcard imports make it harder to see where a name comes from, so they are a poor habit in application code. In a package&rsquo;s <code>__init__.py</code> they are usually deliberate.</p>
 
+    <h2>Why these three rules exist: two short demonstrations</h2>
+    <p>The counts above say how often the patterns appear. These two runs show what they do when they go wrong. Both were run on Python 3.</p>
+    <p><strong>A mutable default is shared between calls.</strong> We called the function from the example above three times with three different items:</p>
+    <pre><code>print(add_item("a"))
+print(add_item("b"))
+print(add_item("c"))
+
+['a']
+['a', 'b']
+['a', 'b', 'c']</code></pre>
+    <p>Each call looks independent, yet the third returns all three items, because the default list is created once, when the function is defined. That is the whole bug, and why the tornado, black and SQLAlchemy cases above are safe only because the code copies or rebinds the default before using it.</p>
+    <p><strong>A bare except catches the Ctrl-C.</strong> We wrote two functions that send the process a <code>SIGINT</code>, the same signal Ctrl-C produces, inside a <code>try</code> block. One catches with a bare <code>except:</code> and the other with <code>except Exception:</code>:</p>
+    <pre><code>bare():   returns "bare except swallowed the Ctrl-C"
+narrow(): KeyboardInterrupt propagated to the caller</code></pre>
+    <p>The bare version swallowed the interrupt and carried on. The narrow version let it through, as <code>KeyboardInterrupt</code> is not a subclass of <code>Exception</code>. In a long-running program that difference decides whether a user can stop it.</p>
+
+    <h2>Fixing each one, and checking the fix</h2>
+    <p>We put the three patterns, plus a cleanup handler that re-raises, into a small package and ran REPO-SIGHT over it. The analyser reported five findings: <code>py-mutable-default-arg</code> on line 1, <code>py-bare-except</code> on lines 8 and 14, and <code>py-wildcard-import</code> on both lines of a package&rsquo;s <code>__init__.py</code>. Then we rewrote each one and scanned again, and the count dropped to zero.</p>
+    <ul>
+      <li><strong>Mutable default:</strong> use <code>None</code> as the default and create the list inside the function, as in the &ldquo;one list per call&rdquo; version above. For a dataclass, use <code>field(default_factory=list)</code>.</li>
+      <li><strong>Bare except that swallows:</strong> name the exception you expect, or at least use <code>except Exception as exc:</code> and do something with <code>exc</code>, such as log it or return a fallback on purpose.</li>
+      <li><strong>Bare except that cleans up and re-raises:</strong> if the cleanup should run whether or not the code fails, use <code>try</code> and <code>finally</code>. We did, and the finding disappeared. If the cleanup must run <em>only</em> on failure, the re-raise is doing a real job, and the finding is one you can leave with a comment saying why. The rule flags the syntax in both cases, as the first section explained.</li>
+      <li><strong>Wildcard import:</strong> import the names you want and list them in <code>__all__</code>. We replaced two <code>from .core import *</code> lines with explicit names and an <code>__all__</code> list, and the findings went away. The rule does flag wildcards in <code>__init__.py</code> files, which is why 74 of the 112 findings above are there. In a package that is a deliberate choice, and an explicit list costs a few lines and makes the public interface visible.</li>
+    </ul>
+
+    <h2>A cleanup order that matches the data</h2>
+    <ol>
+      <li><strong>Swallowed exceptions in library code.</strong> There are only 3 in this data set, and they are the ones that can hide a real failure.</li>
+      <li><strong>Library handlers that return a fallback.</strong> There are 7. Check that each names the errors it expects.</li>
+      <li><strong>Mutable defaults that the function modifies.</strong> We found none among the library cases we read, but the same check applies to yours.</li>
+      <li><strong>Wildcards outside <code>__init__.py</code>.</strong> They hide where a name comes from, and are the easiest to remove.</li>
+      <li><strong>Everything in tests and fixtures.</strong> Last, and only if you want a clean report.</li>
+    </ol>
+
     <h2>What to take from this</h2>
     <ul>
       <li><strong>Read the handler, not just the rule.</strong> Half of the bare excepts here either re-raise or sit in tests and fixtures.</li>
       <li><strong>Mature projects still have a few.</strong> Even in code with heavy review, a small number of swallowed exceptions exist. They are the ones to clean up first.</li>
       <li><strong>Treat the count as a prompt.</strong> A rule that fires hundreds of times is telling you where to look, not how bad things are.</li>
+    </ul>
+
+    <h2>What this data does and does not show</h2>
+    <ul>
+      <li><strong>It counts syntax, not bugs.</strong> The three rules flag patterns. For mutable defaults, the library cases we read did not modify the default. For the bare excepts, we did not test whether any swallowed error hid a real failure, and we make no claim about the projects&rsquo; correctness.</li>
+      <li><strong>The classification is ours.</strong> We read the handler at each of the 75 bare excepts and sorted it into the five groups above. Another reader might place a few differently.</li>
+      <li><strong>It is 18 projects at one commit each.</strong> The projects are well regarded and heavily reviewed. Do not read the figures as typical of Python code in general. The data file lists every project and commit.</li>
     </ul>
 
     <h2>Frequently asked questions</h2>
