@@ -6,6 +6,28 @@
     <h2>How we measured</h2>
     <p>The 53 projects, the commit scanned in each and the finding counts are in the <a href="/data/open-source-scan-2026-10.csv">open data file</a>. For this article we classified a finding as non-production when its path has a directory named test, tests, testing, spec, docs, examples, samples, benchmark, fuzz, fixtures, third_party or vendor, or when the file is named like a test (<code>test_*.py</code>, <code>*Test.java</code>, <code>*.spec.ts</code> and similar). The rule is deliberately simple and blunt, which has two consequences. Generated website assets still count as production, so Retrofit&rsquo;s bundled documentation scripts are included in the production figure. And test directories with unusual names, such as celery&rsquo;s <code>t/</code>, are missed. Both push the true non-production share up, not down.</p>
 
+    <h2>Sorting a report by path yourself</h2>
+    <p>The rule above is simple enough to apply in a few lines. The analyser writes its findings to a JSON file, and each entry in <code>violations</code> has a <code>path</code>, a <code>ruleId</code>, a <code>severity</code> and a <code>category</code>. This sketch splits them with the same directory and filename rules we used:</p>
+    <pre><code>import json, re, collections
+
+NONPROD = {"test", "tests", "testing", "spec", "docs", "examples",
+           "samples", "benchmark", "fuzz", "fixtures",
+           "third_party", "vendor"}
+TESTFILE = re.compile(r"(test_.*\.py|.*_test\.py|.*Test\.java|.*\.(spec|test)\.(ts|js|tsx|jsx))$")
+
+def non_production(path):
+    parts = path.split("/")
+    return (any(p.lower() in NONPROD for p in parts[:-1])
+            or bool(TESTFILE.match(parts[-1])))
+
+report = json.load(open("out.json"))
+count = collections.Counter(
+    "tests/other" if non_production(v["path"]) else "production"
+    for v in report["violations"])
+print(count)</code></pre>
+    <p>We ran it on a scan of Flask (25 findings, the same count as in the data file). 13 findings, 52%, were in non-production paths and 12 were in production code. Of its 9 security findings, 6 were in non-production paths. Those 6 were all <code>py-sec-hardcoded-secret</code>. The 3 in production were two <code>py-sec-eval-exec</code> findings and one <code>py-sec-weak-hash</code>, which is a short list that takes a few minutes to read.</p>
+    <p>One thing to know about how the engine behaves: it does not discount tests. We wrote the same line, a string assigned to a variable named <code>PASSWORD</code>, into <code>tests/test_x.py</code> and into <code>src/cfg.py</code>. Both came back as the same <code>py-sec-hardcoded-secret</code> warning. As of the October 2026 build, separating the two is a step you take when you read the report, as this sketch does.</p>
+
     <h2>Findings by language</h2>
     <ul>
       <li><strong>JavaScript</strong> (5 projects): 8,847 findings, 75% outside production.</li>
@@ -31,6 +53,14 @@
     <p>Only 172 of the 1,258 security findings are in production paths. The largest group is <code>py-sec-hardcoded-secret</code>: 450 findings, of which 5 are outside tests. Most of these are in test files, where placeholder passwords and tokens are common, and a pattern matcher cannot tell a placeholder from a real credential. The next largest are <code>py-sec-pickle-load</code> (296), <code>ts-sec-inner-html</code> (128) and <code>py-sec-eval-exec</code> (103).</p>
     <p>The 172 findings in production code are the ones worth reading first. They are led by <code>js-sec-inner-html</code> (61, of which 56 are in Retrofit&rsquo;s generated website scripts), then <code>py-sec-eval-exec</code>, <code>py-sec-pickle-load</code> and <code>py-sec-weak-hash</code>. A short list of real candidates is far more useful than a long one that is mostly test fixtures.</p>
 
+    <h2>Reading a security finding in three questions</h2>
+    <p>Once a finding is in production code, three questions settle most of them:</p>
+    <ol>
+      <li><strong>Can it be reached by anyone who should not control it?</strong> <code>eval</code>, <code>exec</code> and <code>pickle.load</code> are only dangerous when the input can come from outside. The same call on a constant string is a code smell, not a hole.</li>
+      <li><strong>Is the value real?</strong> For <code>py-sec-hardcoded-secret</code>, check whether the string is a working credential or a placeholder. If it is real, revoke it and move it to configuration, because deleting the line does not remove it from the repository history.</li>
+      <li><strong>Does the context change the risk?</strong> A weak hash used as a cache key or checksum is a different matter from one used to protect a password. The <code>usedforsecurity=False</code> flag in Python is the documented way to say so. For <code>innerHTML</code>, ask whether the string includes anything a user typed.</li>
+    </ol>
+
     <h2>What scanning real code taught us about false positives</h2>
     <p>Preparing this data set led to a round of fixes in the engine, and every number above comes from the fixed version. The patterns are worth knowing, because other tools run into the same things:</p>
     <ul>
@@ -41,6 +71,22 @@
       <li>A TypeScript test file containing a call such as <code>it("x", () =&gt; {...})</code> without a trailing semicolon made the parser invent a 4,000-line &ldquo;function&rdquo; that ran to the end of the block.</li>
     </ul>
     <p>The last one is a good reminder that long-function counts depend on the parser being right. It is also why we publish the data: anyone can rerun a project and check.</p>
+
+    <h2>What these numbers do not mean</h2>
+    <ul>
+      <li><strong>Non-production does not mean unimportant.</strong> A test that swallows an exception can hide a failing test, and broken test helpers cost time. The point is order, not dismissal.</li>
+      <li><strong>The path rule is blunt.</strong> It misses directories with unusual names and counts some generated code as production. We described both effects above, and both make the true non-production share higher, not lower.</li>
+      <li><strong>One production finding can matter more than a thousand test ones.</strong> A single injectable query outweighs any pile of style notes. The point of filtering is to find it sooner.</li>
+      <li><strong>These are REPO-SIGHT&rsquo;s rules.</strong> Another tool has other rules and would produce other counts, and a rule&rsquo;s share of findings says more about the rule than about the code.</li>
+    </ul>
+
+    <h2>A four-pass order for reading a report</h2>
+    <ol>
+      <li><strong>Security findings in production paths.</strong> It is the shortest list, in our data 172 of 32,174.</li>
+      <li><strong>Complexity and long-function findings in production paths.</strong> They point at the code that is hardest to change safely.</li>
+      <li><strong>Style findings in production paths.</strong> Cheap to fix, low in urgency, and often the bulk of the count.</li>
+      <li><strong>Everything in tests, examples and vendored code.</strong> Read it for patterns, such as a test helper that hides failures, and ignore the rest.</li>
+    </ol>
 
     <h2>What to do when you read a report</h2>
     <ul>
