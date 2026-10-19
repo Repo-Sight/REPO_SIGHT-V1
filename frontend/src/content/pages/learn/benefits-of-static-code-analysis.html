@@ -1,23 +1,56 @@
-    <h1>The benefits of static code analysis</h1>
+<h1>The benefits of static code analysis</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
 
-    <p>Static analysis has a specific, narrow job &mdash; read the code, don't run it &mdash; but that narrowness is exactly where its advantages come from.</p>
+    <p>Static analysis has a narrow job, which is to read the code without running it, and that narrowness is where its advantages come from. This guide covers six concrete benefits with numbers from our own testing, then the costs and limits that a fair assessment has to include. If you are deciding whether a static analyser is worth ten minutes of your time, the short answer is that it is cheap, fast and finds a specific class of problem reliably, and that it does not replace tests or a second pair of eyes.</p>
 
-    <h2>It catches issues before anything runs</h2>
-    <p>A bug caught by reading code is cheaper than the same bug caught in production, and it's cheaper still than one caught after a user reports it. A deeply nested function or an empty catch block is visible the moment it's written &mdash; you don't need to wait for a specific input to trigger it.</p>
+    <h2>1. It catches problems before anything runs</h2>
+    <p>A deeply nested function, an empty catch block or a hardcoded token is visible the moment it is written. You do not need the right input to trigger it or the right traffic to expose it. It is widely accepted that a defect found earlier is cheaper to fix than one found in production, though the exact multiplier is argued over, so we do not quote one. The point that is not in dispute is practical: a finding on your own machine, in code you wrote an hour ago, costs a few minutes, while the same issue discovered by a user means reproducing it, diagnosing it and shipping a fix.</p>
+    <p>A concrete case: we wrote a short Python file containing a placeholder API key beginning <code>sk-ant-</code> and ran it through REPO-SIGHT. The scan reported it as <code>py-sec-secret-token</code> on the exact line, before the file was ever committed. A key that never reaches the repository history is a key you never have to rotate.</p>
 
-    <h2>It doesn't need a test suite to work</h2>
-    <p>Dynamic tools &mdash; tests, profilers, sanitizers &mdash; all require something to execute: a build, a runtime, often a whole test harness. Static analysis works on code that has zero tests, code you just inherited, or a repo you're evaluating before deciding whether to contribute to it. There's nothing to set up.</p>
+    <h2>2. It does not need a test suite or a working build</h2>
+    <p>Dynamic tools such as tests, profilers and sanitizers all need something to execute: a build, a runtime, often a whole harness. Static analysis works on code with zero tests, code you have just inherited, or a repository you are evaluating before deciding whether to depend on it or contribute to it. We scanned 53 well-regarded open-source projects for our <a href="/learn/what-code-health-grades-measure-53-open-source-projects.html">grade study</a> without installing a single dependency or running a single test, because the analyser only reads files. That makes it suitable for exactly the situations where nothing is set up yet.</p>
 
-    <h2>It's consistent in a way manual review isn't</h2>
-    <p>A rule that flags cyclomatic complexity over a threshold fires identically at 9am on a Monday and 6pm on a Friday. A tired human reviewer skimming their sixth pull request of the day is far more likely to miss a bare <code>except:</code> block or a public field breaking encapsulation than a tool that checks for exactly that, every time, without fatigue.</p>
+    <h2>3. It is fast enough to use every time</h2>
+    <p>Speed decides whether a tool gets used. On our test run, the analysis engine processed the Flask web framework, 83 files and about 14,000 lines of code, in roughly 0.05 seconds. A full scan in the app also includes downloading the repository, but there is no compile step, no environment to create and no tests to wait for. When feedback takes seconds, people ask for it routinely. When it takes an afternoon, they do not.</p>
 
-    <h2>The feedback loop is fast</h2>
-    <p>No scheduling a review meeting, no waiting for a teammate's availability. Paste a repository URL and get a report in seconds. For a solo developer or a small team, that speed is the difference between actually acting on the feedback and never getting around to it.</p>
+    <h2>4. It is consistent in a way manual review is not</h2>
+    <p>A rule that flags cyclomatic complexity over a threshold fires identically at nine on a Monday morning and six on a Friday evening. A tired reviewer skimming their sixth pull request of the day is far more likely to miss a bare <code>except:</code> or a public field than a tool checking for exactly that. The effect on human review is documented: a widely cited SmartBear study of reviews at Cisco found that defects found per line fell sharply for larger changes and for faster reading. Our comparison, <a href="/learn/static-analysis-vs-code-review.html">static analysis vs. code review</a>, goes through it. Consistency also extends to the score itself. REPO-SIGHT&rsquo;s health score is computed from five published inputs with fixed weights, and we recomputed every project in our data file by hand and matched each one to within a tenth of a point.</p>
 
-    <h2>It gives you a shared vocabulary, even for a team of one</h2>
-    <p>&quot;This file feels messy&quot; isn't actionable. &quot;This file has a max nesting depth of 9 against a healthy reference of 3, and one function is 340 lines long&quot; is. Turning a vague feeling into a specific number is what makes it possible to prioritize &mdash; and to tell, later, whether it actually got better.</p>
+    <h2>5. It gives you a shared vocabulary, even for a team of one</h2>
+    <p>&ldquo;This file feels messy&rdquo; cannot be acted on. &ldquo;This file reaches a nesting depth of 8 against a good reference of 3, and one function is 340 lines long&rdquo; can. Turning a vague feeling into a number is what makes it possible to prioritise, and to tell later whether things improved. A small example from our tests: a function that wrapped its logic in four nested conditions reported a nesting depth of 5 and a nesting score of 60. Rewritten with early returns, the same behaviour reported a depth of 3 and a score of 100. The change is visible, repeatable and checkable, which is more than can be said for &ldquo;it reads better now.&rdquo; See <a href="/learn/maximum-nesting-depth-explained.html">maximum nesting depth</a> for the full example.</p>
 
-    <h2>What it doesn't replace</h2>
-    <p>Static analysis is not a substitute for tests, a security audit, or a second pair of human eyes on business logic. It cannot tell you whether your code solves the right problem, only whether the code as written is structurally sound. Treat the numbers as a diagnostic, not a verdict &mdash; and pair them with the review and testing your project actually needs.</p>
+    <h2>6. It lets you track direction over time</h2>
+    <p>A single score is a snapshot. The more useful thing is the trend: is complexity rising, did last month&rsquo;s refactor help, did that quick fix add three new warnings? Rescanning after a change and comparing with the previous result answers those questions in a minute and turns improvement into something you can see, which is what keeps people doing it. This is how a number becomes a habit rather than a one-off report.</p>
+
+    <h2>What the benefits cost</h2>
+    <p>An honest list of benefits needs an honest list of limits.</p>
+    <ul>
+      <li><strong>Volume and noise.</strong> Our scan of 53 projects produced 32,174 findings. About 58% were in tests, documentation, examples or bundled third-party code, and 86% of the 1,258 security findings were outside production code. A flat list wastes your time; the <a href="/learn/where-static-analysis-findings-live.html">article on where findings live</a> shows how to sort it.</li>
+      <li><strong>False positives.</strong> A pattern matcher cannot tell a placeholder password in a test from a real credential. It flags both and leaves the decision to you.</li>
+      <li><strong>Style findings that mostly reflect age.</strong> The most frequent rule in our scan, <code>js-var-usage</code>, produced 25% of all findings, and three projects that predate ES2015 account for most of them. It tells you more about a project&rsquo;s history than about its current quality.</li>
+      <li><strong>Language conventions skew scores.</strong> Python projects averaged 74 and Java projects 90 in our data, mostly because of how comments are counted, so compare like with like.</li>
+      <li><strong>It cannot judge correctness.</strong> The tool tells you whether the code is structurally sound. It cannot tell you whether it solves the right problem.</li>
+    </ul>
+
+    <h2>Who gets the most out of it</h2>
+    <ul>
+      <li><strong>Solo developers and students</strong> who have no reviewer and want an objective second opinion before a portfolio piece goes public. See the <a href="/learn/code-quality-checklist-for-students.html">code quality checklist for students</a>.</li>
+      <li><strong>Anyone inheriting a codebase</strong> who needs to find the hardest files before touching anything.</li>
+      <li><strong>Developers choosing a dependency</strong> who want to look inside before adding it.</li>
+      <li><strong>Teams</strong> who want mechanical issues cleared before human review begins.</li>
+    </ul>
+
+    <h2>What it does not replace</h2>
+    <p>Static analysis is not a substitute for tests, a security audit or a human who understands the business. Treat the numbers as a diagnostic, not a verdict, and pair them with the review and testing your project needs. The companion article on <a href="/learn/static-analysis-vs-dynamic-analysis.html">static vs. dynamic analysis</a> shows, with real output, a case in each direction where one approach finds what the other cannot.</p>
+
+    <h2>Frequently asked questions</h2>
+    <h3>Is static analysis worth it for a small project?</h3>
+    <p>Yes, because the cost is close to zero. There is nothing to install, and a scan takes seconds. The benefit is largest for small projects with no other safety net.</p>
+    <h3>Will it slow down my workflow?</h3>
+    <p>Not in any measurable way. There is no build or test step involved, and the engine itself finished a 14,000-line project in a fraction of a second in our test.</p>
+    <h3>Does a high score mean my code is good?</h3>
+    <p>It means the code passes the structural checks the tool knows about. Good code also needs tests, sensible design and correct behaviour, none of which a static score can confirm.</p>
+
+    <h2>Try it on your own code</h2>
+    <p><a href="/#analyze">Scan a repository</a> or paste a single file. No signup is needed for the scan itself. If you want a fuller introduction first, read <a href="/learn/what-is-static-analysis.html">what static analysis is</a> or <a href="/learn/static-code-analysis-for-beginners.html">static code analysis for beginners</a>.</p>
