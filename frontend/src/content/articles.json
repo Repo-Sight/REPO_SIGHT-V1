@@ -16,7 +16,7 @@
   "learn/what-is-technical-debt.html": { "published": "2026-09-07", "modified": "2026-10-17" },
   "learn/long-complex-functions-14-cpp-projects.html": { "published": "2026-10-17", "modified": "2026-10-19" },
   "learn/bare-except-and-mutable-defaults-18-python-projects.html": { "published": "2026-10-17", "modified": "2026-10-19" },
-  "learn/longest-java-methods-13-open-source-projects.html": { "published": "2026-10-17" },
+  "learn/longest-java-methods-13-open-source-projects.html": { "published": "2026-10-17", "modified": "2026-10-19" },
   "learn/todo-comments-vs-repository-age.html": { "published": "2026-10-17" },
   "learn/what-code-health-grades-measure-53-open-source-projects.html": { "published": "2026-10-17", "modified": "2026-10-19" },
   "learn/where-static-analysis-findings-live.html": { "published": "2026-10-17", "modified": "2026-10-19" }
