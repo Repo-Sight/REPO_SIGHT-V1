@@ -62,6 +62,10 @@ export function HomeBody() {
       </Block>
 
       <Block>
+        <Html html={c.reportHtml} />
+      </Block>
+
+      <Block>
         <Html html={c.pipelineHtml} />
       </Block>
 
@@ -71,6 +75,14 @@ export function HomeBody() {
 
       <Block>
         <Html html={c.featuresHtml} />
+      </Block>
+
+      <Block>
+        <Html html={c.methodHtml} />
+      </Block>
+
+      <Block>
+        <Html html={c.faqHtml} />
       </Block>
 
       <Block>
