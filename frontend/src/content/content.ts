@@ -1,6 +1,9 @@
 import manifest from "./manifest.json";
 import home from "./home.json";
 import pipelineHtml from "./home-pipeline.html?raw";
+import reportHtml from "./home-report.html?raw";
+import methodHtml from "./home-method.html?raw";
+import faqHtml from "./home-faq.html?raw";
 import featuresHtml from "./home-features.html?raw";
 import learnHtml from "./home-learn.html?raw";
 import ctaHtml from "./home-cta.html?raw";
@@ -39,6 +42,9 @@ export function pageHtml(file: string): string {
 export const homeContent = {
   ...home,
   pipelineHtml,
+  reportHtml,
+  methodHtml,
+  faqHtml,
   featuresHtml,
   learnHtml,
   ctaHtml,
