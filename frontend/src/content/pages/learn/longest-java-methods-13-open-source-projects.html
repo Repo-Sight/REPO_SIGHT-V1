@@ -1,49 +1,59 @@
 <h1>The longest Java methods in 13 open-source projects</h1>
     <p class="legal-updated"><a href="/learn/">&larr; Back to Learn</a></p>
 
-    <p>Only 0.15% of the Java methods and constructors in 13 respected open-source projects are longer than 100 lines &mdash; 211 out of 140,090. We ranked the longest of them. The ten longest are all in test or benchmark code, and 159 of the 211 (75%) sit outside production paths. The long methods that do ship in production are a small, recognisable set.</p>
+    <p>Only 0.15% of the Java methods and constructors in 13 respected open-source projects are longer than 100 lines &mdash; 211 out of 140,090. We ranked the longest of them. The ten longest are all in test or benchmark code, and 131 of the 211 (62%) sit outside production paths. The other 80 are production methods, and they are a small, recognisable set. One project, Jackson Core, accounts for 28 of them.</p>
 
     <h2>How we measured</h2>
-    <p>The projects are Guava, Guice, Gson, Jackson Core, Jsoup, Joda-Time, JUnit 5, Mockito, Retrofit, SLF4J and three Apache Commons libraries (Collections, IO and Lang). Each was scanned at a pinned commit listed in the <a href="/data/open-source-scan-2026-10.csv">open data file</a>. Only Java files are counted, so Retrofit&rsquo;s bundled website scripts are left out. Length is the number of lines from a method&rsquo;s first line to its closing brace, and a constructor counts as a method. &ldquo;Non-production&rdquo; means a path with a directory named like test, tests, benchmark, examples, docs or vendor, or a file named like <code>FooTest.java</code>.</p>
+    <p>The projects are Guava, Guice, Gson, Jackson Core, Jsoup, Joda-Time, JUnit 5, Mockito, Retrofit, SLF4J and three Apache Commons libraries (Collections, IO and Lang). Each was scanned at a pinned commit listed in the <a href="/data/open-source-scan-2026-10.csv">open data file</a>. Only Java files are counted, so Retrofit&rsquo;s bundled website scripts are left out. Length is the number of lines from a method&rsquo;s first line to its closing brace, so blank lines and comments inside the method count, and a constructor counts as a method. &ldquo;Non-production&rdquo; means a path with a directory named like test, tests, benchmark, examples, docs or vendor, or a file named like <code>FooTest.java</code>.</p>
+    <p>We re-ran every scan on 19 October 2026 at the same commits. The method and finding totals matched the data file exactly, and every figure in this article comes from that run. One caveat: Guava keeps an <code>android/</code> copy of much of its source, and 32 of its 66 long methods are in that copy, so many of them are the same method counted twice.</p>
 
     <h2>How rare is a long method?</h2>
     <ul>
-      <li>The median method is 5 lines. One method in a hundred is longer than 50 lines.</li>
-      <li>1,340 methods (1.0%) are over 50 lines, 211 (0.15%) are over 100, and 49 are over 200.</li>
+      <li>The median method is 5 lines. About 78% of methods are 10 lines or shorter, 17% run 11 to 25, 3.6% run 26 to 50 and 0.8% run 51 to 100.</li>
+      <li>1,340 methods (1.0%) are over 50 lines, 211 (0.15%) are over 100, and 49 are over 200. Of the 1,340 over 50 lines, 572 are in production paths.</li>
       <li>The count is concentrated: Guava has 66 of the 211, Jackson Core 37, Commons Lang 30, Guice 26, Joda-Time 12 and Gson 9.</li>
     </ul>
+    <p>Counted as a rate, the order changes. Methods over 100 lines are 0.64% of Jackson Core, 0.33% of Guice, 0.27% of Commons Lang and 0.26% of Gson. They are 0.12% of Guava and Joda-Time, 0.10% of Commons IO, 0.09% of Jsoup and Mockito, 0.08% of Retrofit, 0.07% of Commons Collections and 0.04% of JUnit 5. SLF4J has none.</p>
 
     <h2>The longest of all: tables and test bodies</h2>
     <p>The top of the ranking is not code anyone would call logic:</p>
     <ul>
-      <li><strong>Jackson Core</strong>, <code>DoubleToDecimalChecker</code>: four methods named <code>hard0</code> to <code>hard3</code> of 5,004, 5,004, 5,004 and 4,549 lines. Each returns a single array of hard-coded double-precision values for a test.</li>
+      <li><strong>Jackson Core</strong>, <code>DoubleToDecimalChecker</code>: four methods named hard0 to hard3 of 5,004, 5,004, 5,004 and 4,549 lines. Each returns a single array of hard-coded double-precision values for a test.</li>
       <li><strong>Commons Lang</strong>, <code>ArrayUtilsTest.testSameLengthAll</code>: 1,334 lines of setup and assertions in one test method.</li>
-      <li><strong>Guava</strong>, <code>CharMatcherBenchmark</code>: <code>populateProb2</code> at 720 lines and <code>populateProb1</code> at 633, both in benchmark code.</li>
+      <li><strong>Guava</strong>, <code>CharMatcherBenchmark</code>: populateProb2 at 720 lines and populateProb1 at 633, both in benchmark code.</li>
       <li><strong>Commons Lang</strong>, <code>SystemUtilsTest.testJavaVersionMatches</code>: 623 lines.</li>
     </ul>
     <p>All of the ten longest methods, and 19 of the 20 longest, are in tests or benchmarks. They are long because they list data or repeat one kind of assertion many times, not because they are tangled. Another 20 of the 211 are methods named <code>suite</code>, the JUnit 3 convention for collecting tests.</p>
 
     <h2>The longest production methods</h2>
-    <p>Filtering to production paths leaves 52 methods over 100 lines. The longest are:</p>
+    <p>Filtering to production paths leaves 80 methods over 100 lines, which is 0.12% of the 65,473 production methods. The longest are:</p>
     <ul>
       <li><strong>Retrofit</strong>, <code>RequestFactory.parseParameterAnnotation</code>: 456 lines &mdash; parses the annotations on a parameter.</li>
       <li><strong>Jsoup</strong>, <code>HtmlTreeBuilderState.inBodyStartTag</code>: 357 lines &mdash; the HTML parser&rsquo;s rules for start tags inside the body.</li>
       <li><strong>Mockito</strong>, <code>MockMethodAdvice.wrap</code>: 257 lines &mdash; bytecode advice for mocked methods.</li>
+      <li><strong>Jackson Core</strong>, <code>FilteringParserDelegate.nextToken</code>: 242 lines &mdash; token filtering inside a JSON parser.</li>
       <li><strong>Guice</strong>, <code>FactoryProvider2.FactoryProvider2</code>: 227 lines &mdash; a constructor.</li>
       <li><strong>Guice</strong>, <code>SingletonScope.scope</code>: 223 lines &mdash; singleton scope handling.</li>
       <li><strong>Guice</strong>, <code>BindingProcessor.visit</code>: 217 lines &mdash; binding processing.</li>
       <li><strong>Mockito</strong>, <code>MockMethodAdvice.visitCode</code>: 205 lines &mdash; bytecode advice for mocked methods.</li>
       <li><strong>Commons Lang</strong>, <code>RandomStringUtils.random</code>: 202 lines &mdash; random string generation.</li>
     </ul>
-    <p>Read down that list and the pattern is clear: parsers and annotation handlers, bytecode instrumentation, and framework internals. Retrofit&rsquo;s <code>parseParameterAnnotation</code> is an if/else-if chain with one branch for each annotation type, such as <code>Url</code>, <code>Path</code> and <code>Query</code>. Jsoup&rsquo;s <code>inBodyStartTag</code> follows the HTML specification&rsquo;s rules for start tags, which are themselves a long list of special cases. In both, the length mirrors the thing being modelled.</p>
-    <p>Complexity points the same way. The most complex production methods are Jsoup&rsquo;s <code>inBodyStartTag</code> at 124, Retrofit&rsquo;s <code>parseParameterAnnotation</code> at 120, and Commons Lang&rsquo;s <code>random</code> at 78. Across all 984 Java methods above complexity 10, 344 (35%) are in non-production paths.</p>
+    <p>Read down that list and the pattern is clear: parsers and annotation handlers, bytecode instrumentation, and framework internals. Retrofit&rsquo;s <code>parseParameterAnnotation</code> is an if/else-if chain with one branch for each annotation type, such as Url, Path and Query. Jsoup&rsquo;s <code>inBodyStartTag</code> follows the HTML specification&rsquo;s rules for start tags, which are themselves a long list of special cases. In both, the length mirrors the thing being modelled.</p>
+
+    <h2>Jackson Core is the exception</h2>
+    <p>Jackson Core has 2,631 production methods, and 28 of them (1.06%) are over 100 lines. That is nearly nine times the 0.12% rate across all production code, and it makes Jackson Core 35% of the 80 production methods on the list. It also has the longest median method of the 13 projects, at 8 lines.</p>
+    <p>The long ones cluster in its parsers. <code>FilteringParserDelegate</code> alone has three, at 242, 190 and 182 lines. <code>ReaderBasedJsonParser._parseNumber2</code> runs 161 lines and <code>UTF8StreamJsonParser._nextNameMatch</code> 149. That fits a library where hand-written parsing code is written for speed, but a scan can only show where the length is, not why the authors chose it.</p>
+
+    <h2>Complexity tells a different story</h2>
+    <p>Length is mostly a test and benchmark habit, but branching is mostly a production one. The most complex production methods are Jsoup&rsquo;s <code>inBodyStartTag</code> at 124, Retrofit&rsquo;s <code>parseParameterAnnotation</code> at 120, and Commons Lang&rsquo;s <code>random</code> at 78. Of the 984 Java methods above complexity 10, 844 (86%) are in production paths and only 140 (14%) are not. Put as rates, about 1.3% of production methods pass complexity 10, against 0.19% of test and other non-production methods.</p>
 
     <h2>What this means for your own code</h2>
     <ul>
       <li><strong>Check the path before the number.</strong> A test with a 1,300-line body is a different problem from a 300-line method in production code.</li>
       <li><strong>Long and branchy often means &ldquo;mirrors a spec&rdquo;.</strong> If a method follows an external grammar or protocol, the useful questions are whether it is tested and whether a new case is easy to add.</li>
       <li><strong>Tables belong in data.</strong> A method that returns thousands of literal values is a candidate for a resource file.</li>
-      <li><strong>Set a limit and watch the trend.</strong> Projects this well maintained still have a few dozen long production methods. Zero is not the goal; a steady count is.</li>
+      <li><strong>Track the production count.</strong> Projects this well maintained still have between none and 28 long production methods each. Zero is not the goal; a steady count is.</li>
+      <li><strong>Do not stop at length.</strong> A short method can still be tangled, and the complexity numbers above show that branching hides in production code far more than very long code does.</li>
     </ul>
 
     <h2>Frequently asked questions</h2>
@@ -51,5 +61,9 @@
     <p>Yes. Guice&rsquo;s <code>FactoryProvider2</code> constructor, at 227 lines, is in the list above.</p>
     <h3>Why is the share so low compared with other languages?</h3>
     <p>In this data set, 0.15% of Java methods pass 100 lines, against 1.2% of C++ functions and 0.45% of Python functions. These are 13 mature projects with strong conventions, so treat it as a picture of well-kept code and not a language ranking.</p>
+    <h3>Does a long method mean there is a bug?</h3>
+    <p>No. Length is a prompt to look, not a defect. The longest methods here are data tables, test bodies and parsers that mirror a specification, and none of that is wrong by itself. Length matters when a method is hard to test or when its branches have started to hide mistakes.</p>
+    <h3>Which limits does REPO-SIGHT use?</h3>
+    <p>For Java, <code>java-long-method</code> flags methods over 100 lines and <code>java-complex-function</code> flags methods above cyclomatic complexity 10. Treat both as starting points and tune them to your own project.</p>
     <h3>How do I find the long methods in my project?</h3>
     <p><a href="/#analyze">Paste a GitHub URL</a> and the report ranks your longest and most complex methods by file. The <a href="/java-code-analyzer.html">Java code analyzer</a> page lists what is checked, and <a href="/learn/improve-java-code-quality.html">how to improve Java code quality</a> shows common fixes.</p>
