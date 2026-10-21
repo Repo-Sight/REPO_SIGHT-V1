@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { analyzeFile, analyzeRepo, ApiError, MAX_FILE_BYTES } from "../lib/api";
 import { useAuth } from "../lib/authContext";
-import { GITHUB_AUTH_ENABLED, githubProviderToken } from "../lib/supabase";
+import { githubProviderToken } from "../lib/supabase";
 type Mode = "repo" | "file";
 
 const FILE_ACCEPT = ".cpp,.cc,.cxx,.c,.h,.hpp,.py,.java,.ts,.tsx,.js,.jsx,.mjs,.cjs,.cs";
@@ -11,8 +11,8 @@ const inputClass =
   "w-full rounded-md border border-line bg-white px-3 py-2.5 font-mono text-sm shadow-soft-sm placeholder:text-ink/50";
 /**
  * Scan form. Both modes POST to our API, then navigate to /?scan=<id> (the same
- * URL shape existing shared reports already use). Works anonymously; sign-in
- * and private repos arrive with the auth step.
+ * URL shape existing shared reports already use). Works anonymously; private
+ * repos need a GitHub sign-in.
  */
 export function Scanner() {
   const navigate = useNavigate();
@@ -26,6 +26,11 @@ export function Scanner() {
   const [error, setError] = useState<string | null>(null);
   const [privateScan, setPrivateScan] = useState(false);
   const [reconnect, setReconnect] = useState(false);
+  async function onReconnect() {
+    const err = await signInWithGithub("signin");
+    if (err) setError(err);
+  }
+
   async function onPickFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -72,7 +77,7 @@ export function Scanner() {
         githubToken = (await githubProviderToken()) ?? undefined;
         if (!githubToken) {
           setReconnect(true);
-          setError("Your GitHub connection has expired. Sign in with GitHub again to scan private repos.");
+          setError("Your GitHub connection has expired. Reconnect GitHub to scan private repos.");
           setBusy(false);
           return;
         }
@@ -115,28 +120,30 @@ export function Scanner() {
             disabled={busy}
             className={inputClass}
           />
-           {GITHUB_AUTH_ENABLED ? (
-            user ? (
-              <label className="flex items-center gap-2 font-mono text-xs">
-                <input
-                  type="checkbox"
-                 checked={privateScan}
-                 onChange={(e) => setPrivateScan(e.target.checked)}
-                  disabled={busy}
-                  className="h-4 w-4 rounded-md border border-line"
-                />
-                Private repo (uses your GitHub sign-in; the token is never stored)
-             </label>
-           ) : (
-              <p className="font-mono text-xs text-ink/70">
-                Private repo?{" "}
-                <button type="button" className="font-bold underline" onClick={openAccount}>
-                  Sign in with GitHub
-                </button>{" "}
-                to scan it.
-              </p>
-            )
-          ) : null}
+          {user ? (
+            <label className="flex items-center gap-2 font-mono text-xs">
+              <input
+                type="checkbox"
+                checked={privateScan}
+                onChange={(e) => setPrivateScan(e.target.checked)}
+                disabled={busy}
+                className="h-4 w-4 rounded-md border border-line"
+              />
+              Private repo (uses your GitHub sign-in; the token is never stored)
+            </label>
+          ) : (
+            <p className="font-mono text-xs text-ink/70">
+              Private repo? A GitHub account is required:{" "}
+              <button type="button" className="font-bold underline" onClick={() => openAccount("signin")}>
+                Sign in
+              </button>{" "}
+              or{" "}
+              <button type="button" className="font-bold underline" onClick={() => openAccount("signup")}>
+                Sign up
+              </button>
+              .
+            </p>
+          )}
        </div>
       ) : (
         <div className="space-y-3">
@@ -207,6 +214,11 @@ export function Scanner() {
         <p role="alert" className="rounded-md border border-line bg-rose/25 px-3 py-2 text-sm font-semibold">
           {error}
         </p>
+      ) : null}
+      {reconnect ? (
+        <button type="button" className="rs-btn rs-btn-ghost" onClick={() => void onReconnect()}>
+          Reconnect GitHub
+        </button>
       ) : null}
     </form>
   );
