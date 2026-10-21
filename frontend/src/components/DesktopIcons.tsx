@@ -260,7 +260,6 @@ export const RIGHT: DesktopItem[] = [
   { href: "/contact.html", label: "Contact", glyph: "mail", tone: "yellow" },
   { href: "/privacy.html", label: "Privacy", glyph: "lock", tone: "green" },
   { href: "/terms.html", label: "Terms", glyph: "terms", tone: "ink" },
-  { href: "https://buymeacoffee.com/ronakarora1", label: "Support", glyph: "coffee", tone: "red", external: true },
 ];
 
 function Column({ items, label, side, className }: { items: DesktopItem[]; label: string; side: "left" | "right"; className: string }) {
