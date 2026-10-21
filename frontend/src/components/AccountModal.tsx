@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../lib/authContext";
+import { useAuth, type AuthMode } from "../lib/authContext";
 import { listMyScans, type ScanRow } from "../lib/history";
-import { GITHUB_AUTH_ENABLED } from "../lib/supabase";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
 
 const MODAL_CLOSE_MS = 250;
-export function AccountModal({ onClose: unmount }: { onClose: () => void }) {
-  const { user, signInWithGithub, sendMagicLink, signOut } = useAuth();
+export function AccountModal({ initialMode, notice, onClose: unmount }: { initialMode: AuthMode; notice: string | null; onClose: () => void }) {
+  const { user, signInWithGithub, signOut } = useAuth();
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const panel = useRef<HTMLDivElement>(null);
    const [closing, setClosing] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -67,16 +67,16 @@ export function AccountModal({ onClose: unmount }: { onClose: () => void }) {
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="rs-account-title" className="font-mono text-lg font-black">
-            {user ? "Your account" : "Sign in"}
+            {user ? "Your account" : mode === "signup" ? "Create your account" : "Sign in"}
           </h2>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-md border border-line px-2 font-mono font-black hover:bg-chrome">
             ×
           </button>
         </div>
         {user ? (
-          <SignedIn email={user.email} onClose={onClose} onSignOut={signOut} />
+          <SignedIn email={user.email} login={user.login} notice={notice} onClose={onClose} onSignOut={signOut} />
         ) : (
-          <SignedOut signInWithGithub={signInWithGithub} sendMagicLink={sendMagicLink} />
+          <SignedOut mode={mode} setMode={setMode} signInWithGithub={signInWithGithub} onClose={onClose} />
         )}
       </div>
     </div>
@@ -84,71 +84,75 @@ export function AccountModal({ onClose: unmount }: { onClose: () => void }) {
 }
 
 function SignedOut({
+  mode,
+  setMode,
   signInWithGithub,
-  sendMagicLink,
+  onClose,
 }: {
-  signInWithGithub: () => Promise<string | null>;
-  sendMagicLink: (email: string) => Promise<string | null>;
+  mode: AuthMode;
+  setMode: (m: AuthMode) => void;
+  signInWithGithub: (mode?: AuthMode) => Promise<string | null>;
+  onClose: () => void;
 }) {
-  const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState<string | null>(null);
-
-  async function onMagic(e: FormEvent) {
-    e.preventDefault();
-    const value = email.trim();
-    if (!value || busy) return;
-    setBusy(true);
-    setError(null);
-    setSent(null);
-    const err = await sendMagicLink(value);
-    setBusy(false);
-    if (err) setError(err);
-    else setSent(value);
-  }
+  const signup = mode === "signup";
 
   async function onGithub() {
+    if (busy) return;
+    setBusy(true);
     setError(null);
-    const err = await signInWithGithub();
-    if (err) setError(err);
+    const err = await signInWithGithub(mode);
+    // On success the browser is already leaving for GitHub, so only a failure needs the button back.
+    if (err) {
+      setError(err);
+      setBusy(false);
+    }
+  }
+
+  function flip(next: AuthMode) {
+    setError(null);
+    setMode(next);
   }
 
   return (
     <div className="mt-3 space-y-4">
-      <p className="text-sm">
-        Signing in is optional. It saves your last 5 scans, shows what changed since your previous scan, and unlocks AI
-        explanations of findings.
-      </p>
-      {GITHUB_AUTH_ENABLED ? (
+      {signup ? (
         <>
-          <button type="button" className="rs-btn w-full" onClick={onGithub}>
-            Continue with GitHub
-          </button>
-          <p className="text-center font-mono text-xs text-ink/70">or</p>
+          <p className="text-sm">
+            Signing up is free and optional: public scans never need an account. With one you get:
+          </p>
+          <ul className="list-disc space-y-1 pl-5 text-sm">
+            <li>Your last 5 scans, saved</li>
+            <li>What changed since your previous scan of the same repo</li>
+            <li>AI explanations of findings</li>
+            <li>Private repo scans (these always need a GitHub sign-in)</li>
+          </ul>
         </>
+      ) : (
+        <p className="text-sm">Welcome back. Sign in with GitHub to see your last 5 scans and scan private repos.</p>
+      )}
+      <button type="button" className="rs-btn w-full" onClick={() => void onGithub()} disabled={busy}>
+        {busy ? "Opening GitHub…" : signup ? "Sign up with GitHub" : "Sign in with GitHub"}
+      </button>
+      {signup ? (
+        <p className="text-xs text-ink/70">
+          By signing up you agree to the{" "}
+          <Link to="/terms.html" onClick={onClose} className="font-bold underline">
+            Terms of Use
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy.html" onClick={onClose} className="font-bold underline">
+            Privacy Policy
+          </Link>
+          . We only receive your GitHub email and public profile (username, avatar).
+        </p>
       ) : null}
-      <form onSubmit={onMagic} className="space-y-2">
-        <label htmlFor="rs-magic-email" className="block font-mono text-xs font-bold uppercase tracking-widest">
-          Email me a sign-in link
-        </label>
-        <input
-          id="rs-magic-email"
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={busy}
-          placeholder="you@example.com"
-          className="w-full rounded-md border border-line bg-white px-3 py-2 font-mono text-sm"
-        />
-        <button type="submit" className="rs-btn rs-btn-ghost w-full" disabled={busy}>
-          {busy ? "Sending…" : "Send link"}
+      <p className="text-center text-sm">
+        {signup ? "Already have an account?" : "New here?"}{" "}
+        <button type="button" className="font-bold underline" onClick={() => flip(signup ? "signin" : "signup")}>
+          {signup ? "Sign in" : "Sign up"}
         </button>
-      </form>
-      <p role="status" aria-live="polite" className="text-sm font-semibold">
-        {sent ? `Check ${sent} for a sign-in link.` : ""}
       </p>
       {error ? (
         <p role="alert" className="rounded-md border border-line bg-rose/25 px-3 py-2 text-sm font-semibold">
@@ -159,7 +163,19 @@ function SignedOut({
   );
 }
 
-function SignedIn({ email, onClose, onSignOut }: { email: string | null; onClose: () => void; onSignOut: () => Promise<void> }) {
+function SignedIn({
+  email,
+  login,
+  notice,
+  onClose,
+  onSignOut,
+}: {
+  email: string | null;
+  login: string | null;
+  notice: string | null;
+  onClose: () => void;
+  onSignOut: () => Promise<void>;
+}) {
   const [rows, setRows] = useState<ScanRow[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -175,7 +191,12 @@ function SignedIn({ email, onClose, onSignOut }: { email: string | null; onClose
 
   return (
     <div className="mt-3 space-y-4">
-      <p className="break-all font-mono text-xs">{email ?? "Signed in"}</p>
+      {notice ? (
+        <p role="status" className="rounded-md border border-line bg-chrome px-3 py-2 text-sm font-semibold">
+          {notice}
+        </p>
+      ) : null}
+      <p className="break-all font-mono text-xs">{[login ? `@${login}` : null, email].filter(Boolean).join(" · ") || "Signed in"}</p>
       <section aria-labelledby="rs-myscans">
         <h3 id="rs-myscans" className="font-mono text-sm font-black">
           My scans
