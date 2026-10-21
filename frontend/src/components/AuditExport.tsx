@@ -44,7 +44,7 @@ export function AuditExport({ report }: { report: ScanReport }) {
     <>
       <div className="border-2 border-black bg-white p-3">
         <button type="button" className="font-mono text-xs font-bold underline" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          {open ? "Hide PDF export" : "Download a client-ready PDF audit"}
+          {open ? "Hide PDF export" : "Download a PDF audit"}
         </button>
         {open ? (
           <div className="mt-3 space-y-3">
@@ -59,7 +59,7 @@ export function AuditExport({ report }: { report: ScanReport }) {
                   maxLength={MAX_NAME}
                   value={preparedFor}
                   onChange={(e) => setPreparedFor(e.target.value)}
-                  placeholder="Client or team name"
+                  placeholder="Person, team or project name"
                   className="mt-1 w-full border-2 border-black bg-white px-2 py-1 font-mono text-xs"
                 />
               </div>
