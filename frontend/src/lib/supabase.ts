@@ -7,9 +7,6 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL ?? "https://pktcvyzndrxq
 const SUPABASE_KEY =
   import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY ?? "sb_publishable_VydPRlN9Sd3rJ3lifHCTog_0ulffKcm";
 
-/** GitHub sign-in is offered only once the provider is enabled in Supabase (set VITE_GITHUB_AUTH=true). */
-export const GITHUB_AUTH_ENABLED = import.meta.env?.VITE_GITHUB_AUTH === "true";
-
 let clientPromise: Promise<SupabaseClient> | null = null;
 
 /**
