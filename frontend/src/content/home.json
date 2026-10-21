@@ -5,9 +5,9 @@
  "ogTitle": "REPO-SIGHT — Free static code analysis, graded in seconds",
  "ogDescription": "Paste a public GitHub URL and get a graded code health report across 6 languages — complexity, duplication, and security. No signup.",
  "robots": "index, follow",
- "h1Lead": "The audit you skip when you're solo.",
- "h1Highlight": "Free, in seconds.",
- "heroSub": "See what's inside your codebase. Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo: size, structure, complexity, duplication, security hotspots, and rule violations, across C++, Python, Java, TypeScript, JavaScript, and C#.",
+ "h1Lead": "See what's inside",
+ "h1Highlight": "your codebase",
+ "heroSub": "Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo: size, structure, complexity, duplication, security hotspots, and rule violations, across C++, Python, Java, TypeScript, JavaScript, and C#.",
  "jsonLd": {
   "@context": "https://schema.org",
   "@graph": [
