@@ -1,11 +1,62 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { AuthContext, type AuthState, type AuthUser } from "../lib/authContext";
+import { AuthContext, type AuthMode, type AuthState, type AuthUser } from "../lib/authContext";
 import { getSupabase, mightHaveSession } from "../lib/supabase";
 import { AccountModal } from "./AccountModal";
 
-const toUser = (s: Session | null): AuthUser | null => (s ? { id: s.user.id, email: s.user.email ?? null } : null);
+const INTENT_KEY = "rs-auth-intent";
+const INTENT_MAX_AGE_MS = 10 * 60 * 1000;
+/** created_at and last_sign_in_at this close together means the account was created by this very sign-in. */
+const NEW_ACCOUNT_WINDOW_MS = 2 * 60 * 1000;
+
+const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
+
+const toUser = (s: Session | null): AuthUser | null => {
+  if (!s) return null;
+  const meta = s.user.user_metadata ?? {};
+  return { id: s.user.id, email: s.user.email ?? null, login: str(meta.user_name) ?? str(meta.preferred_username) };
+};
 const redirectUrl = () => `${window.location.origin}${window.location.pathname}${window.location.search}`;
+
+/** Remember which button was clicked across the GitHub redirect (same tab only). */
+function writeIntent(mode: AuthMode) {
+  try {
+    window.sessionStorage.setItem(INTENT_KEY, JSON.stringify({ mode, at: Date.now() }));
+  } catch {
+    // storage blocked: the dialog simply shows no welcome note
+  }
+}
+
+function takeIntent(): AuthMode | null {
+  try {
+    const raw = window.sessionStorage.getItem(INTENT_KEY);
+    window.sessionStorage.removeItem(INTENT_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { mode?: unknown; at?: unknown };
+    if (typeof v.at !== "number" || Date.now() - v.at > INTENT_MAX_AGE_MS) return null;
+    return v.mode === "signup" || v.mode === "signin" ? v.mode : null;
+  } catch {
+    return null;
+  }
+}
+
+function isNewAccount(s: Session): boolean {
+  const created = Date.parse(s.user.created_at);
+  const last = Date.parse(s.user.last_sign_in_at ?? "");
+  return Number.isFinite(created) && Number.isFinite(last) && Math.abs(last - created) < NEW_ACCOUNT_WINDOW_MS;
+}
+
+/**
+ * GitHub OAuth cannot tell "sign in" from "sign up", so the two buttons share one flow. What differs is
+ * the dialog and, when a click does not match reality (a Sign in click that created an account, or a
+ * Sign up click by someone who already had one), a one-line note after returning from GitHub.
+ */
+function welcomeNote(intent: AuthMode, created: boolean): string | null {
+  if (intent === "signin" && created) return "No account existed for this GitHub login, so one was created. Welcome.";
+  if (intent === "signup" && created) return "Account created. You are signed in with GitHub.";
+  if (intent === "signup" && !created) return "You already had an account, so you were signed in.";
+  return null;
+}
 
 /**
  * Anonymous visitors never download supabase-js: the client is only attached when a
@@ -15,6 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<AuthMode>("signin");
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,7 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function attach() {
       const sb = await getSupabase();
       const { data } = await sb.auth.getSession();
-      if (!cancelled) setUser(toUser(data.session));
+      if (!cancelled) {
+        setUser(toUser(data.session));
+        const intent = data.session ? takeIntent() : null;
+        const note = data.session && intent ? welcomeNote(intent, isNewAccount(data.session)) : null;
+        if (note) {
+          setNotice(note);
+          setOpen(true);
+        }
+      }
       const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
         if (!cancelled) setUser(toUser(session));
       });
@@ -42,23 +103,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signInWithGithub = useCallback(async () => {
+  const signInWithGithub = useCallback(async (m: AuthMode = "signin") => {
     try {
       const sb = await getSupabase();
+      writeIntent(m === "signup" ? "signup" : "signin");
       const { error } = await sb.auth.signInWithOAuth({ provider: "github", options: { redirectTo: redirectUrl() } });
       return error ? error.message || "Could not start GitHub sign-in." : null;
     } catch {
       return "Could not start GitHub sign-in.";
-    }
-  }, []);
-
-  const sendMagicLink = useCallback(async (email: string) => {
-    try {
-      const sb = await getSupabase();
-      const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl() } });
-      return error ? error.message || "Could not send the sign-in link. Please try again in a moment." : null;
-    } catch {
-      return "Could not send the sign-in link. Please try again in a moment.";
     }
   }, []);
 
@@ -71,17 +123,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const openAccount = useCallback(() => setOpen(true), []);
+  // Some callers pass this straight to onClick, so anything that is not exactly "signup" opens Sign in.
+  const openAccount = useCallback((m?: AuthMode) => {
+    setMode(m === "signup" ? "signup" : "signin");
+    setNotice(null);
+    setOpen(true);
+  }, []);
 
   const value = useMemo<AuthState>(
-    () => ({ ready, user, signInWithGithub, sendMagicLink, signOut, openAccount }),
-    [ready, user, signInWithGithub, sendMagicLink, signOut, openAccount],
+    () => ({ ready, user, signInWithGithub, signOut, openAccount }),
+    [ready, user, signInWithGithub, signOut, openAccount],
   );
 
   return (
     <AuthContext.Provider value={value}>
       {children}
-      {open ? <AccountModal onClose={() => setOpen(false)} /> : null}
+      {open ? <AccountModal initialMode={mode} notice={notice} onClose={() => setOpen(false)} /> : null}
     </AuthContext.Provider>
   );
 }
