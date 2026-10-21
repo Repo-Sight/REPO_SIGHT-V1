@@ -62,7 +62,6 @@ export const FOOTER_COLUMNS: { title: string; links: { href: string; label: stri
   {
     title: "Follow",
     links: [
-      { href: "https://buymeacoffee.com/ronakarora1", label: "Support this project", external: true },
       {
         href: "https://www.instagram.com/reposight?igsi=OW96ZzdxeDR2N3Y4&utm_source=ig_contact_invite",
         label: "Instagram",
