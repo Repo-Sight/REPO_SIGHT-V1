@@ -733,7 +733,7 @@ function TrendCallout({ report }: { report: ScanReport }) {
     return (
       <p className="rounded-md border border-dashed border-line p-3 text-sm">
         Fixed some things? Rescan this repo while signed in and REPO-SIGHT shows what improved since this scan.{" "}
-        <button type="button" className="font-bold underline" onClick={openAccount}>
+        <button type="button" className="font-bold underline" onClick={() => openAccount("signin")}>
           Sign in
         </button>
       </p>
@@ -753,7 +753,7 @@ function ExplainButton({ report, v }: { report: ScanReport; v: Violation }) {
 
   async function run() {
     if (!user) {
-      openAccount();
+      openAccount("signin");
       return;
     }
     setState({ kind: "loading" });
