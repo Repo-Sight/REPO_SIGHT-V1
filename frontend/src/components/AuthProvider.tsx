@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import type { Session } from "@supabase/supabase-js";
 import { AuthContext, type AuthMode, type AuthState, type AuthUser } from "../lib/authContext";
 import { getSupabase, mightHaveSession } from "../lib/supabase";
+import { requestWelcomeEmail } from "../lib/welcome";
 import { AccountModal } from "./AccountModal";
 
 const INTENT_KEY = "rs-auth-intent";
@@ -78,6 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await sb.auth.getSession();
       if (!cancelled) {
         setUser(toUser(data.session));
+        // Brand-new account only: the server decides whether the one-time welcome email is due.
+        if (data.session && isNewAccount(data.session)) requestWelcomeEmail(data.session.access_token, data.session.user.id);
         const intent = data.session ? takeIntent() : null;
         const note = data.session && intent ? welcomeNote(intent, isNewAccount(data.session)) : null;
         if (note) {
