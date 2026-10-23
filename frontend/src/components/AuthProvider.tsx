@@ -10,6 +10,16 @@ const INTENT_MAX_AGE_MS = 10 * 60 * 1000;
 /** created_at and last_sign_in_at this close together means the account was created by this very sign-in. */
 const NEW_ACCOUNT_WINDOW_MS = 2 * 60 * 1000;
 
+function clearStoredSession() {
+  try {
+    for (const key of Object.keys(window.localStorage)) {
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) window.localStorage.removeItem(key);
+    }
+  } catch {
+    // storage blocked: nothing was stored
+  }
+}
+
 const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
 
 const toUser = (s: Session | null): AuthUser | null => {
@@ -120,7 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       const sb = await getSupabase();
-      await sb.auth.signOut();
+      // "local" ends this browser's session only. The library default ("global") would also sign the
+      // user out on every other device they use.
+      const { error } = await sb.auth.signOut({ scope: "local" });
+      // supabase-js keeps the stored session when the revoke call fails (e.g. offline). The user asked to
+      // sign out, so remove it ourselves rather than silently signing them back in on the next page load.
+      if (error) clearStoredSession();
+    } catch {
+      clearStoredSession();
     } finally {
       setUser(null);
     }
