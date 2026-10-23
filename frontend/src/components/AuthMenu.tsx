@@ -4,7 +4,7 @@ const BTN = "shrink-0 !px-2.5 !py-1.5 !text-xs sm:!px-3 sm:!text-sm";
 
 /** Header control. Renders nothing until the first session check completes (so prerendered HTML is unchanged). */
 export function AuthMenu() {
-  const { ready, user, openAccount, signOut } = useAuth();
+  const { ready, user, openAccount, requestSignOut } = useAuth();
   if (!ready) return null;
   if (user) {
     return (
@@ -14,7 +14,7 @@ export function AuthMenu() {
         </button>
         {/* Same wrapper trick as Sign up below. On very narrow phones, Sign out is still in the "My scans" dialog. */}
         <span className="hidden min-[400px]:inline-block">
-          <button type="button" className={`rs-btn rs-btn-ghost ${BTN}`} onClick={() => void signOut()}>
+          <button type="button" className={`rs-btn rs-btn-ghost ${BTN}`} onClick={requestSignOut}>
             Sign out
           </button>
         </span>
