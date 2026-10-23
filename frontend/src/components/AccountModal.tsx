@@ -7,7 +7,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), texta
 
 const MODAL_CLOSE_MS = 250;
 export function AccountModal({ initialMode, notice, onClose: unmount }: { initialMode: AuthMode; notice: string | null; onClose: () => void }) {
-  const { user, signInWithGithub, signOut } = useAuth();
+  const { user, signInWithGithub, requestSignOut } = useAuth();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const panel = useRef<HTMLDivElement>(null);
    const [closing, setClosing] = useState(false);
@@ -74,7 +74,7 @@ export function AccountModal({ initialMode, notice, onClose: unmount }: { initia
           </button>
         </div>
         {user ? (
-          <SignedIn email={user.email} login={user.login} notice={notice} onClose={onClose} onSignOut={signOut} />
+          <SignedIn email={user.email} login={user.login} notice={notice} onClose={onClose} onSignOut={requestSignOut} />
         ) : (
           <SignedOut mode={mode} setMode={setMode} signInWithGithub={signInWithGithub} onClose={onClose} />
         )}
@@ -135,6 +135,9 @@ function SignedOut({
       <button type="button" className="rs-btn w-full" onClick={() => void onGithub()} disabled={busy}>
         {busy ? "Opening GitHub…" : signup ? "Sign up with GitHub" : "Sign in with GitHub"}
       </button>
+      <p className="text-xs text-ink/70">
+        GitHub will ask which account to use. You can pick another account there, or create a new GitHub account.
+      </p>
       {signup ? (
         <p className="text-xs text-ink/70">
           By signing up you agree to the{" "}
@@ -174,7 +177,7 @@ function SignedIn({
   login: string | null;
   notice: string | null;
   onClose: () => void;
-  onSignOut: () => Promise<void>;
+  onSignOut: () => void;
 }) {
   const [rows, setRows] = useState<ScanRow[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -231,7 +234,7 @@ function SignedIn({
           </ul>
         )}
       </section>
-      <button type="button" className="rs-btn rs-btn-ghost w-full" onClick={() => void onSignOut().then(onClose)}>
+      <button type="button" className="rs-btn rs-btn-ghost w-full" onClick={onSignOut}>
         Sign out
       </button>
     </div>
