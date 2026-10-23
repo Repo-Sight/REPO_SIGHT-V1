@@ -4,6 +4,7 @@ import { AuthContext, type AuthMode, type AuthState, type AuthUser } from "../li
 import { getSupabase, mightHaveSession } from "../lib/supabase";
 import { requestWelcomeEmail } from "../lib/welcome";
 import { AccountModal } from "./AccountModal";
+import { SignOutConfirm } from "./SignOutConfirm";
 
 const INTENT_KEY = "rs-auth-intent";
 const INTENT_MAX_AGE_MS = 10 * 60 * 1000;
@@ -79,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<AuthMode>("signin");
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,7 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const sb = await getSupabase();
       writeIntent(m === "signup" ? "signup" : "signin");
-      const { error } = await sb.auth.signInWithOAuth({ provider: "github", options: { redirectTo: redirectUrl() } });
+      // prompt=select_account makes GitHub show its account picker instead of silently reusing whichever
+      // account this browser is already signed in to, so the visitor chooses the account (or another one,
+      // including signing up for a new GitHub account there). GitHub supports this on its OAuth authorize URL.
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: "github",
+        options: { redirectTo: redirectUrl(), queryParams: { prompt: "select_account" } },
+      });
       return error ? error.message || "Could not start GitHub sign-in." : null;
     } catch {
       return "Could not start GitHub sign-in.";
@@ -143,6 +151,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const requestSignOut = useCallback(() => setConfirmingSignOut(true), []);
+
+  const confirmSignOut = useCallback(async () => {
+    await signOut();
+    setConfirmingSignOut(false);
+    setOpen(false);
+  }, [signOut]);
+
   // Some callers pass this straight to onClick, so anything that is not exactly "signup" opens Sign in.
   const openAccount = useCallback((m?: AuthMode) => {
     setMode(m === "signup" ? "signup" : "signin");
@@ -151,14 +167,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthState>(
-    () => ({ ready, user, signInWithGithub, signOut, openAccount }),
-    [ready, user, signInWithGithub, signOut, openAccount],
+    () => ({ ready, user, signInWithGithub, signOut, requestSignOut, openAccount }),
+    [ready, user, signInWithGithub, signOut, requestSignOut, openAccount],
   );
 
   return (
     <AuthContext.Provider value={value}>
       {children}
       {open ? <AccountModal initialMode={mode} notice={notice} onClose={() => setOpen(false)} /> : null}
+      {confirmingSignOut && user ? (
+        <SignOutConfirm login={user.login} onConfirm={confirmSignOut} onCancel={() => setConfirmingSignOut(false)} />
+      ) : null}
     </AuthContext.Provider>
   );
 }
