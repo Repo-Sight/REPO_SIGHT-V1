@@ -42,7 +42,7 @@ The analyser is built with CMake (see `analyser/CMakeLists.txt`). Vercel does no
 
 ## Configuration
 
-Secrets are environment variables set in Vercel and never committed. The API reads `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, plus `GEMINI_API_KEY` (and optionally `GEMINI_MODEL`) for the finding explainer. The browser-side Supabase client settings are in `frontend/src/lib/supabase.ts`.
+Secrets are environment variables set in Vercel and never committed. The API reads `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, plus `GEMINI_API_KEY` (and optionally `GEMINI_MODEL`) for the finding explainer. For the one-time welcome email sent to new accounts (`api/welcome.js`) it reads `RESEND_API_KEY` and `WELCOME_FROM_EMAIL` (a sender on a domain verified in Resend, for example `REPO-SIGHT <hello@repo-sight.com>`), plus optionally `WELCOME_REPLY_TO`; if either of the first two is unset the endpoint sends nothing. `RESEND_API_KEY` is shared with the feedback notifier. The browser-side Supabase client settings are in `frontend/src/lib/supabase.ts`.
 
 ## Branches
 
