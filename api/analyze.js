@@ -53,17 +53,19 @@ const CMA_TIMEOUT_MS     = 45_000;
 
 class PipelineTimeoutError extends Error {}
 
-function withDeadline(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      const t = setTimeout(
-        () => reject(new PipelineTimeoutError("Analysis pipeline exceeded its time budget")),
-        ms
-      );
-      t.unref?.();
-    }),
-  ]);
+// On timeout: reject first (so the caller reports a clean timeout), then abort
+// `controller` so the download/extract/analyser stop doing work instead of
+// carrying on in the background after the response has gone out.
+function withDeadline(promise, ms, controller) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new PipelineTimeoutError("Analysis pipeline exceeded its time budget"));
+      controller?.abort();
+    }, ms);
+    timer.unref?.();
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
 }
 
 // Remove stale scan-* dirs left in /tmp by crashed previous invocations.
@@ -91,29 +93,29 @@ async function cleanStaleTmpDirs() {
 }
 
 // Resolves where the source comes from and extracts it into srcDir.
-//   No token -> legacy public path (codeload, main then master). Unchanged.
+//   No token -> public path (codeload: main, master, then HEAD = default branch).
 //   Token    -> GitHub API: repo metadata (private flag + default branch),
 //               then the authenticated tarball of the default branch.
 // Returns { branch, isPrivate } or null when the public path finds nothing.
-async function fetchSource({ parsed, srcDir, githubToken }) {
+async function fetchSource({ parsed, srcDir, githubToken, signal }) {
   if (!githubToken) {
-    const branch = await downloadPublicAndExtract(parsed.owner, parsed.repo, srcDir);
+    const branch = await downloadPublicAndExtract(parsed.owner, parsed.repo, srcDir, signal);
     return branch ? { branch, isPrivate: false } : null;
   }
-  const meta = await fetchRepoMeta(parsed.owner, parsed.repo, githubToken);
-  await downloadAuthedAndExtract(parsed.owner, parsed.repo, meta.defaultBranch, githubToken, srcDir);
+  const meta = await fetchRepoMeta(parsed.owner, parsed.repo, githubToken, signal);
+  await downloadAuthedAndExtract(parsed.owner, parsed.repo, meta.defaultBranch, githubToken, srcDir, signal);
   return { branch: meta.defaultBranch, isPrivate: meta.isPrivate };
 }
 
-async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken }) {
-  const source = await fetchSource({ parsed, srcDir, githubToken });
+async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken, signal }) {
+  const source = await fetchSource({ parsed, srcDir, githubToken, signal });
 
   if (!source) {
     return {
       status: 404,
       body: {
-        error: `Could not find "${parsed.owner}/${parsed.repo}" on GitHub ` +
-               "(checked main and master). Make sure the repo is public, " +
+        error: `Could not find "${parsed.owner}/${parsed.repo}" on GitHub. ` +
+               "Make sure the repo exists and is public, " +
                "or sign in with GitHub to scan a private repo.",
       },
     };
@@ -125,7 +127,7 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
     cmaResult = await execFileAsync(
       CMA_BINARY,
       [srcDir, "--json", reportPath],
-      { timeout: CMA_TIMEOUT_MS }
+      { timeout: CMA_TIMEOUT_MS, signal }
     );
   } catch (cmaErr) {
     const stderr = String(cmaErr?.stderr || "");
@@ -266,6 +268,8 @@ function classifyError(err) {
 
   const timedOut =
     err instanceof PipelineTimeoutError ||
+    err?.name === "AbortError" ||
+    err?.code === "ABORT_ERR" ||
     err?.code === "ETIMEDOUT" ||
     err?.killed;
 
@@ -313,6 +317,10 @@ export default async function handler(req, res) {
   const srcDir     = join(workDir, "src");
   const reportPath = join(workDir, "report.json");
 
+  // Aborted by withDeadline() on timeout so a slow scan stops writing to /tmp.
+  const controller = new AbortController();
+  let pipelinePromise = null;
+
   try {
     const supabase = getSupabase();
     const user = await getUserFromRequest(req, supabase);
@@ -332,17 +340,27 @@ export default async function handler(req, res) {
 
     const coverageReport = req.body?.coverageReport;
 
-    const result = await withDeadline(
-      runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken }),
-      OVERALL_TIMEOUT_MS
-    );
+    pipelinePromise = runPipeline({
+      parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken,
+      signal: controller.signal,
+    });
+    const result = await withDeadline(pipelinePromise, OVERALL_TIMEOUT_MS, controller);
     res.status(result.status).json(result.body);
   } catch (err) {
     console.error("Analyze error:", err);
     const { status, body } = classifyError(err);
     res.status(status).json(body);
   } finally {
+    // If the deadline fired, the pipeline is still tearing down. Give it a
+    // moment to settle so a late write can't recreate workDir after the rm.
+    if (pipelinePromise) {
+      await Promise.race([
+        pipelinePromise.catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, 3000).unref?.()),
+      ]);
+    }
     // Single rm covers everything (no separate tarPath exists any more).
-    await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    // maxRetries: a straggling tar write can make the first rm hit ENOTEMPTY.
+    await rm(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).catch(() => {});
   }
 }
