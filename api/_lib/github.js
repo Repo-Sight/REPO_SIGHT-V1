@@ -2,8 +2,9 @@
 //
 // GitHub access for repo scanning. Two paths, deliberately separate:
 //
-//   PUBLIC  (no token)  -- unchanged from Phases 0-6: unauthenticated
-//                          codeload.github.com download, main then master.
+//   PUBLIC  (no token)  -- unauthenticated codeload.github.com download:
+//                          main, then master, then HEAD (the repo's actual
+//                          default branch, for trunk/develop/etc.).
 //   PRIVATE (token)     -- Phase C: the signed-in user's own GitHub OAuth
 //                          token, used against api.github.com only.
 //
@@ -19,16 +20,20 @@
 // Plain imported module (no default export) -- not a Vercel route.
 import * as tar from "tar";
 import { pipeline as streamPipeline } from "node:stream/promises";
-import { Readable } from "node:stream";
+import { Readable, Transform } from "node:stream";
 
 export const GITHUB_TOKEN_HEADER = "x-github-token";
 
 const GITHUB_API = "https://api.github.com";
 const USER_AGENT = "repo-sight-scanner";
 
-// Reject tarballs larger than this to prevent /tmp exhaustion.
-// 100 MB compressed is already a very large repo; extracted it's ~3-5x that.
+// Hard limits, enforced WHILE streaming (codeload sends no content-length, so
+// a header check alone never fires). Together they stop one scan from filling
+// /tmp or burning the whole function budget on a hostile or giant repo.
+//   compressed bytes read from GitHub, extracted file bytes, extracted entries.
 export const MAX_TARBALL_BYTES = 100 * 1024 * 1024;
+export const MAX_EXTRACTED_BYTES = 250 * 1024 * 1024;
+export const MAX_EXTRACTED_FILES = 40_000;
 
 // Bound the time GitHub gets to START answering (response headers), so a
 // hung upstream can't eat the whole function budget before our own deadline
@@ -38,13 +43,19 @@ export const MAX_TARBALL_BYTES = 100 * 1024 * 1024;
 // is then bounded only by the handler's overall deadline.
 const GITHUB_HEADERS_TIMEOUT_MS = 15_000;
 
-async function fetchStart(url, options) {
+async function fetchStart(url, options, signal) {
   const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener("abort", onAbort, { once: true });
+  }
   const timer = setTimeout(() => controller.abort(), GITHUB_HEADERS_TIMEOUT_MS);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
   }
 }
 
@@ -120,10 +131,10 @@ function throwForStatus(res) {
 }
 
 // GET /repos/{owner}/{repo} -> { isPrivate, defaultBranch }
-export async function fetchRepoMeta(owner, repo, token) {
+export async function fetchRepoMeta(owner, repo, token, signal) {
   const res = await fetchStart(`${GITHUB_API}/repos/${owner}/${repo}`, {
     headers: authedHeaders(token),
-  });
+  }, signal);
   if (!res.ok) throwForStatus(res);
   const meta = await res.json();
   const defaultBranch = String(meta?.default_branch || "");
@@ -135,8 +146,17 @@ export async function fetchRepoMeta(owner, repo, token) {
 
 // Stream an HTTP response body straight into the tar extractor (no .tar.gz
 // ever touches /tmp -- peak disk = extracted size only).
-async function extractResponse(res, srcDir) {
-  // Best-effort early reject; GitHub may omit content-length.
+//
+// Limits are enforced as the bytes flow, and any breach destroys the source
+// stream so extraction stops immediately (no more disk writes). `signal` is
+// the handler's overall-deadline signal: aborting it tears the whole pipeline
+// down, so a timed-out scan stops writing to /tmp instead of finishing in the
+// background after the response was already sent.
+//
+// Symlink/hardlink entries are skipped: the analyser follows symlinks, and a
+// scan has no use for them.
+async function extractResponse(res, srcDir, signal) {
+  // Best-effort early reject; GitHub usually omits content-length.
   const contentLength = Number(res.headers.get("content-length") || 0);
   if (contentLength > MAX_TARBALL_BYTES) {
     const mb = Math.round(contentLength / 1024 / 1024);
@@ -145,18 +165,78 @@ async function extractResponse(res, srcDir) {
       "Try a smaller or more focused repo."
     );
   }
-  await streamPipeline(Readable.fromWeb(res.body), tar.x({ cwd: srcDir, strip: 1 }));
+
+  const source = Readable.fromWeb(res.body);
+  let limitError = null;
+
+  let compressedBytes = 0;
+  const compressedGuard = new Transform({
+    transform(chunk, _enc, cb) {
+      compressedBytes += chunk.length;
+      if (compressedBytes > MAX_TARBALL_BYTES) {
+        limitError = new RepoTooLargeError(
+          "Repository download exceeds the 100 MB limit. Try a smaller or more focused repo."
+        );
+        cb(limitError);
+        return;
+      }
+      cb(null, chunk);
+    },
+  });
+
+  let extractedBytes = 0;
+  let entryCount = 0;
+  const unpack = tar.x({
+    cwd: srcDir,
+    strip: 1,
+    filter: (_path, entry) => {
+      if (limitError) return false;
+      if (entry.type === "SymbolicLink" || entry.type === "Link") return false;
+      entryCount += 1;
+      extractedBytes += Number(entry.size) || 0;
+      if (entryCount > MAX_EXTRACTED_FILES || extractedBytes > MAX_EXTRACTED_BYTES) {
+        limitError = new RepoTooLargeError(
+          "Repository is too large to scan here (over 250 MB or 40,000 files once extracted). " +
+          "Try a smaller or more focused repo."
+        );
+        source.destroy(limitError);
+        return false;
+      }
+      return true;
+    },
+  });
+
+  try {
+    // Options arg only when there is a signal: pipeline() treats a trailing
+    // undefined as a stream and throws.
+    const streams = [source, compressedGuard, unpack];
+    await (signal ? streamPipeline(...streams, { signal }) : streamPipeline(...streams));
+    // A breach found after the source already ended can't reject the pipeline
+    // (nothing left to destroy), so surface it here.
+    if (limitError) throw limitError;
+  } catch (err) {
+    // Entries already accepted before the breach may still be flushing to
+    // disk (bounded by the caps above); the caller's rm() retries to cover it.
+    throw limitError || err;
+  }
 }
 
-// PUBLIC path -- behavior identical to the pre-Phase-C implementation.
-// Returns the branch that resolved, or null if neither main nor master exists.
-export async function downloadPublicAndExtract(owner, repo, srcDir) {
-  for (const branch of ["main", "master"]) {
-    const url = `https://codeload.github.com/${owner}/${repo}/tar.gz/refs/heads/${branch}`;
-    const res = await fetch(url);
+// PUBLIC path. Tries main, then master, then HEAD -- codeload resolves HEAD to
+// the repo's real default branch, so trunk/develop/etc. repos work.
+// Returns the ref that resolved ("HEAD" when the default branch name is not
+// known), or null if none exists.
+export async function downloadPublicAndExtract(owner, repo, srcDir, signal) {
+  const refs = [
+    { ref: "refs/heads/main", label: "main" },
+    { ref: "refs/heads/master", label: "master" },
+    { ref: "HEAD", label: "HEAD" },
+  ];
+  for (const { ref, label } of refs) {
+    const url = `https://codeload.github.com/${owner}/${repo}/tar.gz/${ref}`;
+    const res = await fetchStart(url, {}, signal);
     if (!res.ok) continue;
-    await extractResponse(res, srcDir);
-    return branch;
+    await extractResponse(res, srcDir, signal);
+    return label;
   }
   return null;
 }
@@ -165,11 +245,11 @@ export async function downloadPublicAndExtract(owner, repo, srcDir) {
 // api.github.com answers 302 -> a pre-signed codeload URL. fetch drops the
 // Authorization header on that cross-origin redirect (fetch spec), so the
 // token never reaches codeload.
-export async function downloadAuthedAndExtract(owner, repo, branch, token, srcDir) {
+export async function downloadAuthedAndExtract(owner, repo, branch, token, srcDir, signal) {
   const res = await fetchStart(`${GITHUB_API}/repos/${owner}/${repo}/tarball/${branch}`, {
     headers: authedHeaders(token),
     redirect: "follow",
-  });
+  }, signal);
   if (!res.ok) throwForStatus(res);
-  await extractResponse(res, srcDir);
+  await extractResponse(res, srcDir, signal);
 }
