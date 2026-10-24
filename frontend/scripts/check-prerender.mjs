@@ -123,6 +123,34 @@ if (!existsSync(sitemapPath)) {
   } else {
     console.log(`ok   sitemap.xml: ${locs.length}/${locs.length} URLs have a built page`);
   }
+
+  // lastmod must match src/content/articles.json (modified, else published) for every article,
+  // and may only appear on /learn/ pages: other pages have no trustworthy date source.
+  const articles = JSON.parse(readFileSync(new URL("../src/content/articles.json", import.meta.url), "utf8"));
+  const lastmodProblems = [];
+  const entries = [...readFileSync(sitemapPath, "utf8").matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
+  const seen = new Set();
+  for (const entry of entries) {
+    const loc = /<loc>([^<]+)<\/loc>/.exec(entry)?.[1] ?? "";
+    const lastmod = /<lastmod>([^<]+)<\/lastmod>/.exec(entry)?.[1];
+    const key = loc.replace(ORIGIN, "").replace(/^\//, "");
+    const meta = articles[key];
+    if (meta) {
+      seen.add(key);
+      const want = meta.modified ?? meta.published;
+      if (lastmod !== want) lastmodProblems.push(`${key}: lastmod ${lastmod ?? "missing"}, expected ${want}`);
+    } else if (lastmod && key !== "learn/") {
+      lastmodProblems.push(`${key || "/"}: has lastmod but no date source`);
+    }
+  }
+  for (const key of Object.keys(articles)) if (!seen.has(key)) lastmodProblems.push(`${key}: article not in sitemap`);
+  if (lastmodProblems.length) {
+    failed++;
+    console.log("FAIL sitemap lastmod:");
+    lastmodProblems.forEach((p) => console.log(`     - ${p}`));
+  } else {
+    console.log(`ok   sitemap.xml: lastmod matches articles.json for ${seen.size} articles`);
+  }
 }
 for (const f of ["robots.txt", "ads.txt"]) {
   if (!existsSync(join(dist, f))) {
