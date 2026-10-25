@@ -248,6 +248,25 @@
   background: color-mix(in srgb, var(--color-rose) 78%, transparent);
   color: #0a0e13;
 }
+.rs-ctl:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Modal dialogs (sign in / account, sign out): the same window frame as .rs-win, drawn over a dimmed desktop.
+   Only Close is offered: a modal has nothing to minimise or maximise. */
+.rs-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-signal) 38%, var(--color-line));
+  border-radius: 0.5rem;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft-lg);
+}
+.rs-dialog-body {
+  padding: 1.25rem;
+}
 /* Phones: windows are always full size, so there is nothing to maximise. Minimise and close stay. */
 @media (max-width: 767px) {
   .rs-ctl-max {
@@ -755,19 +774,32 @@
 
 .rs-sticky-cta {
   /* In flow, not position:fixed: the bar takes its own row under the desktop, so it can never
-     cover page content or an ad unit scrolling beneath it (accidental-click risk). */
+     cover page content or an ad unit scrolling beneath it (accidental-click risk).
+     Styled as a docked window strip: title-bar tone, window border and radius, app glyph. */
   flex-shrink: 0;
   display: none;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   margin-top: 0.5rem;
-  padding: 0.6rem 0.9rem;
-  background: var(--color-paper);
+  padding: 0.4rem 0.4rem 0.4rem 0.75rem;
+  background: var(--color-chrome);
   border: 1px solid var(--color-line);
-  border-radius: 8px;
-  box-shadow: 0 -8px 24px -16px rgb(0 0 0 / 0.5);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-soft);
   font-size: 0.85rem;
+}
+.rs-sticky-cta-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.rs-sticky-cta-label span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .rs-sticky-cta .rs-btn {
   flex-shrink: 0;
