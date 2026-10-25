@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { DialogWindow } from "./DialogWindow";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
 const CLOSE_MS = 250;
@@ -68,37 +69,36 @@ export function SignOutConfirm({
   }
 
   return (
-    <div
-      className="rs-overlay fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 p-2"
-      data-closing={closing}
-      onMouseDown={(e) => e.target === e.currentTarget && cancel()}
+    <DialogWindow
+      title="sign-out.dlg"
+      icon="lock"
+      role="alertdialog"
+      labelledBy="rs-signout-title"
+      describedBy="rs-signout-desc"
+      closing={closing}
+      top
+      size="sm"
+      panelRef={panel}
+      onDismiss={cancel}
       onKeyDown={onKeyDown}
+      closeDisabled={busy}
+      closeLabel="Cancel"
     >
-      <div
-        ref={panel}
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="rs-signout-title"
-        aria-describedby="rs-signout-desc"
-        data-closing={closing}
-        className="rs-modal mt-16 w-full max-w-sm rounded-lg border border-line bg-white p-5 shadow-soft-lg"
-      >
-        <h2 id="rs-signout-title" className="font-mono text-lg font-black">
-          Sign out?
-        </h2>
-        <p id="rs-signout-desc" className="mt-2 text-sm">
-          {login ? `You will be signed out of REPO-SIGHT as @${login} on this browser. ` : "You will be signed out of REPO-SIGHT on this browser. "}
-          Your saved scans stay in your account, and you can sign back in with GitHub any time.
-        </p>
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <button ref={cancelButton} type="button" className="rs-btn rs-btn-ghost" onClick={cancel} disabled={busy}>
-            Cancel
-          </button>
-          <button type="button" className="rs-btn" onClick={() => void confirm()} disabled={busy}>
-            {busy ? "Signing out…" : "Sign out"}
-          </button>
-        </div>
+      <h2 id="rs-signout-title" className="font-mono text-lg font-black">
+        Sign out?
+      </h2>
+      <p id="rs-signout-desc" className="mt-2 text-sm">
+        {login ? `You will be signed out of REPO-SIGHT as @${login} on this browser. ` : "You will be signed out of REPO-SIGHT on this browser. "}
+        Your saved scans stay in your account, and you can sign back in with GitHub any time.
+      </p>
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <button ref={cancelButton} type="button" className="rs-btn rs-btn-ghost" onClick={cancel} disabled={busy}>
+          Cancel
+        </button>
+        <button type="button" className="rs-btn" onClick={() => void confirm()} disabled={busy}>
+          {busy ? "Signing out…" : "Sign out"}
+        </button>
       </div>
-    </div>
+    </DialogWindow>
   );
 }
