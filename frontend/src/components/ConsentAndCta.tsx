@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { GLYPHS } from "./DesktopIcons";
 
 /**
  * Sticky "Analyze" bar. Name kept so SiteLayout's import is unchanged.
@@ -31,7 +32,12 @@ export function ConsentAndCta() {
 
   return (
     <div className={`rs-sticky-cta${scrolled ? " is-visible" : ""}`}>
-      <span>Ready to see your repo&rsquo;s numbers?</span>
+      <span className="rs-sticky-cta-label">
+        <span className="rs-title-icon inline-grid shrink-0 place-items-center [&_svg]:h-4 [&_svg]:w-4" aria-hidden="true">
+          {GLYPHS.scan}
+        </span>
+        <span>Ready to see your repo&rsquo;s numbers?</span>
+      </span>
       <a href="/#analyze" className="rs-btn">
         Analyze a repo
       </a>
