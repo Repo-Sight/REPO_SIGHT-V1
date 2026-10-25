@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth, type AuthMode } from "../lib/authContext";
 import { listMyScans, type ScanRow } from "../lib/history";
+import { DialogWindow } from "./DialogWindow";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
 
@@ -10,7 +11,7 @@ export function AccountModal({ initialMode, notice, onClose: unmount }: { initia
   const { user, signInWithGithub, requestSignOut } = useAuth();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const panel = useRef<HTMLDivElement>(null);
-   const [closing, setClosing] = useState(false);
+  const [closing, setClosing] = useState(false);
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -50,36 +51,28 @@ export function AccountModal({ initialMode, notice, onClose: unmount }: { initia
     }
   }
 
+  const title = user ? "account.json" : mode === "signup" ? "sign-up.dlg" : "sign-in.dlg";
+
   return (
-    <div
-    className="rs-overlay fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-2"
-      data-closing={closing}
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    <DialogWindow
+      title={title}
+      icon="lock"
+      labelledBy="rs-account-title"
+      closing={closing}
+      panelRef={panel}
+      onDismiss={onClose}
       onKeyDown={onKeyDown}
+      closeLabel="Close"
     >
-      <div
-        ref={panel}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rs-account-title"
-      data-closing={closing}
-        className="rs-modal w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft-lg"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <h2 id="rs-account-title" className="font-mono text-lg font-black">
-            {user ? "Your account" : mode === "signup" ? "Create your account" : "Sign in"}
-          </h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-md border border-line px-2 font-mono font-black hover:bg-chrome">
-            ×
-          </button>
-        </div>
-        {user ? (
-          <SignedIn email={user.email} login={user.login} notice={notice} onClose={onClose} onSignOut={requestSignOut} />
-        ) : (
-          <SignedOut mode={mode} setMode={setMode} signInWithGithub={signInWithGithub} onClose={onClose} />
-        )}
-      </div>
-    </div>
+      <h2 id="rs-account-title" className="font-mono text-lg font-black">
+        {user ? "Your account" : mode === "signup" ? "Create your account" : "Sign in"}
+      </h2>
+      {user ? (
+        <SignedIn email={user.email} login={user.login} notice={notice} onClose={onClose} onSignOut={requestSignOut} />
+      ) : (
+        <SignedOut mode={mode} setMode={setMode} signInWithGithub={signInWithGithub} onClose={onClose} />
+      )}
+    </DialogWindow>
   );
 }
 
