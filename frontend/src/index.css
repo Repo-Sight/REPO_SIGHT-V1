@@ -95,12 +95,18 @@
   box-shadow: var(--shadow-soft-lg);
 }
 
+/* Window HEIGHT is never set explicitly anywhere below: every state is sized by top + bottom (height stays auto).
+   The AdSense script injects `height: auto !important` inline on the ancestors of the ad unit (the ad sits inside the
+   home window), which silently replaced `height: 100%` on a maximised window: it grew to its content, the body stopped
+   overflowing and the scroll bar vanished. With top/bottom stretch that injected value changes nothing. */
+
 /* Default geometry: 80% x 95%, centred. */
 .rs-win[data-geo="default"] {
   left: 10%;
   top: 2.5%;
+  bottom: 2.5%;
   width: 80%;
-  height: 95%;
+  height: auto;
 }
 /* Reports are wide tables: centred, capped at 1200px. */
 .rs-win[data-geo="default"][data-kind="demo"],
@@ -113,6 +119,7 @@
   left: auto;
   right: 142px;
   top: 1.25rem;
+  bottom: auto;
   width: 19rem;
   height: auto;
 }
@@ -130,8 +137,9 @@
 .rs-win[data-geo="custom"] {
   left: var(--x);
   top: var(--y);
+  bottom: calc(100% - var(--y) - var(--h)); /* == top + --h, without an explicit height */
   width: var(--w);
-  height: var(--h);
+  height: auto;
 }
 
 /* Maximised: fills the desktop, square top corners, no shadow, 1px top border only. */
@@ -139,9 +147,9 @@
   left: 0;
   top: 0;
   right: auto;
-  bottom: auto;
+  bottom: 0;
   width: 100%;
-  height: 100%;
+  height: auto;
   border-width: 1px 0 0;
   border-radius: 0 0 0.5rem 0.5rem;
   box-shadow: none;
@@ -152,9 +160,9 @@
     left: 0;
     top: 0;
     right: auto;
-    bottom: auto;
+    bottom: 0;
     width: 100%;
-    height: 100%;
+    height: auto;
     border-width: 1px 0 0;
     border-radius: 0 0 0.5rem 0.5rem;
     box-shadow: none;
