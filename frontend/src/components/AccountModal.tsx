@@ -113,7 +113,7 @@ function SignedOut({
       {signup ? (
         <>
           <p className="text-sm">
-            Signing up is free and optional: public scans never need an account. With one you get:
+            Signing up is free and optional for public repositories. With an account you get:
           </p>
           <ul className="list-disc space-y-1 pl-5 text-sm">
             <li>Your last 5 scans, saved</li>
