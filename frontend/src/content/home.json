@@ -1,9 +1,9 @@
 {
  "title": "REPO-SIGHT — Free static code analysis, graded in seconds",
- "description": "REPO-SIGHT reads your C++, Python, Java, TypeScript, JavaScript, or C# repository and grades it — size, complexity, duplication, security hotspots, and rule violations. Paste a public GitHub URL, no signup required.",
+ "description": "REPO-SIGHT reads your C++, Python, Java, TypeScript, JavaScript, or C# repository and grades it — size, complexity, duplication, security hotspots, and rule violations. Paste a public GitHub URL to start.",
  "canonical": "https://www.repo-sight.com/",
  "ogTitle": "REPO-SIGHT — Free static code analysis, graded in seconds",
- "ogDescription": "Paste a public GitHub URL and get a graded code health report across 6 languages — complexity, duplication, and security. No signup.",
+ "ogDescription": "Paste a public GitHub URL and get a graded code health report across 6 languages — complexity, duplication, and security.",
  "robots": "index, follow",
  "h1Lead": "See what's inside",
  "h1Highlight": "your codebase",
@@ -17,7 +17,7 @@
     "url": "https://www.repo-sight.com/",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Any (web-based)",
-    "description": "Free static code analysis for C++, Python, Java, TypeScript, JavaScript, and C#. Paste a public GitHub URL and get complexity, duplication, security hotspots, and a graded health score in seconds. No signup required.",
+    "description": "Free static code analysis for C++, Python, Java, TypeScript, JavaScript, and C#. Paste a public GitHub URL and get complexity, duplication, security hotspots, and a graded health score in seconds.",
     "offers": {
      "@type": "Offer",
      "price": "0",
