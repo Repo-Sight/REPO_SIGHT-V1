@@ -204,7 +204,7 @@ export function Scanner() {
         >
           Try a demo report
         </button>
-        <p className="font-mono text-xs text-ink/70">Free. No signup. Your code is never executed.</p>
+        <p className="font-mono text-xs text-ink/70">Free. Sign-in only for private repos. Your code is never executed.</p>
       </div>
 
       <p role="status" aria-live="polite" className="font-mono text-xs text-ink/70">
