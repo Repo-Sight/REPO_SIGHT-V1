@@ -287,6 +287,7 @@ function AuditDocument({ model, preparedFor, preparedBy }: { model: AuditModel; 
             </tbody>
           </table>
           {m.unanalyzed ? <p className="mt-2 text-[9pt]">Not analyzed (no analyzer yet): {m.unanalyzed}.</p> : null}
+          {m.skippedOther ? <p className="mt-1 text-[9pt]">Also skipped (markup, data, text, images): {m.skippedOther}.</p> : null}
         </Section>
       ) : null}
 
