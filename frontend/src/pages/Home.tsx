@@ -4,7 +4,6 @@ import { AdSlot } from "../components/AdSlot";
 import { Block, Html } from "../components/OSWindow";
 import { Scanner } from "../components/Scanner";
 import { Seo } from "../components/Seo";
-import { SponsorSlot } from "../components/SponsorSlot";
 import { homeContent as c } from "../content/content";
 import { resolveApp } from "../lib/apps";
 
@@ -68,8 +67,6 @@ export function HomeBody() {
       <Block>
         <Html html={c.pipelineHtml} />
       </Block>
-
-      <SponsorSlot />
 
       <AdSlot />
 
