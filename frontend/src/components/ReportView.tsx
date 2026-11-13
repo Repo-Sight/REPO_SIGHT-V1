@@ -3,6 +3,7 @@ import { ApiError, explainFinding, fetchScan } from "../lib/api";
 import { AuditExport } from "./AuditExport";
 import { LanguageBar, formatShare, languageShade, sortLanguages } from "./LanguageBar";
 import { SITE } from "../site";
+import { describeEntries, describeEntry, groupUnanalyzed } from "../lib/unanalyzed";
 import { useAuth } from "../lib/authContext";
 import { computeScanDelta, type ScanDelta } from "../lib/delta";
 import { findPreviousScanId } from "../lib/history";
@@ -19,6 +20,7 @@ import {
   type DuplicateMatch,
   type ScanReport,
   type Tier,
+  type UnanalyzedLanguage,
   type Violation,
 } from "../lib/report";
 
@@ -237,7 +239,6 @@ function OverviewTab({ report }: { report: ScanReport }) {
   const p = report.project;
   const fixFirst = report.fixFirst ?? [];
   const counts = report.tierCounts;
-  const unanalyzed = report.unanalyzedLanguages ?? [];
 
   return (
     <div className="space-y-6">
@@ -265,6 +266,8 @@ function OverviewTab({ report }: { report: ScanReport }) {
       </div>
 
       <LanguageMix report={report} />
+
+      <NotAnalyzed list={report.unanalyzedLanguages ?? []} />
 
       {counts ? (
         <div className="flex flex-wrap items-center gap-2" aria-label="Findings by severity">
@@ -295,19 +298,44 @@ function OverviewTab({ report }: { report: ScanReport }) {
       </section>
 
       <HotspotsCard hotspots={report.hotspots} />
-
-      {unanalyzed.length > 0 ? (
-        <section className={`${card} p-4`} aria-labelledby="rs-unanalyzed">
-          <h3 id="rs-unanalyzed" className="font-mono text-sm font-black">
-            Not analyzed
-          </h3>
-          <p className="mt-1 text-sm text-ink/80">
-            These file types were found but REPO-SIGHT has no analyzer for them yet:{" "}
-            {unanalyzed.map((u) => `${u.languageName} (${formatNumber(u.fileCount)} files, ${formatNumber(u.lineCount)} lines)`).join(", ")}.
-          </p>
-        </section>
-      ) : null}
     </div>
+  );
+}
+
+/* ----------------------------- not analyzed card ------------------------- */
+
+// Source code without an analyzer gets its own card: the grade does not cover it.
+// Markup, data, text and images are skipped by design, so they get one quiet line.
+function NotAnalyzed({ list }: { list: UnanalyzedLanguage[] }) {
+  const groups = useMemo(() => groupUnanalyzed(list), [list]);
+  const { code, other } = groups;
+  if (code.length === 0 && other.length === 0) return null;
+  if (code.length === 0) {
+    return (
+      <p className="text-xs text-ink/70">
+        Also skipped (markup, data, text, images): {describeEntries(other)}.
+      </p>
+    );
+  }
+  return (
+    <section className={`${card} p-4`} aria-labelledby="rs-unanalyzed">
+      <h3 id="rs-unanalyzed" className="font-mono text-sm font-black">
+        Not analyzed
+      </h3>
+      <p className="mt-1 text-sm text-ink/80">
+        Source code in these languages was found, but REPO-SIGHT has no analyzer for them yet. It is not part of the grade or the findings.
+      </p>
+      <ul className="mt-3 flex flex-wrap gap-2">
+        {code.map((e) => (
+          <li key={e.name} className="rounded border border-line bg-paper px-2 py-1 font-mono text-xs">
+            {describeEntry(e)}
+          </li>
+        ))}
+      </ul>
+      {other.length > 0 ? (
+        <p className="mt-3 text-xs text-ink/70">Also skipped (markup, data, text, images): {describeEntries(other)}.</p>
+      ) : null}
+    </section>
   );
 }
 
