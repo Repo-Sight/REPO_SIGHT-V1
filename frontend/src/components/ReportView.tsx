@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, explainFinding, fetchScan } from "../lib/api";
 import { AuditExport } from "./AuditExport";
-import { SponsorSlot } from "./SponsorSlot";
 import { LanguageBar, formatShare, languageShade, sortLanguages } from "./LanguageBar";
 import { SITE } from "../site";
 import { useAuth } from "../lib/authContext";
@@ -162,8 +161,6 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
         {tab === "duplication" ? <DuplicationTab report={report} /> : null}
         {tab === "scoring" ? <ScoringTab report={report} /> : null}
       </div>
-
-      <SponsorSlot compact />
     </div>
   );
 }
