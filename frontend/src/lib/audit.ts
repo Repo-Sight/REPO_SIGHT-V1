@@ -3,6 +3,7 @@
 
 import { SCORE_COMPONENTS, TIERS, languageLabel, relPath, violationsByPath } from "./report";
 import type { FixFirstItem, ProjectMetrics, ScanReport, Tier, Violation } from "./report";
+import { describeEntries, groupUnanalyzed } from "./unanalyzed";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -84,7 +85,10 @@ export interface AuditModel {
   hotspots: AuditHotspot[];
   security: { total: number; ruleCount: number; groups: AuditSecurityGroup[]; hiddenRules: number };
   duplication: { percentage: number; lines: number; matches: string[] } | null;
+  /** Source code without an analyzer. */
   unanalyzed: string | null;
+  /** Markup, data, text and images that were skipped. */
+  skippedOther: string | null;
   schemaVersion: number | null;
 }
 
@@ -211,7 +215,7 @@ export function buildAuditModel(report: ScanReport): AuditModel {
   const languages = buildLanguages(report);
   const security = buildSecurity(report);
   const dup = report.duplication ?? null;
-  const unanalyzed = report.unanalyzedLanguages ?? [];
+  const unanalyzed = groupUnanalyzed(report.unanalyzedLanguages ?? []);
 
   const score = Math.round(p.healthScore);
   const summary: string[] = [
@@ -285,10 +289,8 @@ export function buildAuditModel(report: ScanReport): AuditModel {
             .map(fmtMatch),
         }
       : null,
-    unanalyzed:
-      unanalyzed.length > 0
-        ? unanalyzed.map((u) => `${u.languageName} (${plural(u.fileCount, "file")}, ${plural(u.lineCount, "line")})`).join(", ")
-        : null,
+    unanalyzed: unanalyzed.code.length > 0 ? describeEntries(unanalyzed.code) : null,
+    skippedOther: unanalyzed.other.length > 0 ? describeEntries(unanalyzed.other) : null,
     schemaVersion: report.schemaVersion ?? null,
   };
 }
