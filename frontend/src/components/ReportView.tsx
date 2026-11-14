@@ -239,6 +239,8 @@ function OverviewTab({ report }: { report: ScanReport }) {
   const p = report.project;
   const fixFirst = report.fixFirst ?? [];
   const counts = report.tierCounts;
+  const securityTotal = report.violations.filter((v) => v.category === "security").length;
+  const qualityTotal = report.violations.length - securityTotal;
 
   return (
     <div className="space-y-6">
@@ -277,6 +279,9 @@ function OverviewTab({ report }: { report: ScanReport }) {
               <strong>{formatNumber(counts[t])}</strong>
             </span>
           ))}
+          <span className="font-mono text-xs text-ink/80">
+            {formatNumber(report.violations.length)} total = {formatNumber(qualityTotal)} in Findings + {formatNumber(securityTotal)} in Security
+          </span>
         </div>
       ) : null}
 
@@ -312,7 +317,7 @@ function NotAnalyzed({ list }: { list: UnanalyzedLanguage[] }) {
   if (code.length === 0 && other.length === 0) return null;
   if (code.length === 0) {
     return (
-      <p className="text-xs text-ink/70">
+      <p className="text-sm font-medium text-ink">
         Also skipped (markup, data, text, images): {describeEntries(other)}.
       </p>
     );
@@ -333,7 +338,7 @@ function NotAnalyzed({ list }: { list: UnanalyzedLanguage[] }) {
         ))}
       </ul>
       {other.length > 0 ? (
-        <p className="mt-3 text-xs text-ink/70">Also skipped (markup, data, text, images): {describeEntries(other)}.</p>
+        <p className="mt-3 text-sm font-medium text-ink">Also skipped (markup, data, text, images): {describeEntries(other)}.</p>
       ) : null}
     </section>
   );
@@ -862,12 +867,15 @@ function FindingsTab({ report }: { report: ScanReport }) {
   }
 
   const total = groups.reduce((n, g) => n + g.items.length, 0);
+  const securityTotal = report.violations.filter((v) => v.category === "security").length;
   return (
     <div className="space-y-4">
       <p className="text-sm">
         {formatNumber(total)} {total === 1 ? "finding" : "findings"} across {formatNumber(groups.length)}{" "}
-        {groups.length === 1 ? "rule" : "rules"}, grouped by rule so repeated notices stay out of the way. Security issues are in
-        the Security tab.
+        {groups.length === 1 ? "rule" : "rules"}, grouped by rule so repeated notices stay out of the way.{" "}
+        {securityTotal > 0
+          ? `${formatNumber(securityTotal)} security ${securityTotal === 1 ? "issue is" : "issues are"} counted separately in the Security tab.`
+          : "Security issues are counted separately in the Security tab."}
       </p>
       <ul className="space-y-3">
         {groups.map((g) => {
