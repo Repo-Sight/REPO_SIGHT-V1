@@ -26,6 +26,9 @@ export function ScoreCard() {
   }, []);
 
   const p = report?.project;
+  // Same split as the report tabs: Findings = code quality, Security counted on its own.
+  const securityCount = report?.violations.filter((v) => v.category === "security").length;
+  const findingsCount = report && securityCount !== undefined ? report.violations.length - securityCount : undefined;
 
   return (
     <div className="p-3" data-app="ScoreCard">
@@ -45,11 +48,12 @@ export function ScoreCard() {
         </div>
       </div>
 
-      <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+      <dl className="mt-3 grid grid-cols-4 gap-1.5 text-center">
         {[
           ["Files", p?.filesAnalyzed],
           ["Functions", p?.functionCount],
-          ["Findings", report?.violations.length],
+          ["Findings", findingsCount],
+          ["Security", securityCount],
         ].map(([label, value]) => (
           <div key={String(label)} className="rounded-md border border-line bg-chrome px-1 py-1.5">
             <dd className="font-mono text-sm font-bold tabular-nums">{value ?? "–"}</dd>
