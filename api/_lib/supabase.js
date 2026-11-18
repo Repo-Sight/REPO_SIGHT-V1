@@ -79,7 +79,13 @@ export async function recordUserScan(supabase, userId, scanId, payload) {
   if (rows.length >= HISTORY_CAP) {
     const toEvict = rows.slice(0, rows.length - HISTORY_CAP + 1);
     for (const row of toEvict) {
-      await supabase.storage.from("scans").remove([`${row.scan_id}.json`]).catch(() => {});
+      // The row doesn't record visibility, so remove both possible keys
+      // (private scans live under "private/"). Removing a key that doesn't
+      // exist is a no-op.
+      await supabase.storage
+        .from("scans")
+        .remove([`${row.scan_id}.json`, `private/${row.scan_id}.json`])
+        .catch(() => {});
       await supabase.from("user_scans").delete().eq("id", row.id);
     }
   }

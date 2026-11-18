@@ -60,6 +60,17 @@ bool isSuspiciousSecretName(const std::string& name) {
         "password", "passwd", "secret", "apikey", "api_key",
         "accesskey", "access_key", "authtoken"
     };
+    // Names that merely *describe* a credential field (password1_field_name,
+    // api_key_header, secret_env_var) are identifiers, not credentials.
+    static const std::array<const char*, 12> descriptiveSuffixes = {
+        "_name", "_field", "_label", "_url", "_path", "_file",
+        "_env", "_var", "_header", "_prompt", "_help", "_message"
+    };
+    for (const char* suffix : descriptiveSuffixes) {
+        const std::string s(suffix);
+        if (lower.size() >= s.size() &&
+            lower.compare(lower.size() - s.size(), s.size(), s) == 0) return false;
+    }
     for (const char* needle : needles) {
         if (lower.find(needle) != std::string::npos) return true;
     }
@@ -74,6 +85,41 @@ bool isPlausibleSecretLiteral(const std::string& raw) {
     if (raw.size() < 2) return false;
     const std::string stripped = raw.substr(1, raw.size() - 2);
     return stripped.size() >= 6;
+}
+
+
+// True when the call whose '(' is at tokens[open] passes <kw>=False.
+// Used to honour hashlib.md5(data, usedforsecurity=False), the documented
+// way to say "this hash is a checksum, not a security control".
+bool callHasKeywordFalse(const std::vector<Token>& tokens, std::size_t open,
+                         const std::string& kw) {
+    int depth = 0;
+    for (std::size_t j = open; j < tokens.size(); ++j) {
+        if (tokens[j].type == TokenType::OPEN_PAREN) ++depth;
+        else if (tokens[j].type == TokenType::CLOSE_PAREN) {
+            if (--depth == 0) return false;
+        } else if (tokens[j].type == TokenType::IDENTIFIER && tokens[j].value == kw &&
+                   j + 2 < tokens.size() &&
+                   tokens[j + 1].type == TokenType::OPERATOR && tokens[j + 1].value == "=" &&
+                   tokens[j + 2].value == "False") {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+// Class-level names that are conventionally configuration or constants, not
+// per-instance state: __slots__/__all__ (dunder), _fields_ (sunder, as used
+// by ctypes), and ALL_CAPS constants. Flagging them is noise.
+bool isIntentionalClassConstant(const std::string& name) {
+    if (name.size() >= 2 && name.front() == '_' && name.back() == '_') return true;
+    bool hasLetter = false;
+    for (unsigned char c : name) {
+        if (std::islower(c)) return false;
+        if (std::isalpha(c)) hasLetter = true;
+    }
+    return hasLetter;
 }
 
 } // anonymous namespace
@@ -129,7 +175,11 @@ std::vector<Violation> checkPythonRules(const std::string& path, const std::vect
                 while (k < n && depth > 0) {
                     if (tokens[k].type == TokenType::OPEN_PAREN) ++depth;
                     else if (tokens[k].type == TokenType::CLOSE_PAREN) { --depth; if (depth == 0) break; }
-                    else if (tokens[k].type == TokenType::OPERATOR && tokens[k].value == "=" &&
+                    // depth == 1: only a literal that IS the parameter default. A
+                    // list inside a call (x=Query(default=["a"])) belongs to that
+                    // call's own argument, not to the def's default.
+                    else if (depth == 1 && tokens[k].type == TokenType::OPERATOR &&
+                             tokens[k].value == "=" &&
                              k + 1 < n &&
                              (tokens[k + 1].type == TokenType::OPEN_BRACKET ||
                               tokens[k + 1].type == TokenType::OPEN_BRACE)) {
@@ -161,7 +211,8 @@ std::vector<Violation> checkPythonRules(const std::string& path, const std::vect
                        i + 2 < n &&
                        tokens[i + 1].type == TokenType::OPERATOR && tokens[i + 1].value == "=" &&
                        (tokens[i + 2].type == TokenType::OPEN_BRACKET ||
-                        tokens[i + 2].type == TokenType::OPEN_BRACE)) {
+                        tokens[i + 2].type == TokenType::OPEN_BRACE) &&
+                       !isIntentionalClassConstant(tok.value)) {
                 out.push_back(makeViolation(path, tok.line, "py-mutable-class-attribute",
                     "Class-level mutable attribute is shared by every instance -- initialize it in "
                     "__init__ instead", "warning"));
@@ -171,8 +222,11 @@ std::vector<Violation> checkPythonRules(const std::string& path, const std::vect
         // py-sec-eval-exec: eval(...)/exec(...) run arbitrary code built
         // from a string -- a classic injection point when that string is
         // ever influenced by untrusted input.
+        // A member call (expr.eval(...), self.exec(...)) is some object's own
+        // method, not the builtin -- only a bare eval(...)/exec(...) counts.
         if (tok.type == TokenType::IDENTIFIER && (tok.value == "eval" || tok.value == "exec") &&
-            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN) {
+            i + 1 < n && tokens[i + 1].type == TokenType::OPEN_PAREN &&
+            !(i > 0 && tokens[i - 1].type == TokenType::OPERATOR && tokens[i - 1].value == ".")) {
             out.push_back(makeSecurityViolation(path, tok.line, "py-sec-eval-exec",
                 "'" + tok.value + "(...)' executes a string as code -- review that no part of it "
                 "is built from untrusted input", "warning"));
@@ -267,7 +321,8 @@ std::vector<Violation> checkPythonRules(const std::string& path, const std::vect
             tokens[i + 1].type == TokenType::OPERATOR && tokens[i + 1].value == "." &&
             tokens[i + 2].type == TokenType::IDENTIFIER &&
             (tokens[i + 2].value == "md5" || tokens[i + 2].value == "sha1") &&
-            tokens[i + 3].type == TokenType::OPEN_PAREN) {
+            tokens[i + 3].type == TokenType::OPEN_PAREN &&
+            !callHasKeywordFalse(tokens, i + 3, "usedforsecurity")) {
             out.push_back(makeSecurityViolation(path, tok.line, "py-sec-weak-hash",
                 "hashlib." + tokens[i + 2].value + "(...) is a broken/weak hash -- avoid it for "
                 "passwords or integrity checks that need collision resistance", "info"));

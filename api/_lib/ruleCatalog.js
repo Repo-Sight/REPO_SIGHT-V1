@@ -21,8 +21,9 @@
 // KEEP IN SYNC: every ruleId emitted by the analyser must have an entry
 // here. scripts/api.test.mjs scans analyser/src/rules/*.cpp and fails if a
 // rule is missing (or if this file names a rule the analyser doesn't have).
-// Thresholds quoted in the copy (100 lines, depth 6) mirror the constants
-// kLongFunctionThreshold / kDeepNestingThreshold in the rule sources.
+// Thresholds quoted in the copy (100 lines, depth 6, complexity 10) mirror the
+// constants kLongFunctionThreshold / kDeepNestingThreshold /
+// kComplexFunctionThreshold in the rule sources.
 
 export const TIERS = ["critical", "high", "medium", "low"];
 export const CONFIDENCES = ["high", "medium", "low"];
@@ -37,6 +38,13 @@ const FAMILIES = {
     why: "Anyone who can read the code -- teammates, contractors, or the whole internet if the repo is or becomes public -- can use that credential. Deleting it later does not remove it from git history.",
     fix: "Load the value from an environment variable or a secret manager, rotate the credential if it was real, and purge it from git history.",
     caveat: "Matched on the variable's name plus a string literal, so placeholders and test values can be false positives.",
+  },
+  "secret-token": {
+    title: "Live-looking API token in the source",
+    what: "A string in the code contains a token in the exact format of an Anthropic, OpenAI, AWS or GitHub credential (for example an sk-ant-, sk-, AKIA or ghp_ key).",
+    why: "Anyone who can read the code can use that key to run up your bill, read your data or push to your repositories -- and bots scan public repos for these formats within minutes. Deleting the line later does not remove it from git history.",
+    fix: "Treat the key as compromised: revoke it in the provider's dashboard, create a new one, load it from an environment variable or secret manager, and purge the old one from git history.",
+    caveat: "Matched on the token's format, not on whether it is still active -- an already-revoked or test key still shows up. The report never repeats the value.",
   },
   eval: {
     title: "Dynamic code execution",
@@ -167,6 +175,20 @@ const FAMILIES = {
     why: "Long functions are hard to read, test and change safely, and they tend to collect bugs.",
     fix: "Split it into smaller functions that each do one job.",
   },
+  "complex-function": {
+    title: "Overly complex function",
+    what: "A single function has a cyclomatic complexity over 10: more than nine independent decision points (if, loops, case, catch, && / ||, ternaries) in its own body.",
+    why: "Every decision point is another path to test and another place for a bug. Code produced quickly, by hand or with an AI assistant, tends to pile branches into one function because adding an if is easier than restructuring.",
+    fix: "Split it into smaller functions that each handle one case, replace long if/else chains with early returns or a lookup table, and add tests before you refactor.",
+    caveat: "Counted from the function's own body; a nested function is measured separately. A flat switch with many simple cases can score high without being hard to read.",
+  },
+  "unreviewed-placeholder": {
+    title: "Unreviewed placeholder or AI leftover",
+    what: "A comment looks like text left behind by an AI coding assistant, or marks code that was never filled in (for example \"... rest of the code remains\" or \"your code here\").",
+    why: "Elided or placeholder code usually means part of the real logic is missing, or a snippet was pasted without being read. It can ship as a silent gap or a stale copy.",
+    fix: "Read the code around the comment, complete or delete the placeholder, then remove the comment.",
+    caveat: "Matched on a fixed list of phrases inside comments, so an ordinary human note can occasionally trigger it.",
+  },
   "deep-nesting": {
     title: "Deeply nested code",
     what: "A file reaches a nesting depth greater than 6 (ifs, loops and blocks inside each other).",
@@ -244,6 +266,13 @@ export const RULES = {
   "ts-sec-hardcoded-secret": r("hardcoded-secret", "critical", "medium", "Read it from process.env or a secret manager, rotate the credential if it was real, and purge it from git history."),
   "py-sec-hardcoded-secret": r("hardcoded-secret", "critical", "medium", "Read it from os.environ or a secret manager, rotate the credential if it was real, and purge it from git history."),
 
+  "cpp-sec-secret-token": r("secret-token", "critical", "high", "Read it at runtime with std::getenv or a secret manager, revoke and rotate the key, and purge the old one from git history."),
+  "csharp-sec-secret-token": r("secret-token", "critical", "high", "Read it from configuration, user-secrets or Environment.GetEnvironmentVariable, revoke and rotate the key, and purge the old one from git history."),
+  "java-sec-secret-token": r("secret-token", "critical", "high", "Read it with System.getenv or a secret manager, revoke and rotate the key, and purge the old one from git history."),
+  "js-sec-secret-token": r("secret-token", "critical", "high", "Read it from process.env or a secret manager, revoke and rotate the key, and purge the old one from git history."),
+  "ts-sec-secret-token": r("secret-token", "critical", "high", "Read it from process.env or a secret manager, revoke and rotate the key, and purge the old one from git history."),
+  "py-sec-secret-token": r("secret-token", "critical", "high", "Read it from os.environ or a secret manager, revoke and rotate the key, and purge the old one from git history."),
+
   // ---- injection and code execution ----
   "js-sec-eval": r("eval", "high", "medium", "Remove eval. Use JSON.parse for data, or replace dynamic code with a lookup table or explicit function calls."),
   "ts-sec-eval": r("eval", "high", "medium", "Remove eval. Use JSON.parse for data, or replace dynamic code with a lookup table or explicit function calls."),
@@ -299,10 +328,13 @@ export const RULES = {
   "cpp-sec-weak-random": r("weak-random", "medium", "low"),
 
   // ---- error handling ----
-  "java-empty-catch-block": r("empty-catch", "medium", "high"),
-  "csharp-empty-catch-block": r("empty-catch", "medium", "high"),
-  "js-empty-catch-block": r("empty-catch", "medium", "high"),
-  "ts-empty-catch-block": r("empty-catch", "medium", "high"),
+  // Empty catch blocks are "high": the failure is swallowed, so the bug shows
+  // up later and far from its cause. high + confidence high also feeds the
+  // "Fix now" card at the top of the report Overview.
+  "java-empty-catch-block": r("empty-catch", "high", "high"),
+  "csharp-empty-catch-block": r("empty-catch", "high", "high"),
+  "js-empty-catch-block": r("empty-catch", "high", "high"),
+  "ts-empty-catch-block": r("empty-catch", "high", "high"),
   "cpp-catch-all-ellipsis": r("catch-all-cpp", "medium", "high"),
   "py-bare-except": r("bare-except", "medium", "high"),
   "csharp-async-void": r("async-void", "medium", "high"),
@@ -336,6 +368,20 @@ export const RULES = {
   "csharp-deep-nesting": r("deep-nesting", "medium", "high"),
   "js-deep-nesting": r("deep-nesting", "medium", "high"),
   "ts-deep-nesting": r("deep-nesting", "medium", "high"),
+
+  // ---- AI code slop gates (analyser/src/rules/SlopRules.cpp) ----
+  "cpp-complex-function": r("complex-function", "medium", "high"),
+  "py-complex-function": r("complex-function", "medium", "high"),
+  "java-complex-function": r("complex-function", "medium", "high"),
+  "csharp-complex-function": r("complex-function", "medium", "high"),
+  "js-complex-function": r("complex-function", "medium", "high"),
+  "ts-complex-function": r("complex-function", "medium", "high"),
+  "cpp-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
+  "py-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
+  "java-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
+  "csharp-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
+  "js-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
+  "ts-unreviewed-placeholder": r("unreviewed-placeholder", "medium", "medium"),
 
   // ---- housekeeping ----
   "cpp-todo-without-ticket": r("todo-no-ticket", "low", "high"),

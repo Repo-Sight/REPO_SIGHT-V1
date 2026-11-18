@@ -1,13 +1,37 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build:analyser",
-  "outputDirectory": "frontend",
+  "installCommand": "npm install && npm --prefix frontend install",
+  "buildCommand": "npm run build:analyser && npm --prefix frontend run build",
+  "outputDirectory": "frontend/dist",
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "repo-sight-indol.vercel.app"
+        }
+      ],
+      "destination": "https://www.repo-sight.com/$1",
+      "permanent": true
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/keepalive",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "functions": {
     "api/analyze.js": {
       "includeFiles": "backend/bin/**",
       "maxDuration": 60
     },
     "api/analyze-file.js": {
+      "includeFiles": "backend/bin/**",
+      "maxDuration": 15
+    },
+    "api/analyze-diff.js": {
       "includeFiles": "backend/bin/**",
       "maxDuration": 15
     },
@@ -20,8 +44,14 @@
     "api/rules.js": {
       "maxDuration": 10
     },
+    "api/badge/[scanId].js": {
+      "maxDuration": 10
+    },
     "api/explain-finding.js": {
       "maxDuration": 25
+    },
+    "api/keepalive.js": {
+      "maxDuration": 10
     }
   }
 }

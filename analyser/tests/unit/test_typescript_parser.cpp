@@ -310,4 +310,52 @@ TEST(TypeScriptParser, BraceBlockAnalyzerNeverGoesNegativeOnUnbalancedInput) {
     auto fm = analyze("} } } class X { \n");
     EXPECT_GE(fm.maxNestingDepth, 0);
 }
- 
+
+// ---- JSX: a call inside `{...}` must not become a function declaration ----
+
+TEST(TypeScriptParser, JsxCallInBracesIsNotAFunction) {
+    auto fm = analyze(
+        "export function A({ n }: { n: number }) {\n"
+        "  return (\n"
+        "    <div>\n"
+        "      <p>{fmt(n)} files</p>\n"
+        "      {items.map((i) => (\n"
+        "        <b key={i}>{fmt(i)}</b>\n"
+        "      ))}\n"
+        "    </div>\n"
+        "  );\n"
+        "}\n"
+        "export function B() {\n"
+        "  return <i>b</i>;\n"
+        "}\n");
+    for (const auto& f : fm.functions) {
+        EXPECT_NE(f.name, "fmt");
+        EXPECT_NE(f.name, "map");
+    }
+    // A and B only; neither may be stretched past its own closing brace.
+    ASSERT_EQ(fm.functionCount(), 2);
+    EXPECT_EQ(fm.functions[0].name, "A");
+    EXPECT_EQ(fm.functions[0].endLine, 10);
+    EXPECT_EQ(fm.functions[1].name, "B");
+}
+
+TEST(TypeScriptParser, MethodCallThenBraceExpressionIsNotAFunction) {
+    auto fm = analyze(
+        "function f() {\n"
+        "  const t = <span>{n.toLocaleString()}</span>;\n"
+        "  const o = { a: 1 };\n"
+        "  return t;\n"
+        "}\n");
+    ASSERT_EQ(fm.functionCount(), 1);
+    EXPECT_EQ(fm.functions[0].name, "f");
+}
+
+TEST(TypeScriptParser, ObjectTypeLiteralInReturnTypeStillFindsBody) {
+    auto fm = analyze(
+        "function load(): Promise<{ a: number; b: string }> {\n"
+        "  return Promise.resolve({ a: 1, b: 'x' });\n"
+        "}\n");
+    ASSERT_EQ(fm.functionCount(), 1);
+    EXPECT_EQ(fm.functions[0].name, "load");
+    EXPECT_EQ(fm.functions[0].endLine, 3);
+}

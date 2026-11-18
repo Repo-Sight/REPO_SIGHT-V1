@@ -158,7 +158,7 @@ int main(int argc, char* argv[]) {
         GitHistory git(cfg->targetPath);
         if (!git.collect()) {
             std::cerr << "Note: no git history found at " << cfg->targetPath
-                      << " -- hotspot data will be empty in the report.\n";
+                      << " -- hotspots fall back to the most complex files.\n";
         }
         const HotspotReport hotspots = engine.buildHotspotReport(git);
 

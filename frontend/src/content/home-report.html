@@ -1,0 +1,40 @@
+<section class="features" id="sample">
+      <h2>What a report looks like.</h2>
+      <p class="section-sub">
+        This is a real scan of REPO-SIGHT&rsquo;s own source code, not mock data. Your report has the same
+        sections, built from your repo.
+      </p>
+      <div class="features-grid features-grid--three">
+        <div class="feature-card">
+          <h3>78 / 100, grade C</h3>
+          <p>Health score across 159 files and 27,658 lines of C++, TypeScript, and JavaScript. Nothing is hidden: the score is built from five weighted parts, listed below.</p>
+        </div>
+        <div class="feature-card">
+          <h3>298 findings, ranked</h3>
+          <p>0 critical, 8 high, 129 medium, and 161 low. Every finding has a tier (how bad it is if real) and a confidence (how likely it is real).</p>
+        </div>
+        <div class="feature-card">
+          <h3>Files ranked without git</h3>
+          <p>No git history in this scan, so the most complex files are ranked by cyclomatic complexity and nesting depth. That is where refactoring pays off first.</p>
+        </div>
+      </div>
+      <h3>Fix first</h3>
+      <p>The report opens with the problems worth your time, grouped by cause and ranked, instead of a flat list of 298 lines. For this scan the top two were:</p>
+      <ol>
+        <li>
+          <strong>Empty error handler</strong> (high tier, high confidence). Six <code>catch</code> blocks in three JavaScript files do nothing with the error, so failures would vanish silently. Fix: log it, handle it, or add a comment saying why ignoring it is intended.
+        </li>
+        <li>
+          <strong>OS command execution</strong> (high tier, medium confidence). Two places in the C++ launch a shell command. Confidence is only medium because the analyzer cannot see where the arguments come from; fixed commands are lower risk.
+        </li>
+      </ol>
+      <h3>Where the score came from</h3>
+      <p>
+        Complexity density scored 84 out of 100, average function length 100, comment coverage 59, and TODO density 100.
+        Nesting depth scored 20: the deepest block in the project reaches seven levels, close to the point where the score bottoms out at eight.
+        That one number is the cheapest improvement available.
+      </p>
+      <p>
+        <a href="/?demo=1" class="btn-primary">Open the full sample report</a>
+      </p>
+    </section>

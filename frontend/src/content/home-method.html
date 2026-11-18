@@ -1,0 +1,27 @@
+<section class="features" id="method">
+      <h2>How the score works, and what it can&rsquo;t tell you.</h2>
+      <p class="section-sub">A grade is only useful if you know what it measures. Here is the method, including the limits.</p>
+      <h3>The health score</h3>
+      <p>
+        The 0&ndash;100 score is a weighted blend of five measurements:
+        complexity density (35%), average function length (25%), comment coverage (20%),
+        TODO and FIXME density (10%), and maximum nesting depth (10%).
+        Each one is scored between a &ldquo;good&rdquo; and a &ldquo;bad&rdquo; reference value. For example,
+        average function length earns full marks at 15 lines or fewer and nothing at 60 or more;
+        nesting depth earns full marks at 3 levels and nothing at 8.
+        The score breakdown is shown on every report, so you can see which part moved the grade.
+      </p>
+      <h3>Findings, tiers, and confidence</h3>
+      <p>
+        98 rules run across the six languages, and 45 of them look for security problems such as hardcoded credentials and operating-system command execution.
+        Each finding carries a tier (critical, high, medium, or low), based on the damage if it is real, and a confidence level, based on how likely a pattern match is to be a genuine problem.
+      </p>
+      <h3>What static analysis cannot do</h3>
+      <ul>
+        <li>The analyzer reads source with a token-based parser. It does not track data flow, so it cannot tell trusted input from untrusted input. That is why some security findings are marked medium or low confidence.</li>
+        <li>Nothing is compiled, run, or tested. Runtime bugs, performance problems, and failing tests are outside what a static scan can see.</li>
+        <li>Placeholders, test values, and generated code can be flagged. Treat the report as a prioritized starting list for review, not a verdict.</li>
+        <li>A grade compares your repo against fixed reference values, not against other projects. It is most useful for watching one repo improve over time.</li>
+        <li>This is not a replacement for a security audit or a human code review.</li>
+      </ul>
+    </section>

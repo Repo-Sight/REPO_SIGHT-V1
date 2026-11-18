@@ -49,6 +49,11 @@ private:
     struct PendingFunction {
         FunctionInfo info;
         int          bodyBraceDepth = 0;
+ // Token index of the body's own '{'. A '}' closes this function
+        // only after that brace was walked: braces in the signature
+        // (`({ a, b }: Props)`, `: Promise<{ x: number }>`) reach the
+        // same depth and must not end the function early.
+        std::size_t  bodyOpenIdx    = 0;
     };
 
     void classifyLines();

@@ -251,7 +251,58 @@ TEST(JavaRules, CatchWithBodyNegative) {
 }
  
 TEST(JavaRules, PublicFieldPositive) {
-    auto v = runJava("class X { public int count; }\n");
+    auto v = runJava("class X { public int count; void run() { work(); } }\n");
+    EXPECT_TRUE(hasRule(v, "java-public-field"));
+}
+TEST(JavaRules, PublicFieldInFieldsOnlyClassIsExempt) {
+    auto v = runJava("class User { public String name; public int age; }\n");
+    EXPECT_FALSE(hasRule(v, "java-public-field"));
+}
+TEST(JavaRules, PublicFieldInDtoWithAccessorsIsExempt) {
+    auto v = runJava(
+        "class User {\n"
+        "  public String name;\n"
+        "  public User() {}\n"
+        "  public String getName() { return name; }\n"
+        "  public void setName(String n) { name = n; }\n"
+        "  public boolean isActive() { return true; }\n"
+        "  @Override public String toString() { return name; }\n"
+        "}\n");
+    EXPECT_FALSE(hasRule(v, "java-public-field"));
+}
+TEST(JavaRules, AnnotationArgsAndInitializerCallsAreNotBehavior) {
+    auto v = runJava("class Cfg { @Size(max = 5) public String name = defaultName(); }\n");
+    EXPECT_FALSE(hasRule(v, "java-public-field"));
+}
+TEST(JavaRules, PublicFieldStillFlaggedWhenClassHasBehavior) {
+    auto v = runJava("class Service { public int count; public void process() { work(); } }\n");
+    EXPECT_TRUE(hasRule(v, "java-public-field"));
+}
+TEST(JavaRules, NestedDtoIsExemptButOuterBehaviorClassIsStillFlagged) {
+    auto v = runJava(
+        "class Outer {\n"
+        "  public int leak;\n"
+        "  void run() { work(); }\n"
+        "  static class Dto { public int x; }\n"
+        "}\n");
+    const auto hits = std::count_if(v.begin(), v.end(),
+        [](const Violation& x) { return x.ruleId == "java-public-field"; });
+    EXPECT_EQ(hits, 1);
+}
+TEST(JavaRules, PublicClassDeclarationIsNotReportedAsAPublicField) {
+    // Regression: `public class X {` used to be scanned on into the first
+    // member, so the first field was reported twice (once for the class line).
+    auto v = runJava("public class X {\n  public int count;\n  void run() { work(); }\n}\n");
+    const auto hits = std::count_if(v.begin(), v.end(),
+        [](const Violation& x) { return x.ruleId == "java-public-field"; });
+    EXPECT_EQ(hits, 1);
+}
+TEST(JavaRules, PublicStaticNestedClassDeclarationIsNotAField) {
+    auto v = runJava("public class X { public static class Row { public String id; } void run() { work(); } }\n");
+    EXPECT_FALSE(hasRule(v, "java-public-field"));
+}
+TEST(JavaRules, ClassLiteralIsNotMistakenForTypeDeclaration) {
+    auto v = runJava("class X { public int count; Class<?> c = String.class; void run() { work(); } }\n");
     EXPECT_TRUE(hasRule(v, "java-public-field"));
 }
 TEST(JavaRules, PublicStaticFinalConstantNegative) {
@@ -613,7 +664,7 @@ TEST(RuleDispatch, RoutesToPythonCatalog) {
     EXPECT_EQ(v[0].language, "python");
 }
 TEST(RuleDispatch, RoutesToJavaCatalog) {
-    const std::string src = "class X { public int c; }\n";
+    const std::string src = "class X { void f() { e.printStackTrace(); } }\n";
     JavaLexer lexer(src);
     auto tokens = lexer.tokenize();
     JavaParser parser(tokens, 1);

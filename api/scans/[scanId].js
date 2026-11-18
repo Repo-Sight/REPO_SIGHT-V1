@@ -46,7 +46,13 @@ export default async function handler(req, res) {
 
   try {
     const supabase = getSupabase();
-    const { data, error } = await supabase.storage.from("scans").download(`${scanId}.json`);
+    // Public/legacy scans sit at the bucket root; owner-only scans of private
+    // repos sit under "private/" (see api/analyze.js). Both go through the
+    // same canViewScan() gate below.
+    let { data, error } = await supabase.storage.from("scans").download(`${scanId}.json`);
+    if (error || !data) {
+      ({ data, error } = await supabase.storage.from("scans").download(`private/${scanId}.json`));
+    }
     if (error || !data) {
       res.status(200).json({ status: "FAILED", errorMessage: "Scan not found." });
       return;

@@ -87,6 +87,7 @@ void JavaScriptParser::walkTokens() {
 
         case TokenType::CLOSE_BRACE:
             if (!m_fnStack.empty() &&
+                i > m_fnStack.back().bodyOpenIdx &&
                 m_braceAnalyzer.depth() == m_fnStack.back().bodyBraceDepth) {
                 m_fnStack.back().info.endLine = tok.line;
                 m_result.functions.push_back(m_fnStack.back().info);
@@ -244,6 +245,7 @@ void JavaScriptParser::tryBeginFunction(std::size_t identIdx) {
     pf.info.name      = m_tokens[identIdx].value;
     pf.info.startLine = m_tokens[identIdx].line;
     pf.bodyBraceDepth = m_braceAnalyzer.depth() + 1;
+    pf.bodyOpenIdx    = bodyIdx;
     m_fnStack.push_back(std::move(pf));
 
     m_pendingArrowName.clear();
@@ -263,6 +265,7 @@ void JavaScriptParser::tryBeginAnonymousFunction(std::size_t openParenIdx) {
     pf.info.name      = m_pendingArrowName.empty() ? "<anonymous>" : m_pendingArrowName;
     pf.info.startLine = m_tokens[openParenIdx].line;
     pf.bodyBraceDepth = m_braceAnalyzer.depth() + 1;
+    pf.bodyOpenIdx    = bodyIdx;
     m_fnStack.push_back(std::move(pf));
 
     m_pendingArrowName.clear();
@@ -285,6 +288,7 @@ void JavaScriptParser::tryBeginArrowFunction(std::size_t arrowFirstIdx) {
     pf.info.name      = m_pendingArrowName.empty() ? "<anonymous>" : m_pendingArrowName;
     pf.info.startLine = m_tokens[arrowFirstIdx].line;
     pf.bodyBraceDepth = m_braceAnalyzer.depth() + 1;
+    pf.bodyOpenIdx    = after;
     m_fnStack.push_back(std::move(pf));
 
     m_pendingArrowName.clear();

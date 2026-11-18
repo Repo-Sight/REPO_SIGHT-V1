@@ -88,6 +88,7 @@ void TypeScriptParser::walkTokens() {
 
         case TokenType::CLOSE_BRACE:
             if (!m_fnStack.empty() &&
+                i > m_fnStack.back().bodyOpenIdx &&
                 m_braceAnalyzer.depth() == m_fnStack.back().bodyBraceDepth) {
                 m_fnStack.back().info.endLine = tok.line;
                 m_result.functions.push_back(m_fnStack.back().info);
@@ -236,6 +237,7 @@ void TypeScriptParser::tryBeginFunction(std::size_t identIdx) {
     pf.info.name      = m_tokens[identIdx].value;
     pf.info.startLine = m_tokens[identIdx].line;
     pf.bodyBraceDepth = m_braceAnalyzer.depth() + 1;
+    pf.bodyOpenIdx    = bodyIdx;
     m_fnStack.push_back(std::move(pf));
 
     m_pendingArrowName.clear();
@@ -255,6 +257,7 @@ void TypeScriptParser::tryBeginAnonymousFunction(std::size_t openParenIdx) {
     pf.info.name      = m_pendingArrowName.empty() ? "<anonymous>" : m_pendingArrowName;
     pf.info.startLine = m_tokens[openParenIdx].line;
     pf.bodyBraceDepth = m_braceAnalyzer.depth() + 1;
+    pf.bodyOpenIdx    = bodyIdx;
     m_fnStack.push_back(std::move(pf));
 
     m_pendingArrowName.clear();
@@ -277,6 +280,7 @@ void TypeScriptParser::tryBeginArrowFunction(std::size_t arrowFirstIdx) {
     pf.info.name      = m_pendingArrowName.empty() ? "<anonymous>" : m_pendingArrowName;
     pf.info.startLine = m_tokens[arrowFirstIdx].line;
     pf.bodyBraceDepth = m_braceAnalyzer.depth() + 1;
+    pf.bodyOpenIdx    = after;
     m_fnStack.push_back(std::move(pf));
 
     m_pendingArrowName.clear();
@@ -389,20 +393,68 @@ std::size_t TypeScriptParser::findMatchingParen(std::size_t openIdx) const {
 // something inside the type. '<'/'>' are safe to treat as depth markers
 // specifically in this position: a bare comparison expression cannot
 // legally appear directly between a parameter list and a function body.
+//
+// A '}' that this scan did not itself open means the ')' was the end of a
+// call inside a larger block -- JSX `<p>{fmt(n)} files</p>` is the common
+// case -- so no body can follow. Return end-of-tokens ("no body") instead
+// of running on to the next unrelated '{' and inventing a function that
+// spans hundreds of lines. Braces opened inside '<...>' or '(...)' (object
+// type literals like `Promise<{ a: number }>`) are balanced and ignored.
 std::size_t TypeScriptParser::skipTrailingSpecifiers(std::size_t i) const {
     const std::size_t n = m_tokens.size();
     int angleDepth = 0;
     int parenDepth = 0;
+    int braceDepth = 0;
+
+    // A real declaration's ')' is followed directly by '{', ';' or a ':'
+    // return-type annotation. Anything else (an identifier, a statement
+    // keyword, ',', ')' ...) means the ')' closed an ordinary call -- e.g.
+    // a semicolon-less `it("x", () => {...})` followed by the next
+    // statement -- so there is no body. Without this guard the scan ran on
+    // to the next unrelated '{' and invented a function spanning the rest
+    // of the enclosing block (a 4,000-line "function" in a test file).
+    {
+        std::size_t j = i;
+        while (j < n && m_tokens[j].type == TokenType::NEWLINE) ++j;
+        if (j >= n) return n;
+        const Token& first = m_tokens[j];
+        const bool isColon = (first.type == TokenType::PUNCTUATION ||
+                              first.type == TokenType::OPERATOR) && first.value == ":";
+        if (first.type != TokenType::OPEN_BRACE &&
+            first.type != TokenType::SEMICOLON && !isColon) {
+            return n;
+        }
+    }
 
     while (i < n) {
         const Token& t = m_tokens[i];
 
         if (t.type == TokenType::NEWLINE) { ++i; continue; }
 
+        // Statement keywords can never appear inside a return-type
+        // annotation: a ':' annotation with no body (overload/ambient
+        // signature written without a ';') ends here.
+        if (angleDepth == 0 && parenDepth == 0 && braceDepth == 0 &&
+            t.type == TokenType::KEYWORD &&
+            (t.value == "function" || t.value == "const" || t.value == "let" ||
+             t.value == "var" || t.value == "return" || t.value == "class" ||
+             t.value == "import" || t.value == "export" || t.value == "if" ||
+             t.value == "for" || t.value == "while" || t.value == "switch" ||
+             t.value == "throw")) {
+            return n;
+        }
+
         if (angleDepth == 0 && parenDepth == 0 &&
             (t.type == TokenType::OPEN_BRACE || t.type == TokenType::SEMICOLON)) {
             break;
         }
+                // Only reachable inside '<...>' / '(...)': a depth-0 '{' broke out above.
+        if (t.type == TokenType::OPEN_BRACE)  { ++braceDepth; ++i; continue; }
+        if (t.type == TokenType::CLOSE_BRACE) {
+            if (braceDepth == 0) return n;
+            --braceDepth; ++i; continue;
+        }
+
 
         if (t.type == TokenType::OPERATOR && t.value == "<") { ++angleDepth; ++i; continue; }
         if (t.type == TokenType::OPERATOR && t.value == ">") { if (angleDepth > 0) { --angleDepth; } ++i; continue; }

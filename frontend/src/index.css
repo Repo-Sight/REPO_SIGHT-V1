@@ -1,0 +1,1371 @@
+@import "tailwindcss";
+
+@theme {
+  /* Matte dark palette, shared by the wallpaper, window chrome and report. */
+  --color-parchment: #0a0e13; /* page */
+  --color-paper: #141a22; /* window / card surface */
+  --color-white: #141a22; /* "white" surfaces (inputs, cards) use the dark surface */
+  --color-chrome: #1b232d; /* title bars, wells */
+  --color-line: #2c3745; /* 1px borders */
+  --color-line-soft: #232d39;
+  --color-ink: #d8dee6;
+  --color-muted: #8f9eb0;
+  --color-signal: #8ea8c4; /* accent: steel */
+  --color-signal-dark: #a9bfd6; /* hover on dark */
+  --color-sun: #8ea8c4; /* primary CTA */
+  --color-sun-dark: #7f9bb8;
+  --color-sun-edge: #587390;
+  --color-ok: #8fae96;
+  --color-rose: #c28f93;
+  --color-amber: #c0a070;
+  --color-lav: #9a94b8;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-display: "Samarkan", Georgia, serif;
+
+  --shadow-soft-sm: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-soft: 0 1px 0 rgb(0 0 0 / 0.2), 0 10px 28px -14px rgb(0 0 0 / 0.6);
+  --shadow-soft-lg: 0 1px 0 rgb(0 0 0 / 0.25), 0 22px 48px -22px rgb(0 0 0 / 0.7);
+}
+
+@layer base {
+  html {
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+  /* Desktop base: matte dark with a soft steel vignette (the wallpaper sits on top, see .rs-wall). */
+  body {
+    background-color: var(--color-parchment);
+    background-image: radial-gradient(circle at 50% -10%, rgb(142 168 196 / 0.1), transparent 55%);
+    background-attachment: fixed;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--color-signal);
+    color: #0a0e13;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-signal);
+    outline-offset: 2px;
+  }
+  [id] {
+    scroll-margin-top: 5.5rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+/* ---------- desktop shell + windows (a small window manager: see lib/windows.ts, components/WindowFrame.tsx) ---------- */
+
+/* The window layer sits over the desktop; only the windows themselves take pointer events.
+   Geometry comes from data-geo: "default" = CSS below (this is what is prerendered), "custom" = --x/--y/--w/--h
+   written by drag / resize / cascade / tile. data-max wins over both. Under 768px every window is forced full-size. */
+.rs-win {
+  pointer-events: auto;
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  container: rswin / inline-size;
+  border: 1px solid var(--color-line);
+  border-radius: 0.5rem; /* rounded-lg */
+  box-shadow: var(--shadow-soft);
+  background: var(--color-paper);
+  transform: translateZ(0);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    box-shadow 120ms ease,
+    visibility 0s linear 0s;
+}
+@supports (backdrop-filter: blur(1px)) {
+  /* lightly frosted: surface at 94% over a soft blur (readable over the animated wallpaper) */
+  .rs-win {
+    background: color-mix(in srgb, var(--color-paper) 94%, transparent);
+    backdrop-filter: blur(16px);
+  }
+}
+.rs-win[data-focused="true"] {
+  border-color: color-mix(in srgb, var(--color-signal) 38%, var(--color-line));
+  box-shadow: var(--shadow-soft-lg);
+}
+
+/* Window HEIGHT is never set explicitly anywhere below: every state is sized by top + bottom (height stays auto).
+   The AdSense script injects `height: auto !important` inline on the ancestors of the ad unit (the ad sits inside the
+   home window), which silently replaced `height: 100%` on a maximised window: it grew to its content, the body stopped
+   overflowing and the scroll bar vanished. With top/bottom stretch that injected value changes nothing. */
+
+/* Default geometry: 80% x 95%, centred. */
+.rs-win[data-geo="default"] {
+  left: 10%;
+  top: 2.5%;
+  bottom: 2.5%;
+  width: 80%;
+  height: auto;
+}
+/* Reports are wide tables: centred, capped at 1200px. */
+.rs-win[data-geo="default"][data-kind="demo"],
+.rs-win[data-geo="default"][data-kind="report"] {
+  width: min(80%, 1200px);
+  left: calc((100% - min(80%, 1200px)) / 2);
+}
+/* The floating score card. */
+.rs-win[data-geo="default"][data-kind="card"] {
+  left: auto;
+  right: 142px;
+  top: 1.25rem;
+  bottom: auto;
+  width: 19rem;
+  height: auto;
+}
+/* Docked left on wide screens so the REPO-SIGHT cube wallpaper stays visible. */
+@media (min-width: 1100px) {
+  .rs-win[data-geo="default"][data-kind="home"],
+  .rs-win[data-geo="default"][data-kind="page"] {
+    left: 118px;
+    top: 0.75rem;
+    bottom: 0.75rem;
+    width: clamp(520px, 42%, 640px);
+    height: auto;
+  }
+}
+.rs-win[data-geo="custom"] {
+  left: var(--x);
+  top: var(--y);
+  bottom: calc(100% - var(--y) - var(--h)); /* == top + --h, without an explicit height */
+  width: var(--w);
+  height: auto;
+}
+
+/* Maximised: fills the desktop, square top corners, no shadow, 1px top border only. */
+.rs-win[data-max="true"][data-geo][data-kind] {
+  left: 0;
+  top: 0;
+  right: auto;
+  bottom: 0;
+  width: 100%;
+  height: auto;
+  border-width: 1px 0 0;
+  border-radius: 0 0 0.5rem 0.5rem;
+  box-shadow: none;
+}
+/* Under 768px the window is forced full size (no drag, resize or maximise); minimise and close stay. */
+@media (max-width: 767px) {
+  .rs-win[data-geo][data-kind] {
+    left: 0;
+    top: 0;
+    right: auto;
+    bottom: 0;
+    width: 100%;
+    height: auto;
+    border-width: 1px 0 0;
+    border-radius: 0 0 0.5rem 0.5rem;
+    box-shadow: none;
+  }
+  #taskbar {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+}
+
+/* Minimised: shrinks toward the taskbar and stays mounted (a scan result or half-typed form survives). */
+.rs-win[data-min="true"] {
+  opacity: 0;
+  transform: translateY(-14px) scale(0.94);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 0s linear 160ms;
+}
+/* While dragging or resizing: no easing, and the page inside stops catching the pointer. */
+.rs-win[data-dragging="true"] {
+  transition: none;
+}
+.rs-win[data-dragging="true"] .rs-win-body {
+  pointer-events: none;
+  user-select: none;
+}
+.rs-win-body {
+  scrollbar-gutter: stable;
+  /* Firefox: themed bar. */
+  scrollbar-color: color-mix(in srgb, var(--color-muted) 70%, transparent) var(--color-chrome);
+}
+/* Chromium and Safari: a classic, always-visible bar drawn in the theme, on every window kind (home, pages, demo, report).
+   Left to the OS, overlay bars (macOS, Windows 11 auto-hide) show a hairline dark thumb that fades out against the dark
+   window, which is most obvious on a maximised window where it sits on the screen edge. */
+@supports selector(::-webkit-scrollbar) {
+  .rs-win-body {
+    scrollbar-color: auto; /* let the ::-webkit-scrollbar rules below apply */
+  }
+  .rs-win-body::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+  .rs-win-body::-webkit-scrollbar-track {
+    background: var(--color-chrome);
+    border-left: 1px solid var(--color-line);
+  }
+  .rs-win-body::-webkit-scrollbar-thumb {
+    min-height: 44px;
+    border: 3px solid var(--color-chrome);
+    border-radius: 999px;
+    background-color: color-mix(in srgb, var(--color-muted) 70%, transparent);
+  }
+  .rs-win-body::-webkit-scrollbar-thumb:hover,
+  .rs-win-body::-webkit-scrollbar-thumb:active {
+    background-color: var(--color-signal);
+  }
+  .rs-win-body::-webkit-scrollbar-corner {
+    background: var(--color-chrome);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .rs-win-body {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Title bar + the three window controls (always present: minimise, maximise / restore, close). */
+.rs-titlebar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.3rem 0.4rem 0.3rem 0.75rem;
+  background: var(--color-chrome);
+  border-bottom: 1px solid var(--color-line);
+  user-select: none;
+  touch-action: none;
+}
+@media (min-width: 768px) {
+  .rs-win:not([data-max="true"]) .rs-titlebar {
+    cursor: grab;
+  }
+  .rs-win[data-dragging="true"] .rs-titlebar {
+    cursor: grabbing;
+  }
+}
+.rs-title-icon {
+  color: var(--color-signal);
+}
+.rs-win[data-focused="false"] .rs-titlebar {
+  color: var(--color-muted);
+}
+.rs-win[data-focused="false"] .rs-title-icon {
+  color: var(--color-muted);
+}
+.rs-ctrls {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+.rs-ctl {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  color: var(--color-muted);
+  transition:
+    background-color 100ms,
+    color 100ms;
+}
+.rs-ctl:hover,
+.rs-ctl:focus-visible {
+  background: var(--color-line-soft);
+  color: var(--color-ink);
+}
+.rs-ctl-close:hover,
+.rs-ctl-close:focus-visible {
+  background: color-mix(in srgb, var(--color-rose) 78%, transparent);
+  color: #0a0e13;
+}
+.rs-ctl:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Modal dialogs (sign in / account, sign out): the same window frame as .rs-win, drawn over a dimmed desktop.
+   Only Close is offered: a modal has nothing to minimise or maximise. */
+.rs-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-signal) 38%, var(--color-line));
+  border-radius: 0.5rem;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft-lg);
+}
+.rs-dialog-body {
+  padding: 1.25rem;
+}
+/* Phones: windows are always full size, so there is nothing to maximise. Minimise and close stay. */
+@media (max-width: 767px) {
+  .rs-ctl-max {
+    display: none;
+  }
+}
+@media (pointer: coarse) {
+  .rs-ctl {
+    width: 2.25rem;
+    height: 2rem;
+  }
+}
+
+/* Resize handles: 4 edges + 4 corners, inside the border so overflow:hidden never clips them. */
+.rs-rz {
+  position: absolute;
+  z-index: 5;
+  touch-action: none;
+}
+.rs-rz[data-dir="n"] { left: 12px; right: 12px; top: 0; height: 5px; cursor: ns-resize; }
+.rs-rz[data-dir="s"] { left: 12px; right: 12px; bottom: 0; height: 5px; cursor: ns-resize; }
+.rs-rz[data-dir="e"] { top: 12px; bottom: 12px; right: 0; width: 5px; cursor: ew-resize; }
+.rs-rz[data-dir="w"] { top: 12px; bottom: 12px; left: 0; width: 5px; cursor: ew-resize; }
+.rs-rz[data-dir="ne"] { top: 0; right: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+.rs-rz[data-dir="nw"] { top: 0; left: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+.rs-rz[data-dir="se"] { bottom: 0; right: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+.rs-rz[data-dir="sw"] { bottom: 0; left: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+@media (max-width: 767px) {
+  .rs-rz {
+    display: none;
+  }
+  .rs-titlebar {
+    touch-action: auto;
+  }
+}
+
+/* Edge-snap preview while dragging a window to the top (maximise) or a side (half screen). */
+.rs-snap {
+  position: absolute;
+  z-index: 9999;
+  pointer-events: none;
+  border: 2px solid var(--color-signal);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-signal) 14%, transparent);
+  transition: all 120ms ease;
+}
+
+/* Narrow windows: viewport breakpoints cannot see the window width, so container queries tidy the page inside it. */
+@container rswin (min-width: 481px) and (max-width: 760px) {
+  #hero-title,
+  .rs-prose h1 {
+    font-size: clamp(2rem, 6cqw, 2.75rem);
+    line-height: 1.12;
+  }
+  /* The 3-column card grid is viewport-based (>= 1024px); in a narrow window it would squeeze to ~150px columns. */
+  .rs-tool .features-grid--three {
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  }
+}
+
+/* ---------- taskbar: start button, window chips, show-desktop strip ---------- */
+.rs-start-btn {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: 0.5rem;
+  color: var(--color-signal);
+}
+.rs-start-btn:hover,
+.rs-start-btn[aria-expanded="true"] {
+  background: var(--color-chrome);
+}
+.rs-chip {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: 11rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 100ms,
+    color 100ms;
+}
+.rs-chip:hover {
+  background: var(--color-line-soft);
+  color: var(--color-ink);
+}
+.rs-chip[data-active="true"] {
+  background: var(--color-chrome);
+  border-color: var(--color-line);
+  color: var(--color-ink);
+  box-shadow: inset 0 -2px 0 var(--color-signal);
+}
+.rs-chip[data-min="true"] {
+  opacity: 0.6;
+}
+.rs-showdesk {
+  flex-shrink: 0;
+  width: 0.9rem;
+  height: 1.5rem;
+  margin-left: 0.25rem;
+  border-left: 1px solid var(--color-line);
+}
+.rs-showdesk:hover {
+  background: var(--color-chrome);
+}
+
+.rs-start {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 60;
+  width: min(22rem, calc(100vw - 1rem));
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft-lg);
+  transform-origin: top left;
+}
+.rs-start-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.rs-start-item:hover,
+.rs-start-item:focus-visible {
+  background: var(--color-chrome);
+}
+.rs-start-cmd {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.5rem;
+  background: var(--color-paper);
+  text-align: left;
+  font-weight: 500;
+}
+.rs-start-cmd:hover,
+.rs-start-cmd:focus-visible {
+  background: var(--color-line-soft);
+}
+.rs-start-cmd[data-danger="true"]:hover {
+  background: color-mix(in srgb, var(--color-rose) 40%, transparent);
+}
+
+/* Right-click menus. */
+.rs-ctxmenu {
+  position: fixed;
+  z-index: 300;
+  min-width: 12.5rem;
+  padding: 0.3rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.6rem;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft-lg);
+}
+.rs-ctxmenu button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  text-align: left;
+}
+.rs-ctxmenu button:hover,
+.rs-ctxmenu button:focus-visible {
+  background: var(--color-chrome);
+}
+.rs-ctxmenu button[data-danger="true"]:hover,
+.rs-ctxmenu button[data-danger="true"]:focus-visible {
+  background: color-mix(in srgb, var(--color-rose) 40%, transparent);
+}
+.rs-ctxmenu button:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.rs-ctxmenu kbd {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-muted);
+}
+
+/* OS-style tab strip (report sections, scanner mode): tabs sit on a rule, the active one joins the panel. */
+.rs-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-line);
+}
+.rs-tab {
+  margin-bottom: -1px;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 0.5rem 0.5rem 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.rs-tab:hover {
+  background: var(--color-line-soft);
+  color: var(--color-ink);
+}
+.rs-tab[aria-selected="true"],
+.rs-tab[aria-pressed="true"] {
+  border-color: var(--color-line);
+  background: var(--color-chrome);
+  color: var(--color-ink);
+  box-shadow: inset 0 2px 0 var(--color-signal);
+}
+@media (min-width: 640px) {
+  .rs-tab {
+    font-size: 0.875rem;
+  }
+}
+
+/* Open: only when a closed window is opened again (never on first load or page swaps). */
+@keyframes rs-win-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes rs-win-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+.rs-win[data-phase="in"] {
+  animation: rs-win-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.rs-win[data-phase="out"] {
+  animation: rs-win-out 150ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  pointer-events: none;
+}
+/* Folder popovers pop in with the window's open curve. */
+.rs-pop {
+  animation: rs-win-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Modal (sign-in): slides down from above, slides up and fades on close; overlay fades out. */
+@keyframes rs-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes rs-modal-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  60% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0.5;
+    transform: translateY(-2rem);
+  }
+}
+@keyframes rs-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.rs-modal {
+  animation: rs-modal-in 200ms cubic-bezier(0.175, 0.885, 0.32, 1.15) both;
+}
+.rs-modal[data-closing="true"] {
+  animation: rs-modal-out 250ms cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards;
+}
+.rs-overlay[data-closing="true"] {
+  animation: rs-overlay-out 150ms ease forwards;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-win[data-phase],
+  .rs-pop,
+  .rs-modal,
+  .rs-overlay {
+    animation: none !important;
+  }
+  .rs-win {
+    transition: none !important;
+  }
+}
+/* ---------- shared bits ---------- */
+
+.rs-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 60;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+.rs-skip:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+.rs-navlink {
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+  color: var(--color-ink);
+}
+.rs-navlink:hover,
+.rs-navlink[aria-expanded="true"] {
+  background: var(--color-chrome);
+}
+
+/* Header dropdown (Languages). <details> keeps it working without JS; JS-free prerender stays valid. */
+.rs-menu {
+  position: relative;
+}
+.rs-folder > summary {
+  list-style: none;
+}
+.rs-folder > summary::-webkit-details-marker {
+  display: none;
+}
+.rs-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.rs-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.rs-menu > summary::after {
+  content: "";
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: 0.4rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+.rs-menu-panel {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 14rem;
+  padding: 0.4rem;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+}
+@media (min-width: 768px) {
+  .rs-menu-panel {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    z-index: 50;
+  }
+}
+.rs-menu-panel a {
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.rs-menu-panel a:hover {
+  background: var(--color-chrome);
+}
+
+/* Primary button: black text on signal orange (5.9:1); white would only reach 3.6:1. */
+.rs-btn,
+.rs-prose .btn-primary {
+  display: inline-block;
+  background: var(--color-sun);
+  color: #151515;
+  border: 1px solid var(--color-sun-edge);
+  border-radius: 6px;
+  box-shadow: 0 2px 0 var(--color-sun-edge);
+  padding: 0.55rem 1.1rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 80ms, box-shadow 80ms, background-color 80ms;
+}
+.rs-btn:hover,
+.rs-prose .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 var(--color-sun-edge);
+  background: #a3bad2;
+  color: #151515;
+}
+.rs-btn:active,
+.rs-prose .btn-primary:active {
+  transform: translateY(1px);
+  box-shadow: 0 0 0 var(--color-sun-edge);
+}
+.rs-btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.rs-btn-ghost {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border-color: var(--color-line);
+  box-shadow: 0 2px 0 var(--color-line);
+}
+.rs-btn-ghost:hover {
+  background: var(--color-chrome);
+  color: var(--color-ink);
+  box-shadow: 0 3px 0 var(--color-line);
+}
+.rs-btn-ghost:active {
+  box-shadow: 0 0 0 var(--color-line);
+}
+
+/* ---------- ads, cookie banner, sticky CTA ---------- */
+
+.rs-ad-slot {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.5rem 0;
+}
+.rs-ad-label {
+  display: block;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-bottom: 0.25rem;
+}
+
+.rs-cookie-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: var(--color-paper);
+  border-top: 1px solid var(--color-line);
+  box-shadow: 0 -8px 24px -16px rgb(0 0 0 / 0.5);
+  font-size: 0.875rem;
+}
+.rs-cookie-banner a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rs-cookie-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+@media (max-width: 420px) {
+  .rs-cookie-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .rs-cookie-actions {
+    justify-content: flex-end;
+  }
+}
+
+.rs-sticky-cta {
+  /* In flow, not position:fixed: the bar takes its own row under the desktop, so it can never
+     cover page content or an ad unit scrolling beneath it (accidental-click risk).
+     Styled as a docked window strip: title-bar tone, window border and radius, app glyph. */
+  flex-shrink: 0;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.4rem 0.4rem 0.75rem;
+  background: var(--color-chrome);
+  border: 1px solid var(--color-line);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-soft);
+  font-size: 0.85rem;
+}
+.rs-sticky-cta-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.rs-sticky-cta-label span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rs-sticky-cta .rs-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .rs-sticky-cta.is-visible {
+    display: flex;
+  }
+}
+
+/* ---------- legacy page content (verbatim <main> markup from the old site) ---------- */
+
+.rs-prose {
+  line-height: 1.7;
+  font-size: 1rem;
+}
+.rs-legal {
+  max-width: 46rem;
+}
+
+.rs-prose h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 1.12;
+  letter-spacing: 0;
+  margin: 0 0 0.9rem;
+  text-wrap: balance;
+}
+.rs-prose h2 {
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin: 2.25rem 0 0.75rem;
+  text-wrap: balance;
+}
+.rs-prose h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0.25rem 0 0.4rem;
+}
+.rs-prose p,
+.rs-prose ul,
+.rs-prose ol {
+  margin: 0 0 1rem;
+}
+.rs-prose ul {
+  list-style: disc;
+  padding-left: 1.4rem;
+}
+.rs-prose ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.rs-prose li {
+  margin-bottom: 0.4rem;
+}
+.rs-prose a {
+  text-decoration: underline;
+  text-decoration-color: var(--color-signal);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+.rs-prose a:hover {
+  color: var(--color-signal-dark);
+}
+.rs-prose a.btn-primary,
+.rs-prose a.feature-card-link,
+.rs-prose .tool-crosslinks-grid a {
+  text-decoration: none;
+}
+.rs-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--color-chrome);
+  border: 1px solid var(--color-line-soft);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  overflow-wrap: anywhere;
+}
+.rs-prose pre {
+  background: #0b1016;
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 0 0 1.25rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.rs-prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  overflow-wrap: normal;
+}
+
+.rs-prose .legal-updated {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  margin-bottom: 1.5rem;
+}
+.rs-prose .section-sub {
+  color: var(--color-muted);
+  max-width: 44rem;
+}
+
+/* landing sections */
+.rs-prose .tool-hero {
+  padding-bottom: 1rem;
+}
+.rs-prose .tool-hero-ctas {
+  margin-top: 1.25rem;
+}
+.rs-prose .features,
+.rs-prose .pipeline,
+.rs-prose .tool-example,
+.rs-prose .tool-faq,
+.rs-prose .tool-crosslinks {
+  margin-top: 2.5rem;
+}
+.rs-prose .features > h2:first-child,
+.rs-prose .pipeline > h2:first-child,
+.rs-prose .tool-faq > h2:first-child,
+.rs-prose .tool-crosslinks > h2:first-child {
+  margin-top: 0;
+}
+
+.rs-prose .features-grid,
+.rs-prose .pipeline-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+.rs-prose .pipeline-grid {
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+@media (min-width: 1024px) {
+  .rs-prose .features-grid--three {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.rs-prose .feature-card,
+.rs-prose .pipeline-card,
+.rs-prose .tool-example-card {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 1.15rem;
+}
+.rs-prose .feature-card p,
+.rs-prose .pipeline-card p {
+  margin-bottom: 0;
+  font-size: 0.95rem;
+}
+.rs-prose a.feature-card-link {
+  display: block;
+  color: inherit;
+  border-radius: 8px;
+  transition: transform 120ms, box-shadow 120ms;
+}
+.rs-prose a.feature-card-link:hover {
+  color: inherit;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-soft);
+}
+.rs-prose .feature-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-chrome);
+  margin-bottom: 0.75rem;
+}
+.rs-prose .feature-icon-accent {
+  background: rgb(142 168 196 / 0.16);
+  border-color: rgb(142 168 196 / 0.4);
+}
+.rs-prose .feature-icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  stroke: var(--color-ink);
+}
+.rs-prose .pipeline-num {
+  display: block;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-signal);
+}
+
+.rs-prose .tool-example-card .finding-severity {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgb(192 160 112 / 0.2);
+  border: 1px solid var(--color-amber);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  margin-bottom: 0.75rem;
+}
+.rs-prose .finding-note {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.rs-prose .faq-item {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  margin: 0.75rem 0;
+  overflow: hidden;
+}
+.rs-prose .faq-item summary {
+  cursor: pointer;
+  padding: 0.8rem 1rem;
+  font-weight: 600;
+}
+.rs-prose .faq-item summary:hover {
+  background: var(--color-chrome);
+}
+.rs-prose .faq-item[open] summary {
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-chrome);
+}
+.rs-prose .faq-item p {
+  padding: 0.85rem 1rem 0;
+}
+.rs-prose .faq-item p:last-child {
+  padding-bottom: 0.15rem;
+}
+
+.rs-prose .tool-crosslinks-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.rs-prose .tool-crosslinks-grid a {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.rs-prose .tool-crosslinks-grid a:hover {
+  background: var(--color-chrome);
+  color: var(--color-ink);
+}
+
+.rs-prose .code-compare {
+  display: grid;
+  /* minmax(0, 1fr), not auto/1fr: a long line in a <pre> must scroll inside its own box
+     instead of stretching the grid column and the whole window sideways. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin: 0.5rem 0 1.5rem;
+}
+.rs-prose .code-compare > div {
+  min-width: 0;
+}
+@media (min-width: 720px) {
+  .rs-prose .code-compare {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+.rs-prose .code-compare pre {
+  margin-bottom: 0;
+}
+.rs-prose .code-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+}
+.rs-prose .label-bad {
+  color: var(--color-rose);
+}
+.rs-prose .label-good {
+  color: var(--color-ok);
+}
+
+.rs-prose .cta-band {
+  margin-top: 2.5rem;
+  background: var(--color-chrome);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  padding: 1.75rem;
+}
+.rs-prose .cta-band-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+.rs-prose .cta-band h2 {
+  margin-top: 0;
+}
+.rs-prose .cta-band p {
+  margin-bottom: 0;
+  max-width: 38rem;
+}
+/* 404 */
+.rs-notfound {
+  text-align: center;
+  padding: 2rem 0;
+}
+/* ---------- display type + wallpaper ---------- */
+
+/* Samarkan has one weight: no synthetic bold, no tracking. Unlayered so it beats utility classes. */
+.rs-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0;
+}
+
+.rs-wall {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+.rs-wall[data-ready="true"] {
+  opacity: 1;
+}
+.rs-wall-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 60% at 68% 55%, rgb(142 168 196 / 0.1), transparent 70%),
+    radial-gradient(40% 45% at 92% 12%, rgb(154 148 184 / 0.08), transparent 70%),
+    linear-gradient(160deg, #0f1620, #0a0e13 60%);
+}
+.rs-scene {
+  position: absolute;
+  inset: 0;
+}
+.rs-stage {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: scale(var(--k, 1)) rotateX(58deg) rotateZ(45deg);
+}
+.rs-floor {
+  position: absolute;
+  left: -1200px;
+  top: -1200px;
+  width: 2400px;
+  height: 2400px;
+  overflow: hidden;
+  background:
+    linear-gradient(rgb(142 168 196 / 0.09) 2px, transparent 2px) 0 0 / 96px 96px,
+    linear-gradient(90deg, rgb(142 168 196 / 0.09) 2px, transparent 2px) 0 0 / 96px 96px,
+    #0c121a;
+  -webkit-mask: radial-gradient(closest-side, #000 30%, transparent 100%);
+  mask: radial-gradient(closest-side, #000 30%, transparent 100%);
+}
+.rs-code {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  font: 500 17px/26px var(--font-mono);
+  white-space: pre;
+  color: #4f6178;
+  opacity: 0.8;
+  animation: rs-roll 160s linear infinite;
+}
+@keyframes rs-roll {
+  to {
+    transform: translateY(-50%);
+  }
+}
+.rs-code i {
+  font-style: normal;
+}
+.rs-code .k { color: #9a94b8; }
+.rs-code .s { color: #8fae96; }
+.rs-code .n { color: #c0a070; }
+.rs-code .c { color: #3c4a5c; }
+.rs-code .f { color: #8ea8c4; }
+.rs-floor svg {
+  position: absolute;
+  inset: 0;
+}
+.rs-cube {
+  position: absolute;
+  left: -56px;
+  top: -56px;
+  width: 112px;
+  height: 112px;
+  transform-style: preserve-3d;
+}
+.rs-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--m);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--n) 60%, transparent),
+    0 0 10px color-mix(in srgb, var(--n) 18%, transparent);
+}
+.rs-face::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--sh);
+}
+.rs-face > * {
+  position: relative;
+}
+.rs-fp { transform: rotateX(90deg) translateZ(56px); --sh: linear-gradient(135deg, rgb(255 255 255 / 0.1), transparent 55%); }
+.rs-ft { transform: translateZ(56px); --sh: rgb(0 0 0 / 0.22); }
+.rs-fr { transform: rotateY(90deg) translateZ(56px); --sh: rgb(0 0 0 / 0.45); }
+.rs-ltr {
+  font-family: var(--font-display);
+  font-size: 76px;
+  line-height: 1;
+  color: #e6ebf1;
+}
+.rs-ic {
+  width: 54%;
+  height: 54%;
+  fill: none;
+  color: var(--n);
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rs-tag {
+  position: absolute;
+  left: 10px;
+  bottom: 9px;
+  font: 500 13px var(--font-mono);
+  color: var(--n);
+}
+.rs-m1 { --n: #6f9c98; --m: radial-gradient(circle, #6f9c98 0 1.5px, transparent 2.5px) 0 0 / 24px 24px, linear-gradient(145deg, #27403f, #16262a); }
+.rs-m2 { --n: #8e8fa3; --m: repeating-linear-gradient(45deg, #171c23 0 3px, #222933 3px 6px); }
+.rs-m3 { --n: #9a94b8; --m: linear-gradient(145deg, #322f46, #1d1b2b); }
+.rs-m4 { --n: #7e9a86; --m: linear-gradient(160deg, #18222a, #0c1116); }
+.rs-m5 { --n: #c0a070; --m: linear-gradient(135deg, #5a4130, #33241a); }
+.rs-m6 { --n: #8ea8c4; --m: linear-gradient(135deg, #3a4b5e, #27343f); }
+.rs-m7 { --n: #6fa0b4; --m: linear-gradient(145deg, #21424d, #122a33); }
+.rs-m8 { --n: #c9a56a; --m: radial-gradient(circle, rgb(201 165 106 / 0.7) 0 2px, transparent 2.6px) 0 0 / 10px 10px, linear-gradient(145deg, #4a3524, #261a11); }
+.rs-m9 { --n: #a8b4c2; --m: linear-gradient(145deg, #454e5a, #2b323b); }
+
+/* ---------- score card (the content of the floating score-card.json window) ---------- */
+.rs-card-grade {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  font-size: 3.25rem;
+  line-height: 1;
+  color: var(--color-signal);
+}
+.rs-card-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-line-soft);
+  overflow: hidden;
+}
+.rs-card-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--color-signal);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-code {
+    animation: none;
+  }
+  .rs-wall {
+    transition: none;
+  }
+}
+
+/* ---------- client-ready PDF audit (window.print) ----------
+   #rs-print-root is portalled to <body> by AuditExport. Hidden on screen; when
+   printing it is the only thing shown, so no app chrome ends up in the PDF. */
+#rs-print-root {
+  display: none;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body > *:not(#rs-print-root) {
+    display: none !important;
+  }
+  #rs-print-root {
+    display: block !important;
+    font-family: var(--font-sans);
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #000;
+  }
+  #rs-print-root * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    box-shadow: none !important;
+  }
+}

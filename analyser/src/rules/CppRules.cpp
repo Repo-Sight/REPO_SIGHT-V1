@@ -100,7 +100,15 @@ std::vector<Violation> checkCppRules(const std::string& path, const std::vector<
         const Token& tok = tokens[i];
  
         // cpp-raw-new-delete
-        if (tok.type == TokenType::KEYWORD && (tok.value == "new" || tok.value == "delete")) {
+        // `Foo(const Foo&) = delete;` is a deleted-function declaration and
+        // `operator new/delete` names an allocator function: neither is a raw
+        // allocation expression.
+        const bool deletedFunction = tok.value == "delete" && i > 0 &&
+            tokens[i - 1].type == TokenType::OPERATOR && tokens[i - 1].value == "=";
+        const bool operatorName = i > 0 && tokens[i - 1].type == TokenType::KEYWORD &&
+            tokens[i - 1].value == "operator";
+        if (tok.type == TokenType::KEYWORD && (tok.value == "new" || tok.value == "delete") &&
+            !deletedFunction && !operatorName) {
             out.push_back(makeViolation(path, tok.line, "cpp-raw-new-delete",
                 "Raw '" + tok.value + "' found -- prefer std::make_unique/std::make_shared or an RAII container",
                 "info"));
