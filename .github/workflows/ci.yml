@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main, Version2]
+    branches: [main, Version2, Version3]
   pull_request:
-    branches: [main, Version2]
-
+    branches: [main, Version2, Version3]
+    
 jobs:
   analyser:
     runs-on: ubuntu-latest
