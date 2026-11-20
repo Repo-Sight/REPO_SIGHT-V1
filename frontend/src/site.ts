@@ -7,3 +7,7 @@ export const SITE = {
   adClient: "ca-pub-9503894064247817",
   consentKey: "rs-cookie-consent",
 } as const;
+
+/** The single fixed-fee "Supported by" placement rendered by SponsorSlot. Null = slot shows the open card. */
+export type Sponsor = { name: string; url: string; logo?: string; blurb?: string };
+export const SPONSOR: Sponsor | null = null;
