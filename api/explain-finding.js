@@ -48,8 +48,12 @@ const MAX_FILE_BYTES = 2 * 1024 * 1024; // guard against being pointed at a huge
 // over time -- check ai.google.dev for the current recommended free Flash
 // model when setting GEMINI_API_KEY up, and override via GEMINI_MODEL if
 // the default below has since been retired.
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
-
+//
+// 2026-11: gemini-2.5-flash returns 404 "no longer available to new users" and is
+// scheduled for retirement on 1 Dec 2026. Google's current advice for new projects is
+// 3.5 Flash-Lite or 3.8 Flash; Flash-Lite is the cheapest fit for a 120-word answer.
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
+ 
 class ExplainTimeoutError extends Error {}
 class UpstreamFetchError extends Error {}
 
@@ -160,7 +164,10 @@ Reply in at most 120 words, plain text, no markdown headers:
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 400, temperature: 0.2 },
+         // No temperature: it is deprecated and ignored on Gemini 3.5 Flash-Lite and later, and
+        // Google says future models will reject it with HTTP 400. The headroom over the
+        // 120-word answer covers any thinking tokens, which count toward the output limit.
+        generationConfig: { maxOutputTokens: 1024 },
       }),
     });
   } catch (err) {
