@@ -47,6 +47,7 @@ let ghCalls = [];                   // every request that reached "GitHub"
 let rawCalls = [];                  // requests to raw.githubusercontent.com
 let removedKeys = [];               // keys removed via Storage DELETE
 let userScanRows = [];              // what GET user_scans returns
+let eventRows = [];                 // rows POSTed to the Phase 0 events table
 let ghMeta = { status: 200, body: { private: true, default_branch: "trunk" }, headers: {} };
 let server;
 let tarballGz;
@@ -102,6 +103,11 @@ function fakeSupabase() {
             ? (res.writeHead(200, { "content-type": "application/json" }), res.end(stored.get(key)))
             : send(404, { statusCode: "404", error: "not_found", message: "Object not found" });
         }
+      }
+       if (url.pathname === "/rest/v1/events" && req.method === "POST") {
+        const parsed = JSON.parse(body || "{}");
+        eventRows.push(...(Array.isArray(parsed) ? parsed : [parsed]));
+        return send(201);
       }
       if (url.pathname === "/rest/v1/user_scans") {
         if (req.method === "GET") return send(200, userScanRows);
@@ -172,6 +178,7 @@ const reset = () => {
   rawCalls = [];
   removedKeys = [];
   userScanRows = [];
+  eventRows = [];
   stored.clear();
   ghMeta = { status: 200, body: { private: true, default_branch: "trunk" }, headers: {} };
 };
@@ -380,6 +387,28 @@ test("a signed-in token scan of a PUBLIC repo is recorded public, not private", 
   const payload = JSON.parse(stored.get(`${res.body.scanId}.json`));
   assert.equal(payload.visibility, "public");
   assert.equal("ownerId" in payload, false);
+});
+test("scan_completed is recorded per scan; private repo names never reach the events table", async () => {
+  reset();
+  const pub = await analyze({ repoUrl: "https://github.com/acme/public-repo" });
+  assert.equal(pub.statusCode, 200, JSON.stringify(pub.body));
+  assert.equal(eventRows.length, 1);
+  assert.equal(eventRows[0].name, "scan_completed");
+  assert.equal(eventRows[0].repo_key, "acme/public-repo");
+  assert.equal(eventRows[0].user_id, null);
+  assert.deepEqual(eventRows[0].meta, { kind: "repo", visibility: "public" });
+
+  reset();
+  const priv = await analyze(
+    { repoUrl: "https://github.com/acme/secret-repo" },
+    { "x-github-token": OWNER_GH_TOKEN, authorization: `Bearer ${OWNER_SESSION}` }
+  );
+  assert.equal(priv.statusCode, 200, JSON.stringify(priv.body));
+  assert.equal(eventRows.length, 1);
+  assert.equal(eventRows[0].repo_key, null);
+  assert.equal(eventRows[0].user_id, "user-owner");
+  assert.deepEqual(eventRows[0].meta, { kind: "repo", visibility: "private" });
+  assert.ok(!JSON.stringify(eventRows).includes("secret-repo"), "private repo name must not be stored in events");
 });
 
 // ------------------------------------------- shared-bucket / history / AI guard
