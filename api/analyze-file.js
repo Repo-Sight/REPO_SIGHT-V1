@@ -21,6 +21,7 @@ import { mkdir, readFile, rm, readdir, stat, writeFile } from "node:fs/promises"
 import { join, basename } from "node:path";
 import { randomUUID } from "node:crypto";
 import { getSupabase, getUserFromRequest, recordUserScan } from "./_lib/supabase.js";
+import { recordEvent, repoKey } from "./_lib/events.js";
 import { enrichReport } from "./_lib/enrich.js";
 
 const execFileAsync = promisify(execFile);
@@ -166,6 +167,8 @@ async function runPipeline({ filePath, reportPath, scanId, supabase, displayName
       console.error("recordUserScan failed (scan itself still succeeded):", historyErr);
     }
   }
+  // Phase 0 baseline event. Never throws. Single-file scans carry no repo key.
+  await recordEvent(supabase, { name: "scan_completed", userId: user?.id ?? null, meta: { kind: "file" } });
 
   return { status: 200, body: { scanId } };
 }
