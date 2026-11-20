@@ -7,6 +7,7 @@ import { describeEntries, describeEntry, groupUnanalyzed } from "../lib/unanalyz
 import { useAuth } from "../lib/authContext";
 import { computeScanDelta, type ScanDelta } from "../lib/delta";
 import { findPreviousScanId } from "../lib/history";
+import { trackBadgeCopied } from "../lib/events";
 import {
   SCORE_COMPONENTS,
   TIERS,
@@ -184,6 +185,7 @@ function SharePanel({ report }: { report: ScanReport }) {
   async function copy(kind: "md" | "link", text: string) {
     try {
       await navigator.clipboard.writeText(text);
+      if (kind === "md") trackBadgeCopied(id);
       setCopied(kind);
       window.setTimeout(() => setCopied(null), 2000);
     } catch {
