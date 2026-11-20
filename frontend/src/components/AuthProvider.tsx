@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { AuthContext, type AuthMode, type AuthState, type AuthUser } from "../lib/authContext";
 import { getSupabase, mightHaveSession } from "../lib/supabase";
 import { requestWelcomeEmail } from "../lib/welcome";
+import { trackSignIn } from "../lib/events";
 import { AccountModal } from "./AccountModal";
 import { SignOutConfirm } from "./SignOutConfirm";
 
@@ -93,6 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(toUser(data.session));
         // Brand-new account only: the server decides whether the one-time welcome email is due.
         if (data.session && isNewAccount(data.session)) requestWelcomeEmail(data.session.access_token, data.session.user.id);
+        // An intent marker exists only right after the GitHub redirect, so this counts real sign-ins, not restored sessions.
+        if (data.session && intent) trackSignIn(data.session.access_token);
         const intent = data.session ? takeIntent() : null;
         const note = data.session && intent ? welcomeNote(intent, isNewAccount(data.session)) : null;
         if (note) {
