@@ -10,7 +10,7 @@ The analyser has 98 rules across the six languages (45 are security-specific). T
 Repository layout
 Path	What it holds
 `analyser/`	C++ engine: lexers, parsers, rules, metrics, report generation, unit tests
-`api/`	Vercel serverless endpoints (`analyze`, `analyze-file`, `analyze-diff`, `rules`, `scans`, `badge`, `explain-finding`, `feedback`, `keepalive`)
+`api/`	Vercel serverless endpoints (`analyze`, `analyze-file`, `analyze-diff`, `rules`, `scans`, `badge`, `explain-finding`, `feedback`, `keepalive`, `welcome`, `event`); shared code lives in `api/_lib/` (not counted as functions)
 `backend/bin/`	Prebuilt Linux x64 analyser binary used in production
 `frontend/`	React + Vite + Tailwind app, prerendered to static HTML with `vite-react-ssg`
 `scripts/`	API, badge, audit and diff tests; analyser binary drift check; non-deployed fixtures in `scripts/fixtures/`
