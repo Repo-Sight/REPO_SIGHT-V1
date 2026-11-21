@@ -32,6 +32,7 @@ import analyzeHandler from "../api/analyze.js";
 import { fetchFileSnippet } from "../api/explain-finding.js";
 import { recordUserScan } from "../api/_lib/supabase.js";
 import scanHandler, { canViewScan } from "../api/scans/[scanId].js";
+import { handleBadge } from "../api/badge/[scanId].js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -48,6 +49,7 @@ let rawCalls = [];                  // requests to raw.githubusercontent.com
 let removedKeys = [];               // keys removed via Storage DELETE
 let userScanRows = [];              // what GET user_scans returns
 let eventRows = [];                 // rows POSTed to the Phase 0 events table
+const repoLatestRows = new Map();   // repo_key -> row (fake public.repo_latest)
 let ghMeta = { status: 200, body: { private: true, default_branch: "trunk" }, headers: {} };
 let server;
 let tarballGz;
@@ -104,6 +106,15 @@ function fakeSupabase() {
             : send(404, { statusCode: "404", error: "not_found", message: "Object not found" });
         }
       }
+            if (url.pathname === "/rest/v1/repo_latest") {
+        if (req.method === "POST") {
+          const row = JSON.parse(body || "{}");
+          repoLatestRows.set(row.repo_key, { removed: false, ...repoLatestRows.get(row.repo_key), ...row });
+          return send(201);
+        }
+        const key = (url.searchParams.get("repo_key") || "").replace(/^eq\./, "");
+        return send(200, repoLatestRows.has(key) ? [repoLatestRows.get(key)] : []);
+      }
        if (url.pathname === "/rest/v1/events" && req.method === "POST") {
         const parsed = JSON.parse(body || "{}");
         eventRows.push(...(Array.isArray(parsed) ? parsed : [parsed]));
@@ -145,6 +156,7 @@ function mockRes() {
   r.status = c => { r.statusCode = c; return r; };
   r.json = b => { r.body = b; return r; };
   r.setHeader = (k, v) => { r.headers[k.toLowerCase()] = v; };
+  r.send = b => { r.body = b; return r; };
   return r;
 }
 
@@ -179,6 +191,7 @@ const reset = () => {
   removedKeys = [];
   userScanRows = [];
   eventRows = [];
+  repoLatestRows.clear();
   stored.clear();
   ghMeta = { status: 200, body: { private: true, default_branch: "trunk" }, headers: {} };
 };
@@ -409,6 +422,50 @@ test("scan_completed is recorded per scan; private repo names never reach the ev
   assert.equal(eventRows[0].user_id, "user-owner");
   assert.deepEqual(eventRows[0].meta, { kind: "repo", visibility: "private" });
   assert.ok(!JSON.stringify(eventRows).includes("secret-repo"), "private repo name must not be stored in events");
+});
+test("live badge and scorecard follow the latest PUBLIC scan; private repos never get a pointer", async () => {
+  reset();
+  const pub = await analyze({ repoUrl: "https://github.com/acme/public-repo" });
+  assert.equal(pub.statusCode, 200, JSON.stringify(pub.body));
+  const row = repoLatestRows.get("acme/public-repo");
+  assert.ok(row, "public scan should write a repo_latest pointer");
+  assert.equal(row.scan_id, pub.body.scanId);
+  assert.match(row.health_grade, /^[A-F]$/);
+
+  // Scorecard: /api/scans/latest resolves to that scan's report.
+  const latestRes = mockRes();
+  await scanHandler({ method: "GET", query: { scanId: "latest", owner: "Acme", repo: "Public-Repo" }, headers: {} }, latestRes);
+  assert.equal(latestRes.statusCode, 200);
+  assert.equal(latestRes.body.visibility, "public");
+  assert.equal(latestRes.body.repoName, "public-repo");
+
+  // Badge: graded, dated, repo-addressed, ".svg" tolerated.
+  const badgeRes = mockRes();
+  await handleBadge({ method: "GET", query: { scanId: "by-repo", owner: "acme", repo: "public-repo.svg" }, headers: {} }, badgeRes);
+  assert.equal(badgeRes.statusCode, 200);
+  assert.ok(badgeRes.body.includes(`${row.health_grade} \u00b7 ${Math.round(row.health_score)} \u00b7 ${new Date().toISOString().slice(0, 10)}`), badgeRes.body.slice(0, 200));
+  assert.match(badgeRes.headers["cache-control"], /s-maxage=300/);
+
+  // Takedown: removed = true hides both.
+  repoLatestRows.get("acme/public-repo").removed = true;
+  const hidden = mockRes();
+  await handleBadge({ method: "GET", query: { scanId: "by-repo", owner: "acme", repo: "public-repo" }, headers: {} }, hidden);
+  assert.ok(hidden.body.includes("not scanned"));
+  const hiddenScan = mockRes();
+  await scanHandler({ method: "GET", query: { scanId: "latest", owner: "acme", repo: "public-repo" }, headers: {} }, hiddenScan);
+  assert.equal(hiddenScan.body.errorMessage, "Scan not found.");
+
+  // Private repo: no pointer, and nothing to look up.
+  reset();
+  const priv = await analyze(
+    { repoUrl: "https://github.com/acme/secret-repo" },
+    { "x-github-token": OWNER_GH_TOKEN, authorization: `Bearer ${OWNER_SESSION}` }
+  );
+  assert.equal(priv.statusCode, 200, JSON.stringify(priv.body));
+  assert.equal(repoLatestRows.size, 0);
+  const none = mockRes();
+  await scanHandler({ method: "GET", query: { scanId: "latest", owner: "acme", repo: "secret-repo" }, headers: {} }, none);
+  assert.equal(none.body.errorMessage, "Scan not found.");
 });
 
 // ------------------------------------------- shared-bucket / history / AI guard
