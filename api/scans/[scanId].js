@@ -15,6 +15,7 @@
 
 import { getSupabase, getUserFromRequest } from "../_lib/supabase.js";
 import { enrichReport } from "../_lib/enrich.js";
+import { getRepoLatest, parseRepoParams } from "../_lib/repoLatest.js";
 // analyze.js only ever names scan objects with crypto.randomUUID() (v4).
 // Validating that shape here means this endpoint can only ever look up
 // keys that our own analyze step could have created -- it can't be used
@@ -39,19 +40,32 @@ export default async function handler(req, res) {
     res.status(400).json({ status: "FAILED", errorMessage: "Missing scan id." });
     return;
   }
-  if (!SCAN_ID_RE.test(scanId)) {
+    // GET /api/scans/latest?owner=<o>&repo=<r> (the repo scorecard): resolves to the latest PUBLIC
+  // scan of that repo, then goes through exactly the same checks below.
+  const wantsLatest = scanId === "latest";
+  if (!wantsLatest && !SCAN_ID_RE.test(scanId)) {
     res.status(400).json({ status: "FAILED", errorMessage: "Invalid scan id." });
     return;
   }
 
   try {
     const supabase = getSupabase();
+        let id = scanId;
+    if (wantsLatest) {
+      const key = parseRepoParams(req.query?.owner, req.query?.repo);
+      const latest = key ? await getRepoLatest(supabase, key) : null;
+      if (!latest) {
+        res.status(200).json({ status: "FAILED", errorMessage: "Scan not found." });
+        return;
+      }
+      id = latest.scan_id;
+    }
     // Public/legacy scans sit at the bucket root; owner-only scans of private
     // repos sit under "private/" (see api/analyze.js). Both go through the
     // same canViewScan() gate below.
-    let { data, error } = await supabase.storage.from("scans").download(`${scanId}.json`);
+     let { data, error } = await supabase.storage.from("scans").download(`${id}.json`);
     if (error || !data) {
-      ({ data, error } = await supabase.storage.from("scans").download(`private/${scanId}.json`));
+      ({ data, error } = await supabase.storage.from("scans").download(`private/${id}.json`));
     }
     if (error || !data) {
       res.status(200).json({ status: "FAILED", errorMessage: "Scan not found." });
@@ -74,6 +88,7 @@ export default async function handler(req, res) {
     // Scans stored before schema v3 have no tier/confidence/fixFirst;
     // derive them on read (idempotent -- v3 scans pass through untouched).
     enrichReport(payload);
+    if (wantsLatest) res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60");
     res.status(200).json(payload);
   } catch (err) {
     console.error("Scan fetch error:", err);
