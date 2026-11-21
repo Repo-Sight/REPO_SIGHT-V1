@@ -18,6 +18,10 @@ export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 
 const SCAN_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const isScanId = (v: string | null | undefined): v is string => !!v && SCAN_ID_RE.test(v);
+// "owner/name", same shape the API accepts for /api/scans/latest (GitHub owner and repo name rules).
+const REPO_KEY_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9._-]{1,100}$/;
+export const isRepoKey = (v: string | null | undefined): v is string =>
+  !!v && REPO_KEY_RE.test(v) && !["/.", "/.."].some((bad) => v.endsWith(bad));
 
 async function readJson(res: Response): Promise<Record<string, unknown>> {
   try {
@@ -62,10 +66,18 @@ export const analyzeFile = (filename: string, content: string) =>
   postForScanId("/api/analyze-file", { filename, content });
 
 /** GET /api/scans/:id. The endpoint returns HTTP 200 with status FAILED for missing/forbidden scans. */
-export async function fetchScan(scanId: string): Promise<ScanReport> {
+export const fetchScan = (scanId: string): Promise<ScanReport> => fetchReport(`/api/scans/${encodeURIComponent(scanId)}`);
+
+/** GET /api/scans/latest?owner=&repo=: the latest PUBLIC scan of a repo ("owner/name"), the scorecard behind the live badge. */
+export function fetchLatestScan(repo: string): Promise<ScanReport> {
+  const [owner = "", name = ""] = repo.split("/");
+  return fetchReport(`/api/scans/latest?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(name)}`);
+}
+
+async function fetchReport(path: string): Promise<ScanReport> {
   let res: Response;
   try {
-    res = await fetch(`/api/scans/${encodeURIComponent(scanId)}`, { headers: await authHeaders() });
+    res = await fetch(path, { headers: await authHeaders() });
   } catch {
     throw new ApiError("Could not reach REPO-SIGHT. Check your connection and try again.", 0);
   }
