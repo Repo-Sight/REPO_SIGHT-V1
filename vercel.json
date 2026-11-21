@@ -16,6 +16,12 @@
       "permanent": true
     }
   ],
+    "rewrites": [
+    {
+      "source": "/badge/gh/:owner/:repo",
+      "destination": "/api/badge/by-repo?owner=:owner&repo=:repo"
+    }
+  ],
   "crons": [
     {
       "path": "/api/keepalive",
