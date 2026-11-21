@@ -30,7 +30,7 @@ function WindowContentImpl({ spec, focused }: { spec: AppSpec; focused: boolean 
       body = (
         <div className="space-y-10">
           {/* Reports are per-scan pages: kept out of the index by the route's <Seo robots="noindex">. */}
-          <ReportView scanId={spec.scanId ?? ""} onNewScan={newScan} />
+       <ReportView scanId={spec.scanId ?? ""} repo={spec.repo} onNewScan={newScan} />
         </div>
       );
       break;
