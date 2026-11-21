@@ -1,6 +1,8 @@
 // api/badge/[scanId].js
 //
-// GET /api/badge/:scanId[.svg]
+// GET /api/badge/:scanId[.svg]          one stored scan (never changes)
+// GET /badge/gh/:owner/:repo[.svg]      live: follows the latest public scan of the repo
+//                                       (vercel.json rewrites it to /api/badge/by-repo?owner=&repo=)
 //
 // Flat "code health | A · 92" SVG for a README. Reads the same stored scan as
 // api/scans/[scanId].js, but ONLY ever reveals grade + score of PUBLIC scans.
@@ -11,7 +13,7 @@
 // Colour never carries the meaning alone: the grade letter and score are text.
 
 import { getSupabase } from "../_lib/supabase.js";
-
+import { getRepoLatest, parseRepoParams } from "../_lib/repoLatest.js";
 const SCAN_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const GRADE_COLORS = { A: "#4c1", B: "#97ca00", C: "#dfb317", D: "#fe7d37", F: "#e05d44" };
@@ -34,6 +36,19 @@ export function badgeModel(payload) {
 
 function unavailable() {
   return { value: "unavailable", color: GREY };
+}
+// Pure: the live per-repo badge. Shows the scan date so a stale score is never passed off as
+// current. Unknown, removed and malformed rows all render "not scanned" (public repo names are
+// not secret; private repos never have a row).
+export function repoBadgeModel(row) {
+  const grade = String(row?.health_grade ?? "").toUpperCase();
+  const score = Number(row?.health_score);
+  const when = new Date(row?.scanned_at);
+  if (!GRADE_COLORS[grade] || !Number.isFinite(score) || Number.isNaN(when.getTime())) {
+    return { value: "not scanned", color: GREY };
+  }
+  const day = when.toISOString().slice(0, 10);
+  return { value: `${grade} \u00b7 ${Math.round(score)} \u00b7 ${day}`, color: GRADE_COLORS[grade] };
 }
 
 // Pure: shields-style flat badge. ~6.6px per char at Verdana 11px is close
@@ -73,12 +88,38 @@ function send(res, status, svg, cache) {
   res.status(status).send(svg);
 }
 
-export default async function handler(req, res) {
+const BY_REPO = "by-repo";
+
+export async function handleBadge(req, res, deps = {}) {
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.setHeader("Allow", "GET, HEAD");
     res.status(405).json({ error: "Method not allowed. Use GET." });
     return;
   }
+  const rawId = String(Array.isArray(req.query?.scanId) ? req.query.scanId[0] : req.query?.scanId ?? "");
+  if (rawId.replace(/\.svg$/i, "") === BY_REPO) {
+    const key = parseRepoParams(req.query?.owner, req.query?.repo, { stripSvg: true });
+    if (!key) {
+      send(res, 400, renderBadge(LABEL, "invalid repo", GREY), "public, max-age=60");
+      return;
+    }
+    let model = { value: "not scanned", color: GREY };
+    let cache = "public, max-age=60, s-maxage=60";
+    try {
+      const supabase = deps.supabase ?? getSupabase();
+      const row = await getRepoLatest(supabase, key);
+      if (row) {
+        model = repoBadgeModel(row);
+        // Live, but a README badge does not need second-level freshness.
+        if (model.color !== GREY) cache = "public, max-age=300, s-maxage=300, stale-while-revalidate=3600";
+      }
+    } catch (err) {
+      console.error("Repo badge error:", err?.message || err);
+    }
+    send(res, 200, renderBadge(LABEL, model.value, model.color), cache);
+    return;
+  }
+
 
   const id = parseBadgeId(req.query?.scanId);
   if (!id) {
@@ -89,7 +130,7 @@ export default async function handler(req, res) {
   let model = unavailable();
   let cache = "public, max-age=60, s-maxage=60";
   try {
-    const supabase = getSupabase();
+    const supabase = deps.supabase ?? getSupabase();
     // Private scans live under "private/": deliberately never looked up here.
     const { data, error } = await supabase.storage.from("scans").download(`${id}.json`);
     if (!error && data) {
@@ -101,4 +142,8 @@ export default async function handler(req, res) {
     console.error("Badge fetch error:", err?.message || err);
   }
   send(res, 200, renderBadge(LABEL, model.value, model.color), cache);
+}
+
+export default function handler(req, res) {
+  return handleBadge(req, res);
 }
