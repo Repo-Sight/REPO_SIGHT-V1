@@ -23,6 +23,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { getSupabase, getUserFromRequest, recordUserScan } from "./_lib/supabase.js";
 import { recordEvent, repoKey } from "./_lib/events.js";
+import { recordRepoLatest } from "./_lib/repoLatest.js";
 import {
   parseGithubUrl,
   readGithubToken,
@@ -218,6 +219,12 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
       console.error("recordUserScan failed (scan itself still succeeded):", historyErr);
     }
   }
+  // Live badge / scorecard pointer: PUBLIC repos only, default branch (that is all a public scan reads).
+  // Never throws.
+  if (!isPrivate) {
+    await recordRepoLatest(supabase, { repo: repoKey(parsed.owner, parsed.repo), scanId, payload });
+  }
+
   // Phase 0 baseline event. Never throws. The repo name is stored for PUBLIC repos only.
   await recordEvent(supabase, {
     name: "scan_completed",
