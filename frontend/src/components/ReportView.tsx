@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ApiError, explainFinding, fetchScan } from "../lib/api";
-import { AuditExport } from "./AuditExport";
+import { ApiError, explainFinding, fetchLatestScan, fetchScan } from "../lib/api";
 import { LanguageBar, formatShare, languageShade, sortLanguages } from "./LanguageBar";
 import { SITE } from "../site";
 import { describeEntries, describeEntry, groupUnanalyzed } from "../lib/unanalyzed";
@@ -70,14 +69,14 @@ type LoadState =
   | { kind: "error"; message: string }
   | { kind: "ready"; report: ScanReport };
 
-export function ReportView({ scanId, onNewScan }: { scanId: string; onNewScan: () => void }) {
+export function ReportView({ scanId, repo, onNewScan }: { scanId: string; repo?: string; onNewScan: () => void }) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
 
   useEffect(() => {
     let cancelled = false;
     setState({ kind: "loading" });
-    fetchScan(scanId)
-      .then((report) => !cancelled && setState({ kind: "ready", report }))
+    (repo ? fetchLatestScan(repo) : fetchScan(scanId))
+    .then((report) => !cancelled && setState({ kind: "ready", report }))
       .catch((err: unknown) => {
         if (cancelled) return;
         setState({ kind: "error", message: err instanceof ApiError ? err.message : "Could not load this report." });
@@ -85,8 +84,8 @@ export function ReportView({ scanId, onNewScan }: { scanId: string; onNewScan: (
     return () => {
       cancelled = true;
     };
-  }, [scanId]);
-
+    }, [scanId, repo]);
+  
   if (state.kind === "loading") {
     return (
       <p role="status" className="font-mono text-sm">
@@ -178,8 +177,12 @@ function SharePanel({ report }: { report: ScanReport }) {
   if (report.visibility === "private" || !SCAN_UUID_RE.test(report.scanId)) return null;
 
   const id = report.scanId;
-  const badgeUrl = `${SITE.url}/api/badge/${id}.svg`;
-  const reportUrl = `${SITE.url}/?scan=${id}`;
+  // A repo scan gets the LIVE badge (follows the latest public scan of the repo) and a stable scorecard link;
+  // a single-file scan has no repo, so it keeps the fixed per-scan badge.
+  const repoPath = report.repoOwner && report.repoName ? `${report.repoOwner}/${report.repoName}` : null;
+  const badgeSrc = repoPath ? `/badge/gh/${repoPath}.svg` : `/api/badge/${id}.svg`;
+  const badgeUrl = `${SITE.url}${badgeSrc}`;
+  const reportUrl = repoPath ? `${SITE.url}/?repo=${repoPath}` : `${SITE.url}/?scan=${id}`;
   const markdown = `[![Code Health](${badgeUrl})](${reportUrl})`;
 
   async function copy(kind: "md" | "link", text: string) {
@@ -205,7 +208,7 @@ function SharePanel({ report }: { report: ScanReport }) {
       </button>
       {open ? (
         <div className="mt-3 space-y-3">
-          <img src={`/api/badge/${id}.svg`} alt="Code health badge preview" height={20} className="block h-5" />
+          <img src={badgeSrc} alt="Code health badge preview" height={20} className="block h-5" />
           <label className="block font-mono text-xs font-bold" htmlFor="rs-badge-md">
             README markdown
           </label>
@@ -225,9 +228,20 @@ function SharePanel({ report }: { report: ScanReport }) {
               {copied === "link" ? "Copied" : "Copy report link"}
             </button>
           </div>
-          <p className="font-mono text-xs text-ink/70">
-            Anyone with the link can open this report. The badge shows grade and score only.
-          </p>
+          +          {repoPath ? (
+            <p className="font-mono text-xs text-ink/70">
+              The badge follows the latest public scan of this repo, so it updates whenever anyone rescans it, and it shows the scan
+              date. It shows grade and score only; the link opens the scorecard. Want it taken down?{" "}
+              <a href="/contact.html" className="underline">
+                Contact us
+              </a>
+              .
+            </p>
+          ) : (
+            <p className="font-mono text-xs text-ink/70">
+              Anyone with the link can open this report. The badge shows grade and score only.
+            </p>
+          )}
         </div>
       ) : null}
     </div>
