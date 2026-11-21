@@ -1,6 +1,5 @@
 import { pages, type PageEntry } from "../content/content";
-import { isScanId } from "./api";
-
+import { isRepoKey, isScanId } from "./api";
 /**
  * The "apps" of the desktop. Every URL on the site maps to exactly one app, and
  * an app is what lives inside a window. The id is the window's identity: opening
@@ -18,6 +17,8 @@ export interface AppSpec {
   url: string;
   entry?: PageEntry;
   scanId?: string;
+  /** "owner/name" for the live repo scorecard (?repo=owner/name): the latest public scan of that repo. */
+  repo?: string;
 }
 
 const byPath = new Map(pages.map((p) => [p.path, p]));
@@ -45,6 +46,11 @@ export function resolveApp(pathname: string, search: string): AppSpec {
     if (isScanId(scan)) {
       const id = `/?scan=${encodeURIComponent(scan)}`;
       return { id, kind: "report", title: "report.json", url: id, scanId: scan };
+    }
+        const repo = params.get("repo");
+    if (isRepoKey(repo)) {
+      const id = `/?repo=${repo.split("/").map(encodeURIComponent).join("/")}`;
+      return { id, kind: "report", title: "report.json", url: id, repo };
     }
     if (params.get("demo") === "1") return DEMO_APP;
     return HOME_APP;
