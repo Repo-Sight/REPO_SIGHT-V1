@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ApiError, explainFinding, fetchLatestScan, fetchScan } from "../lib/api";
+import { ApiError, explainFinding, fetchExport, fetchLatestScan, fetchScan, type ExportFormat } from "../lib/api";
 import { AuditExport } from "./AuditExport";
 import { LanguageBar, formatShare, languageShade, sortLanguages } from "./LanguageBar";
 import { SITE } from "../site";
@@ -8,6 +8,7 @@ import { useAuth } from "../lib/authContext";
 import { computeScanDelta, type ScanDelta } from "../lib/delta";
 import { findPreviousScanId } from "../lib/history";
 import { trackBadgeCopied } from "../lib/events";
+import { buildFindingPrompt, buildGroupPrompt } from "../lib/fixPrompt";
 import {
   SCORE_COMPONENTS,
   TIERS,
@@ -133,8 +134,9 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
         </button>
       </div>
 
-       <SharePanel report={report} />
-       <AuditExport report={report} />
+      <SharePanel report={report} />
+      <ExportPanel report={report} />
+      <AuditExport report={report} />
       
       <div role="tablist" aria-label="Report sections" className="rs-tabs">
         {TABS.map((t) => (
@@ -313,7 +315,7 @@ function OverviewTab({ report }: { report: ScanReport }) {
         ) : (
           <ol className="mt-3 space-y-4">
             {fixFirst.map((item) => (
-              <FixFirstCard key={`${item.rank}-${item.title}`} item={item} />
+              <FixFirstCard key={`${item.rank}-${item.title}`} report={report} item={item} />
             ))}
           </ol>
         )}
@@ -485,8 +487,7 @@ function HotspotsCard({ hotspots }: { hotspots: HotspotReport | undefined }) {
   );
 }
 
-function FixFirstCard({ item }: { item: FixFirstItem }) {
-  return (
+function FixFirstCard({ report, item }: { report: ScanReport; item: FixFirstItem }) {  return (
     <li className={`${card} p-4`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-sm font-black">#{item.rank}</span>
@@ -519,6 +520,9 @@ function FixFirstCard({ item }: { item: FixFirstItem }) {
         ) : null}
       </dl>
       {item.caveat ? <p className="mt-2 text-xs italic text-ink/70">{item.caveat}</p> : null}
+      <div className="mt-3">
+        <CopyPromptButton build={() => buildGroupPrompt(report, item)} label="Copy fix prompt for all occurrences" />
+      </div>
       {item.locations.length > 0 ? (
         <ul className="mt-3 space-y-0.5 font-mono text-xs">
           {item.locations.map((l, i) => (
@@ -707,7 +711,7 @@ function FindingList({ report, findings }: { report: ScanReport; findings: Viola
           {/* v.message derives from scanned source; React escapes it, never render as HTML. */}
           <span className="min-w-0 flex-1 basis-full sm:basis-auto">{v.message}</span>
           <div className="basis-full">
-            <ExplainButton report={report} v={v} />
+            <FindingActions report={report} v={v} />
           </div>
         </li>
       ))}
@@ -717,6 +721,100 @@ function FindingList({ report, findings }: { report: ScanReport; findings: Viola
     </ul>
   );
 }
+
+/* -------------------- fix prompts + machine-readable export -------------------- */
+
+/** Copies text the user pastes into their own coding assistant. Built on click, never sent anywhere. */
+function CopyPromptButton({ build, label = "Copy fix prompt" }: { build: () => string; label?: string }) {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(build());
+      setState("copied");
+    } catch {
+      setState("failed");
+    }
+    window.setTimeout(() => setState("idle"), 2000);
+  }
+  return (
+    <>
+      <button
+        type="button"
+        className="rounded-md border border-line bg-white px-2 py-0.5 font-mono text-[11px] font-bold hover:bg-chrome"
+        onClick={() => void copy()}
+      >
+        {state === "copied" ? "Copied" : state === "failed" ? "Copy failed" : label}
+      </button>
+      <span role="status" className="sr-only">
+        {state === "copied" ? "Fix prompt copied to the clipboard" : ""}
+      </span>
+    </>
+  );
+}
+
+/** Per-finding actions: copy a fix prompt (free, in the browser) and, when available, the AI explanation. */
+function FindingActions({ report, v }: { report: ScanReport; v: Violation }) {
+  return (
+    <div className="mt-1 flex flex-wrap items-start gap-2 font-sans">
+      <CopyPromptButton build={() => buildFindingPrompt(report, v)} />
+      <ExplainButton report={report} v={v} />
+    </div>
+  );
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportFileName(report: ScanReport, format: ExportFormat): string {
+  const slug = (report.projectName ?? "scan").toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "scan";
+  return `repo-sight-${slug}-${report.scanId.slice(0, 8)}.${format}`;
+}
+
+function ExportPanel({ report }: { report: ScanReport }) {
+  const [busy, setBusy] = useState<ExportFormat | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // The bundled demo report has no stored scan behind it, so there is nothing to export.
+  if (!SCAN_UUID_RE.test(report.scanId)) return null;
+
+  async function run(format: ExportFormat) {
+    setBusy(format);
+    setError(null);
+    try {
+      saveBlob(await fetchExport(report.scanId, format), exportFileName(report, format));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not export this report.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-line bg-white p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-xs font-bold">Export for tools and coding assistants</span>
+        {(["sarif", "json"] as const).map((f) => (
+          <button key={f} type="button" className="rs-btn rs-btn-ghost" disabled={busy !== null} onClick={() => void run(f)}>
+            {busy === f ? "Preparing…" : f === "sarif" ? "Download SARIF" : "Download JSON"}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 font-mono text-xs text-ink/70">
+        SARIF loads into GitHub code scanning. JSON is the full report with repo-relative paths. Every finding carries a fingerprint that stays
+        the same when its line moves.
+      </p>
+      <div aria-live="polite">{error ? <p className="mt-1 text-xs font-semibold">{error}</p> : null}</div>
+    </div>
+  );
+}
+
 
 /* ---------------------- before/after + AI explanation -------------------- */
 
@@ -920,7 +1018,7 @@ function FindingsTab({ report }: { report: ScanReport }) {
                       {relPath(v.path)}
                       {v.line > 0 ? `:${v.line}` : ""}
                       {varied ? <span className="ml-2 font-sans text-ink/80">{v.message}</span> : null}
-                      <ExplainButton report={report} v={v} />
+                      <FindingActions report={report} v={v} />
                     </li>
                   ))}
                   {g.items.length > GROUP_LOCATIONS ? (
@@ -977,7 +1075,7 @@ function SecurityTab({ report }: { report: ScanReport }) {
                 <li key={`${v.path}-${v.line}-${i}`} className="break-all">
                   {relPath(v.path)}
                   {v.line > 0 ? `:${v.line}` : ""}
-                  <ExplainButton report={report} v={v} />
+                  <FindingActions report={report} v={v} />
                 </li>
               ))}
               {g.items.length > LOCATIONS_PER_RULE ? (
