@@ -15,7 +15,13 @@
 // on read in api/scans/[scanId].js so scans stored before this existed get
 // the same fields without a migration. Idempotent. Never throws: a scan
 // must not fail because ranking failed.
+//
+// Also adds `fp` (stable finding fingerprint, api/_lib/fingerprint.js) to every
+// violation. Additive like the rest, and it does NOT raise schemaVersion: consumers
+// test for the field, and scans enriched before it existed get it on read.
 import { getRule } from "./ruleCatalog.js";
+import { ensureFingerprints } from "./fingerprint.js";
+
 
 export const ENRICHED_SCHEMA_VERSION = 3;
 export const FIX_FIRST_LIMIT = 5;
@@ -62,6 +68,7 @@ export function enrichReport(report) {
 
     // Already enriched (e.g. stored by a newer deploy): leave untouched.
     if (report.schemaVersion >= ENRICHED_SCHEMA_VERSION && Array.isArray(report.fixFirst)) {
+      ensureFingerprints(report.violations);
       return report;
     }
 
@@ -137,7 +144,7 @@ export function enrichReport(report) {
           affectedFiles: files.size,
         };
       });
-
+    ensureFingerprints(violations);
     report.tierCounts = tierCounts;
     report.fixFirst = ranked;
     report.schemaVersion = ENRICHED_SCHEMA_VERSION;
