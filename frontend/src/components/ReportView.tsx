@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, explainFinding, fetchLatestScan, fetchScan } from "../lib/api";
+import { AuditExport } from "./AuditExport";
 import { LanguageBar, formatShare, languageShade, sortLanguages } from "./LanguageBar";
 import { SITE } from "../site";
 import { describeEntries, describeEntry, groupUnanalyzed } from "../lib/unanalyzed";
@@ -228,7 +229,7 @@ function SharePanel({ report }: { report: ScanReport }) {
               {copied === "link" ? "Copied" : "Copy report link"}
             </button>
           </div>
-          +          {repoPath ? (
+            {repoPath ? (
             <p className="font-mono text-xs text-ink/70">
               The badge follows the latest public scan of this repo, so it updates whenever anyone rescans it, and it shows the scan
               date. It shows grade and score only; the link opens the scorecard. Want it taken down?{" "}
