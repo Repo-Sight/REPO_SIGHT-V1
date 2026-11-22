@@ -166,9 +166,9 @@ async function analyze(body, headers) {
   await analyzeHandler(post(body, headers), res);
   return res;
 }
-async function getScan(scanId, headers = {}) {
+async function getScan(scanId, headers = {}, extraQuery = {}) {
   const res = mockRes();
-  await scanHandler({ method: "GET", query: { scanId }, headers }, res);
+  await scanHandler({ method: "GET", query: { scanId, ...extraQuery }, headers }, res);
   return res;
 }
 
@@ -364,6 +364,52 @@ test("PRIVATE scan e2e: owner can read it, everyone else gets 'not found', token
   assert.ok(owner.body.schemaVersion >= 3, "enrichment still applied to private scans");
   assert.equal(owner.headers["cache-control"], "private, no-store");
   assert.equal(anon.headers["cache-control"], "private, no-store");
+});
+test("exports: ?format=sarif|json follow the report's access rule, carry fingerprints, and leak no server paths", async () => {
+  reset();
+  // Private scan: only its owner can export it, in either format.
+  const priv = await analyze(
+    { repoUrl: "https://github.com/acme/secret-repo" },
+    { "x-github-token": OWNER_GH_TOKEN, authorization: `Bearer ${OWNER_SESSION}` }
+  );
+  assert.equal(priv.statusCode, 200, JSON.stringify(priv.body));
+  const privId = priv.body.scanId;
+  for (const format of ["sarif", "json"]) {
+    const anon = await getScan(privId, {}, { format });
+    assert.equal(anon.body.errorMessage, "Scan not found.", `${format}: anonymous`);
+    const other = await getScan(privId, { authorization: `Bearer ${OTHER_SESSION}` }, { format });
+    assert.equal(other.body.errorMessage, "Scan not found.", `${format}: other user`);
+    assert.equal(other.body.runs, undefined);
+  }
+  const ownerSarif = await getScan(privId, { authorization: `Bearer ${OWNER_SESSION}` }, { format: "sarif" });
+  assert.equal(ownerSarif.statusCode, 200);
+  assert.match(ownerSarif.headers["content-type"], /^application\/sarif\+json/);
+  assert.match(ownerSarif.headers["content-disposition"], /^attachment; filename="repo-sight-[0-9a-f-]+\.sarif"$/);
+  assert.equal(ownerSarif.headers["cache-control"], "private, no-store");
+  const sarif = JSON.parse(ownerSarif.body);
+  assert.equal(sarif.version, "2.1.0");
+  assert.ok(sarif.runs[0].results.length >= 1, "the eval() in app.py is reported");
+  assert.ok(sarif.runs[0].results.every((r) => r.partialFingerprints["repoSightFinding/v1"]));
+  assert.ok(!ownerSarif.body.includes("/tmp/scan-"));
+
+  // Public scan: anyone can export; the JSON is the report with relative paths.
+  const pub = await analyze({ repoUrl: "https://github.com/acme/public-repo" });
+  const json = await getScan(pub.body.scanId, {}, { format: "json" });
+  assert.equal(json.statusCode, 200);
+  assert.equal(json.body.status, "COMPLETED");
+  assert.ok(!JSON.stringify(json.body).includes("/tmp/scan-"), "no internal path in the export");
+  assert.ok(json.body.violations.every((v) => typeof v.fp === "string"));
+  assert.match(json.headers["content-disposition"], /\.json"$/);
+
+  // Plain GET is unchanged apart from the additive fp.
+  const plain = await getScan(pub.body.scanId);
+  assert.ok(plain.body.violations.every((v) => typeof v.fp === "string"), "fp added on read");
+  assert.equal(plain.headers["content-disposition"], undefined);
+
+  // Unknown format is rejected before any storage lookup.
+  const bad = await getScan(pub.body.scanId, {}, { format: "xml" });
+  assert.equal(bad.statusCode, 400);
+  assert.equal(bad.body.status, "FAILED");
 });
 
 test("PUBLIC scan without token is unchanged: codeload path, no API call, world-readable", async () => {
