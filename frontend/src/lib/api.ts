@@ -97,6 +97,35 @@ function asReport(data: Record<string, unknown>, status: number): ScanReport {
   return data as unknown as ScanReport;
 }
 
+export type ExportFormat = "sarif" | "json";
+
+/**
+ * GET /api/scans/:id?format=sarif|json as a file body. Same access check as the report itself, so a
+ * private scan exports only for its owner. Failures arrive as HTTP 200 + status FAILED, like fetchScan.
+ */
+export async function fetchExport(scanId: string, format: ExportFormat): Promise<Blob> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/scans/${encodeURIComponent(scanId)}?format=${format}`, { headers: await authHeaders() });
+  } catch {
+    throw new ApiError("Could not reach REPO-SIGHT. Check your connection and try again.", 0);
+  }
+  const text = await res.text();
+  let data: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (parsed && typeof parsed === "object") data = parsed as Record<string, unknown>;
+  } catch {
+    // Not JSON: fall through to the status check below.
+  }
+  if (!res.ok || data.status === "FAILED") {
+    const message =
+      typeof data.errorMessage === "string" && data.errorMessage ? data.errorMessage : "Could not export this report.";
+    throw new ApiError(message, res.status);
+  }
+  return new Blob([text], { type: format === "sarif" ? "application/sarif+json" : "application/json" });
+}
+
 /** The bundled sample report (frontend/public/demo/report.json, built by scripts/build-demo-report.mjs). Static, so it loads instantly and never touches the scan API. */
 export async function fetchDemoReport(): Promise<ScanReport> {
   let res: Response;
