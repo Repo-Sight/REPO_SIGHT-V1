@@ -134,6 +134,7 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
         </button>
       </div>
 
+      <PartialNotice report={report} />
       <SharePanel report={report} />
       <ExportPanel report={report} />
       <AuditExport report={report} />
@@ -169,6 +170,28 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
     </div>
   );
 }
+/* ------------------------------ partial scan ----------------------------- */
+
+/** Shown on every report that covers a sample instead of the whole repo, so no number is read as a full-repo fact. */
+function PartialNotice({ report }: { report: ScanReport }) {
+  const partial = report.partial;
+  if (!partial) return null;
+  const pct = partial.filesTotal > 0 ? Math.round((partial.filesScanned / partial.filesTotal) * 100) : 0;
+  return (
+    <div role="note" className="rounded-md border border-line bg-signal p-3 font-mono text-xs">
+      <p className="font-bold">
+        Partial scan: {formatNumber(partial.filesScanned)} of {formatNumber(partial.filesTotal)} source files analyzed ({pct}%)
+      </p>
+      <p className="mt-1 text-ink/80">
+        This repository is too large to finish within the online time limit, so REPO-SIGHT analyzed an even sample of its files. The
+        grade, score and counts describe that sample and estimate the whole repo. File lists, duplicates and dependencies cover only
+        the sampled files. Partial scans get no README badge and are not compared with earlier scans. Complete scans of large repos
+        are planned for the GitHub Action.
+      </p>
+    </div>
+  );
+}
+
 /* --------------------------------- share --------------------------------- */
 
 const SCAN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -178,6 +201,14 @@ function SharePanel({ report }: { report: ScanReport }) {
   const [copied, setCopied] = useState<"md" | "link" | null>(null);
   const [open, setOpen] = useState(false);
   if (report.visibility === "private" || !SCAN_UUID_RE.test(report.scanId)) return null;
+  // A badge must describe the repo, and a partial scan only describes a sample of it.
+  if (report.partial) {
+    return (
+      <p className="rounded-md border border-line bg-white p-3 font-mono text-xs text-ink/70">
+        README badges are only offered for complete scans. This one covers a sample of the repository.
+      </p>
+    );
+  }
 
   const id = report.scanId;
   // A repo scan gets the LIVE badge (follows the latest public scan of the repo) and a stable scorecard link;
@@ -231,7 +262,7 @@ function SharePanel({ report }: { report: ScanReport }) {
               {copied === "link" ? "Copied" : "Copy report link"}
             </button>
           </div>
-            {repoPath ? (
+          {repoPath ? (
             <p className="font-mono text-xs text-ink/70">
               The badge follows the latest public scan of this repo, so it updates whenever anyone rescans it, and it shows the scan
               date. It shows grade and score only; the link opens the scorecard. Want it taken down?{" "}
@@ -832,7 +863,8 @@ function TrendCallout({ report }: { report: ScanReport }) {
       const prevId = await findPreviousScanId(report.projectName ?? "", report.scanId, report.createdAt);
       if (!prevId) return;
       const previous = await fetchScan(prevId);
-      if (!cancelled) setDelta(computeScanDelta(report, previous));
+      // A score change between a sample and a full scan (or two different samples) would be noise, not progress.
+      if (!cancelled && !report.partial && !previous.partial) setDelta(computeScanDelta(report, previous));
     })().catch(() => {
       // Comparison is a bonus: never surface an error for it.
     });
