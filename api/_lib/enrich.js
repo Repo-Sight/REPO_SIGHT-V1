@@ -22,7 +22,6 @@
 import { getRule } from "./ruleCatalog.js";
 import { ensureFingerprints } from "./fingerprint.js";
 
-
 export const ENRICHED_SCHEMA_VERSION = 3;
 export const FIX_FIRST_LIMIT = 5;
 const LOCATIONS_PER_GROUP = 5;
@@ -144,6 +143,7 @@ export function enrichReport(report) {
           affectedFiles: files.size,
         };
       });
+    
     ensureFingerprints(violations);
     report.tierCounts = tierCounts;
     report.fixFirst = ranked;
