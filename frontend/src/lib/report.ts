@@ -62,6 +62,8 @@ export interface Violation {
   category?: string;
   tier?: Tier;
   confidence?: Confidence;
+  /** Stable finding fingerprint (api/_lib/fingerprint.js): survives line moves. Absent on reports served before it existed. */
+  fp?: string;
 }
 
 export interface FixFirstLocation {
@@ -80,6 +82,8 @@ export interface FixFirstItem {
   why: string;
   fix: string;
   caveat?: string;
+  /** Every rule id folded into this group; used to look up guidance for a single finding. */
+  ruleIds?: string[];
   languages: string[];
   locations: FixFirstLocation[];
 }
