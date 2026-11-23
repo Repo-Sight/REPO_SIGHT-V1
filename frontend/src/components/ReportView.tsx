@@ -487,7 +487,8 @@ function HotspotsCard({ hotspots }: { hotspots: HotspotReport | undefined }) {
   );
 }
 
-function FixFirstCard({ report, item }: { report: ScanReport; item: FixFirstItem }) {  return (
+function FixFirstCard({ report, item }: { report: ScanReport; item: FixFirstItem }) {
+  return (
     <li className={`${card} p-4`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-sm font-black">#{item.rank}</span>
@@ -814,7 +815,6 @@ function ExportPanel({ report }: { report: ScanReport }) {
     </div>
   );
 }
-
 
 /* ---------------------- before/after + AI explanation -------------------- */
 
