@@ -55,10 +55,16 @@ let server;
 let tarballGz;
 const realFetch = globalThis.fetch;
 
-async function buildTarball() {
+async function buildTarball(extraFiles = 0) {
   const dir = mkdtempSync(join(tmpdir(), "rs-tar-"));
   const top = join(dir, "owner-repo-abc123");
   mkdirSync(top);
+  if (extraFiles > 0) {
+    mkdirSync(join(top, "gen"));
+    for (let i = 0; i < extraFiles; i++) {
+      writeFileSync(join(top, "gen", `mod_${i}.py`), `def f${i}(x):\n    if x > ${i}:\n        return x\n    return ${i}\n`);
+    }
+  }
   writeFileSync(
     join(top, "app.py"),
     "import os\n\ndef run(cmd):\n    if cmd:\n        return eval(cmd)\n    return os.getcwd()\n"
@@ -381,6 +387,38 @@ test("PUBLIC scan without token is unchanged: codeload path, no API call, world-
   assert.equal(anon.headers["cache-control"], undefined);
 });
 
+test("partial scan: a time-budgeted run is flagged, never feeds the live badge, still lands in history", async () => {
+  reset();
+  // Complete scan first: no partial flag, and the live-badge pointer is written.
+  const full = await analyze({ repoUrl: "https://github.com/acme/public-repo" });
+  assert.equal(full.statusCode, 200, JSON.stringify(full.body));
+  assert.equal((await getScan(full.body.scanId)).body.partial, undefined);
+  assert.ok(repoLatestRows.has("acme/public-repo"));
+
+  // 301 files and a 1 ms engine budget: the engine must stop early.
+  reset();
+  const saved = tarballGz;
+  tarballGz = await buildTarball(300);
+  process.env.CMA_TIME_BUDGET_MS = "1";
+  try {
+    const r = await analyze({ repoUrl: "https://github.com/acme/public-repo" }, { authorization: `Bearer ${OWNER_SESSION}` });
+    assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+    const rep = (await getScan(r.body.scanId)).body;
+    assert.equal(rep.status, "COMPLETED");
+    assert.deepEqual(Object.keys(rep.partial).sort(), ["filesScanned", "filesTotal", "reason"]);
+    assert.equal(rep.partial.filesTotal, 301);
+    assert.ok(rep.partial.filesScanned >= 1 && rep.partial.filesScanned < 301, JSON.stringify(rep.partial));
+    assert.equal(rep.project.filesAnalyzed, rep.partial.filesScanned, "the report describes exactly the sample");
+    assert.equal(rep.partial.reason, "time_budget");
+    assert.equal(repoLatestRows.has("acme/public-repo"), false, "a sample must never update the badge");
+    assert.equal(eventRows.find((e) => e.name === "scan_completed").meta.partial, true);
+    assert.ok(userScanRows !== null, "history path ran without error");
+  } finally {
+    delete process.env.CMA_TIME_BUDGET_MS;
+    tarballGz = saved;
+  }
+});
+
 test("exports: ?format=sarif|json follow the report's access rule, carry fingerprints, and leak no server paths", async () => {
   reset();
   // Private scan: only its owner can export it, in either format.
@@ -427,7 +465,6 @@ test("exports: ?format=sarif|json follow the report's access rule, carry fingerp
   assert.equal(bad.statusCode, 400);
   assert.equal(bad.body.status, "FAILED");
 });
-
 
 test("legacy scan blobs with no visibility field stay world-readable", async () => {
   reset();

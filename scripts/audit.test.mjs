@@ -92,3 +92,10 @@ test("real scan id is shortened and not flagged as sample", () => {
   assert.equal(m.isSample, false);
   assert.equal(m.scanRef, "123e4567");
 });
+
+test("partial scan: the PDF summary opens with the sample disclaimer; complete scans do not carry it", () => {
+  const partial = buildAuditModel({ ...demo, partial: { filesScanned: 1200, filesTotal: 30000, reason: "time_budget" } });
+  assert.match(partial.summary[0], /^PARTIAL SCAN: 1,200 of 30,000 source files were analyzed/);
+  assert.match(partial.summary[0], /estimates the whole repository/);
+  assert.ok(!model.summary.some((line) => line.startsWith("PARTIAL SCAN")));
+});

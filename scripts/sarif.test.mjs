@@ -123,3 +123,9 @@ test("buildJsonExport: same report, repo-relative paths everywhere, fingerprints
   assert.equal(JSON.stringify(report.files[0]), before, "export is a copy");
   assert.equal(buildJsonExport(null), null);
 });
+
+test("a partial scan says so on the SARIF run; a complete one carries no partial property", () => {
+  const run = buildSarif({ violations: [], partial: { filesScanned: 5, filesTotal: 90, reason: "time_budget" } }).runs[0];
+  assert.deepEqual(run.properties.partial, { filesScanned: 5, filesTotal: 90 });
+  assert.equal(buildSarif({ violations: [] }).runs[0].properties.partial, undefined);
+});
