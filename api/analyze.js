@@ -37,6 +37,7 @@ import {
   GithubRateLimitError,
 } from "./_lib/github.js";
 import { enrichReport } from "./_lib/enrich.js";
+import { ENGINE_KILL_GRACE_MS, budgetOverride, engineBudgetMs, sanitizePartial } from "./_lib/partial.js";
 import {
   parseLcov,
   mergeCoverageIntoReport,
@@ -51,7 +52,8 @@ const CMA_BINARY = join(process.cwd(), "backend", "bin", "linux-x64-cma");
 // vercel.json caps this function at maxDuration: 60. Keep our own deadline a
 // few seconds under so we can return a JSON error before Vercel force-kills.
 const OVERALL_TIMEOUT_MS = 55_000;
-const CMA_TIMEOUT_MS     = 45_000;
+// The analyser is given what is left of this window (see api/_lib/partial.js) and stops early with a
+// "partial" report instead of running into it.
 
 class PipelineTimeoutError extends Error {}
 
@@ -109,8 +111,8 @@ async function fetchSource({ parsed, srcDir, githubToken, signal }) {
   return { branch: meta.defaultBranch, isPrivate: meta.isPrivate };
 }
 
-async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken, signal }) {
-  const source = await fetchSource({ parsed, srcDir, githubToken, signal });
+async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken, signal, startedAt }) {
+   const source = await fetchSource({ parsed, srcDir, githubToken, signal });
 
   if (!source) {
     return {
@@ -123,13 +125,22 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
     };
   }
   const { branch, isPrivate } = source;
+  // Whatever the download took is gone; the analyser gets the rest (minus a reserve), or the scan is
+  // reported as timed out when too little is left to analyze anything meaningful.
+  const computed = engineBudgetMs(Date.now() - startedAt, OVERALL_TIMEOUT_MS);
+  if (computed === null) {
+    throw new PipelineTimeoutError("No time left to analyze after downloading the repository");
+  }
+  const override = budgetOverride(process.env.CMA_TIME_BUDGET_MS);
+  const budgetMs = override === null ? computed : Math.min(override, computed);
+
 
   let cmaResult;
   try {
     cmaResult = await execFileAsync(
       CMA_BINARY,
-      [srcDir, "--json", reportPath],
-      { timeout: CMA_TIMEOUT_MS, signal }
+       [srcDir, "--json", reportPath, "--time-budget-ms", String(budgetMs)],
+       { timeout: budgetMs + ENGINE_KILL_GRACE_MS, signal }
     );
   } catch (cmaErr) {
     const stderr = String(cmaErr?.stderr || "");
@@ -148,6 +159,11 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
   void cmaResult;
 
   const report = JSON.parse(await readFile(reportPath, "utf8"));
+  // The analyser reports `partial` when its time budget ended the run before every file was reached.
+  // Keep only a validated block; a partial scan is a sample, so it never feeds the live badge (below).
+  const partial = sanitizePartial(report.partial);
+  if (partial) report.partial = partial;
+  else delete report.partial;
 
   // Phase 6d: optional user-uploaded LCOV report, merged into the CMA
   // output before storage. REPO-SIGHT never runs the repo's own test
@@ -220,8 +236,9 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
     }
   }
   // Live badge / scorecard pointer: PUBLIC repos only, default branch (that is all a public scan reads).
+  // Never for a partial scan: its score describes a sample, and a badge must describe the repo.
   // Never throws.
-  if (!isPrivate) {
+  if (!isPrivate && !partial) {
     await recordRepoLatest(supabase, { repo: repoKey(parsed.owner, parsed.repo), scanId, payload });
   }
 
@@ -230,7 +247,7 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
     name: "scan_completed",
     userId: user?.id ?? null,
     repo: isPrivate ? null : repoKey(parsed.owner, parsed.repo),
-    meta: { kind: "repo", visibility: isPrivate ? "private" : "public" },
+   meta: { kind: "repo", visibility: isPrivate ? "private" : "public", ...(partial ? { partial: true } : {}) },
   });
 
   return { status: 200, body: { scanId } };
@@ -354,10 +371,11 @@ export default async function handler(req, res) {
     await mkdir(srcDir, { recursive: true });
 
     const coverageReport = req.body?.coverageReport;
+    const startedAt = Date.now()
 
     pipelinePromise = runPipeline({
       parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken,
-      signal: controller.signal,
+      signal: controller.signal, startedAt,
     });
     const result = await withDeadline(pipelinePromise, OVERALL_TIMEOUT_MS, controller);
     res.status(result.status).json(result.body);
