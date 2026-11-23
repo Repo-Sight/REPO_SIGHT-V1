@@ -133,6 +133,8 @@ export function buildSarif(report) {
       healthScore: report?.project?.healthScore ?? null,
       healthGrade: report?.project?.healthGrade ?? null,
       omittedResults: omitted,
+      // Present only when the scan covered a sample of the repo (see api/_lib/partial.js).
+      ...(report?.partial ? { partial: { filesScanned: report.partial.filesScanned, filesTotal: report.partial.filesTotal } } : {}),
     },
   };
   if (typeof report?.repoOwner === "string" && typeof report?.repoName === "string") {
