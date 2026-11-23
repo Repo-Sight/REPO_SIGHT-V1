@@ -1,5 +1,6 @@
 #include "common/Language.h"
 #include "common/LanguageDispatch.h"
+#include "common/ScanBudget.h"
 #include "filesystem/FileScanner.h"
 #include "metrics/DependencyGraph.h"
 #include "metrics/DuplicationReport.h"
@@ -12,6 +13,7 @@
 #include "vcs/GitHistory.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <optional>
@@ -26,12 +28,15 @@ struct Config {
     std::string jsonFile;
     std::string badgeFile;
     std::string htmlFile;
+    // Wall-clock budget for the whole run in ms; 0 = unlimited (the CLI / Action default).
+    // The hosted service passes what is left of its function time. See common/ScanBudget.h.
+    long long   timeBudgetMs = 0;
 };
 
 static std::optional<Config> parseArgs(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: cma <path> [--out <report.txt>] [--json <report.json>] "
-                     "[--badge <badge.svg>] [--html <report.html>]\n";
+                     "[--badge <badge.svg>] [--html <report.html>] [--time-budget-ms <ms>]\n";
         return std::nullopt;
     }
 
@@ -44,6 +49,10 @@ static std::optional<Config> parseArgs(int argc, char* argv[]) {
         else if (arg == "--json")  cfg.jsonFile   = argv[i + 1];
         else if (arg == "--badge") cfg.badgeFile  = argv[i + 1];
         else if (arg == "--html")  cfg.htmlFile   = argv[i + 1];
+        else if (arg == "--time-budget-ms") {
+        const long long ms = std::strtoll(argv[i + 1], nullptr, 10);
+        cfg.timeBudgetMs = ms > 0 ? ms : 0;
+        }
     }
     return cfg;
 }
@@ -51,10 +60,14 @@ static std::optional<Config> parseArgs(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
     const auto cfg = parseArgs(argc, argv);
     if (!cfg) return 1;
+    // Starts counting before the directory walk so the budget covers the whole run.
+    const LoopDeadline deadline(cfg->timeBudgetMs);
 
     const FileScanner scanner(cfg->targetPath);
     std::vector<UnsupportedFile> unsupportedFiles;
-    const std::vector<fs::path> files = scanner.scan(&unsupportedFiles);
+    std::vector<fs::path> files = scanner.scan(&unsupportedFiles);
+    const std::size_t filesDiscovered = files.size();
+ 
 
     if (files.empty()) {
         std::cerr << "No recognized source files found in: " << cfg->targetPath << '\n';
@@ -62,12 +75,23 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "Analyzing " << files.size() << " file(s)...\n";
+    // With a budget the files are visited in a fixed pseudo-random order, so a run that has to stop
+    // early has analyzed a uniform sample of the repository, not just its first directories.
+    if (deadline.enabled()) orderForSampling(files);
 
     MetricsEngine engine;
     std::vector<Violation> violations;
     int skipped = 0;
+    int analyzed = 0;
+    bool stoppedEarly = false;
 
     for (const auto& filepath : files) {
+       // At least one file is always analyzed, so even a tiny budget yields a usable report.
+       if (analyzed > 0 && deadline.expired()) {
+            stoppedEarly = true;
+            break;
+        }
+
         const auto source = FileScanner::readFile(filepath);
         if (!source) {
             std::cerr << "  [skip] cannot read: " << filepath << '\n';
@@ -102,6 +126,15 @@ int main(int argc, char* argv[]) {
         engine.addFileTokens(filepath.string(), fm.language, tokens);
 
         engine.addFile(filepath.string(), std::move(fm));
+                ++analyzed;
+    }
+
+    // Back to path order, so a budgeted run that did finish everything equals an unbudgeted one.
+    if (deadline.enabled()) engine.sortInputsByPath();
+
+    if (stoppedEarly) {
+        std::cout << "Partial scan: time budget reached after " << analyzed << " of "
+                  << filesDiscovered << " file(s).\n";
     }
 
     if (skipped > 0)
@@ -133,14 +166,18 @@ int main(int argc, char* argv[]) {
                   << " unanalyzed file(s) for line count.\n";
     }
 
-    std::sort(violations.begin(), violations.end(),
+    std::stable_sort(violations.begin(), violations.end(),
               [](const Violation& a, const Violation& b) {
                   if (a.path != b.path) return a.path < b.path;
                   if (a.line != b.line) return a.line < b.line;
                   return a.ruleId < b.ruleId;
               });
 
-    const ProjectMetrics report = engine.compute();
+    ProjectMetrics report = engine.compute();
+    if (stoppedEarly) {
+       report.partialScan     = true;
+       report.filesDiscovered = static_cast<int>(filesDiscovered);
+    }
     ReportGenerator::printSummary(report, std::cout);
 
     if (!cfg->outputFile.empty()) {
