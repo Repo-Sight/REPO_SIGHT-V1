@@ -365,6 +365,22 @@ test("PRIVATE scan e2e: owner can read it, everyone else gets 'not found', token
   assert.equal(owner.headers["cache-control"], "private, no-store");
   assert.equal(anon.headers["cache-control"], "private, no-store");
 });
+
+test("PUBLIC scan without token is unchanged: codeload path, no API call, world-readable", async () => {
+  reset();
+  const res = await analyze({ repoUrl: "https://github.com/acme/public-repo" });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+
+  assert.ok(ghCalls.every(c => c.url.startsWith("https://codeload.github.com/")), "no api.github.com call");
+  const payload = JSON.parse(stored.get(`${res.body.scanId}.json`));
+  assert.equal(payload.visibility, "public");
+  assert.equal("ownerId" in payload, false, "public/anonymous payload carries no owner");
+
+  const anon = await getScan(res.body.scanId);
+  assert.equal(anon.body.status, "COMPLETED");
+  assert.equal(anon.headers["cache-control"], undefined);
+});
+
 test("exports: ?format=sarif|json follow the report's access rule, carry fingerprints, and leak no server paths", async () => {
   reset();
   // Private scan: only its owner can export it, in either format.
@@ -412,20 +428,6 @@ test("exports: ?format=sarif|json follow the report's access rule, carry fingerp
   assert.equal(bad.body.status, "FAILED");
 });
 
-test("PUBLIC scan without token is unchanged: codeload path, no API call, world-readable", async () => {
-  reset();
-  const res = await analyze({ repoUrl: "https://github.com/acme/public-repo" });
-  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
-
-  assert.ok(ghCalls.every(c => c.url.startsWith("https://codeload.github.com/")), "no api.github.com call");
-  const payload = JSON.parse(stored.get(`${res.body.scanId}.json`));
-  assert.equal(payload.visibility, "public");
-  assert.equal("ownerId" in payload, false, "public/anonymous payload carries no owner");
-
-  const anon = await getScan(res.body.scanId);
-  assert.equal(anon.body.status, "COMPLETED");
-  assert.equal(anon.headers["cache-control"], undefined);
-});
 
 test("legacy scan blobs with no visibility field stay world-readable", async () => {
   reset();
