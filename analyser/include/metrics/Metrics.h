@@ -47,6 +47,13 @@ struct UnanalyzedLanguageSummary {
 
 struct ProjectMetrics {
     int filesAnalyzed = 0;
+
+    // Time-budgeted scan (main.cpp --time-budget-ms): true when the loop stopped before every
+    // recognized file was reached. filesDiscovered is then the number of recognized files found.
+    // Left false/0 for complete scans, so their JSON is unchanged.
+    bool partialScan     = false;
+    int  filesDiscovered = 0;
+  
  
     int totalLines   = 0;
     int blankLines   = 0;
