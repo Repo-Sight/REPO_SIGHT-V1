@@ -223,6 +223,15 @@ void ReportGenerator::writeJson(
         out << "    \"longestFunctionName\": \"" << jsonEscape(m.longestFunctionName) << "\"\n";
     }
     out << "  },\n";
+     if (m.partialScan) {
+        out << "  \"partial\": {\n";
+        out << "    \"filesScanned\": " << m.filesAnalyzed    << ",\n";
+        out << "    \"filesTotal\": "   << m.filesDiscovered  << ",\n";
+        out << "    \"reason\": \"time_budget\"\n";
+        out << "  },\n";
+    }
+
+
 
     std::unordered_map<std::string, const FileCoupling*> couplingByPath;
     if (graph != nullptr) {
