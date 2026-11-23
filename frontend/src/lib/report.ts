@@ -129,6 +129,12 @@ export interface HotspotReport {
   topFiles: HotspotFile[];
 }
 
+export interface PartialScan {
+  filesScanned: number;
+  filesTotal: number;
+  reason: string;
+}
+
 export interface ScanReport {
   status: "COMPLETED" | "FAILED";
   errorMessage?: string;
@@ -141,6 +147,11 @@ export interface ScanReport {
   repoName?: string;
   repoBranch?: string;
   createdAt?: string;
+  /**
+   * Present only when the scan stopped early (repo too large for the online time limit). The report then
+   * describes an even sample of `filesScanned` of the `filesTotal` source files, not the whole repo.
+   */
+  partial?: PartialScan;
   schemaVersion?: number;
   project: ProjectMetrics;
   files: FileMetrics[];

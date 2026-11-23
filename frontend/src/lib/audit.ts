@@ -219,6 +219,11 @@ export function buildAuditModel(report: ScanReport): AuditModel {
 
   const score = Math.round(p.healthScore);
   const summary: string[] = [
+    ...(report.partial
+      ? [
+          `PARTIAL SCAN: ${report.partial.filesScanned.toLocaleString("en-US")} of ${report.partial.filesTotal.toLocaleString("en-US")} source files were analyzed (an even sample, because the repository is too large for the online time limit). Every figure in this audit describes that sample and estimates the whole repository.`,
+        ]
+      : []),
     `${plural(p.filesAnalyzed, "file")} (${p.codeLines.toLocaleString("en-US")} code lines) in ${plural(languages.length, "language")} were analyzed. Overall code health is ${score}/100, grade ${p.healthGrade}.`,
   ];
   if (tierCounts) {
