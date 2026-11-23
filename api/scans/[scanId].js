@@ -51,6 +51,13 @@ export default async function handler(req, res) {
     res.status(400).json({ status: "FAILED", errorMessage: "Invalid scan id." });
     return;
   }
+    const rawFormat = Array.isArray(req.query?.format) ? req.query.format[0] : req.query?.format;
+  const format = rawFormat === undefined || rawFormat === "" ? null : String(rawFormat).toLowerCase();
+  if (format !== null && format !== "sarif" && format !== "json") {
+    res.status(400).json({ status: "FAILED", errorMessage: "Unknown format. Use sarif or json." });
+    return;
+  }
+
 
   try {
     const supabase = getSupabase();
