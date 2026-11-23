@@ -6,6 +6,7 @@ The browser sends a repository URL (or a single file) to a Vercel serverless fun
 The function downloads the source from GitHub. Public repositories are read from `main` or `master`. Private repositories need a GitHub sign-in with the REPO-SIGHT GitHub App installed, and are read from the default branch.
 The prebuilt C++ analyser (`backend/bin/linux-x64-cma`, built from `analyser/`) lexes, parses and scores the source. Nothing from the repository is executed.
 The JSON report is stored in Supabase Storage and rendered by the React frontend.
+Hosted scans run against a time budget: the function passes the analyser `--time-budget-ms` (what is left of the 55 s window). If a very large repository cannot finish, the analyser stops early and the report carries `partial: { filesScanned, filesTotal }`; it describes an even sample of the files (visited in a fixed hash order, see `analyser/include/common/ScanBudget.h`), is shown with a notice, and never updates the live badge. Without the flag (CLI, GitHub Action) the analyser always scans everything.
 The analyser has 98 rules across the six languages (45 are security-specific). The authoritative list is `api/_lib/ruleCatalog.js`, also served at `/api/rules`.
 Repository layout
 Path	What it holds
