@@ -53,6 +53,12 @@ public:
     // loop, which also feeds the same tokens into checkRules()).
     void addFileTokens(const std::string& path, const std::string& language,
                         const std::vector<Token>& tokens);
+    // Puts the recorded files and token streams back into the order FileScanner::scan() returns
+    // (std::filesystem::path ordering). A time-budgeted scan visits files in sampling order
+    // (common/ScanBudget.h); calling this afterwards makes the result identical to what a
+    // path-ordered loop over the same files would have recorded. Stable, so equal paths keep order.
+    void sortInputsByPath();
+
  
     [[nodiscard]] ProjectMetrics compute() const;
  
