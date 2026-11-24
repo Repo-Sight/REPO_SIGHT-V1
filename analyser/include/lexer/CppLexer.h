@@ -10,8 +10,14 @@ namespace cma {
  
 class CppLexer {
 public:
-    explicit CppLexer(const std::string& source);
-    [[nodiscard]] std::vector<Token> tokenize();
+   // C shares this lexer. The only difference is the keyword set: in C the C++-only keywords
+   // (new, delete, class, this, try, catch, template, namespace, ...) are ordinary identifiers and
+   // very common ones (`struct node *new`, `int class`), so lexing them as keywords would trigger
+   // C++ rules and C++ parser paths on valid C.
+   enum class Dialect { Cpp, C };
+
+   explicit CppLexer(const std::string& source, Dialect dialect = Dialect::Cpp);
+   [[nodiscard]] std::vector<Token> tokenize();
  
 private:
     Token lexIdentifierOrKeyword();
@@ -31,6 +37,7 @@ private:
     [[nodiscard]] bool isKeyword(const std::string& word) const noexcept;
  
     CharStream m_stream;
+    Dialect    m_dialect;
 };
  
 } // namespace cma
