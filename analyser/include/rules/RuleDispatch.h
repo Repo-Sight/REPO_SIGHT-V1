@@ -5,6 +5,7 @@
 #include "parser/ParseResult.h"
 #include "metrics/ViolationReport.h"
 #include "rules/CppRules.h"
+#include "rules/CRules.h"
 #include "rules/PythonRules.h"
 #include "rules/JavaRules.h"
 #include "rules/TypeScriptRules.h"
@@ -35,6 +36,7 @@ namespace cma {
         case Language::TypeScript: return checkTypeScriptRules(path, tokens, fm);
         case Language::JavaScript: return checkJavaScriptRules(path, tokens, fm);
         case Language::CSharp:     return checkCSharpRules(path, tokens, fm);
+        case Language::C:          return checkCRules(path, tokens, fm);
     }
     return {};
 }
