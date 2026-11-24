@@ -56,6 +56,10 @@ namespace cma {
             CSharpLexer lexer(source);
             return lexer.tokenize();
         }
+        case Language::C: {
+            CppLexer lexer(source, CppLexer::Dialect::C);
+            return lexer.tokenize();
+       }
     }
     return {}; // unreachable while every Language enumerator has a case
                // above; kept so a future enumerator added without a
