@@ -143,7 +143,7 @@ export function enrichReport(report) {
           affectedFiles: files.size,
         };
       });
-    
+
     ensureFingerprints(violations);
     report.tierCounts = tierCounts;
     report.fixFirst = ranked;
