@@ -59,6 +59,7 @@ const MAX_INTRODUCED  = 500;
 // Mirrors api/analyze-file.js / analyser FileScanner kSupportedExtensions.
 // Keep in sync manually when a language is added.
 const SUPPORTED_EXTENSIONS = new Set([
+  ".c",
   ".cpp", ".cc", ".cxx", ".c++",
   ".h", ".hpp", ".hxx", ".h++",
   ".py",
