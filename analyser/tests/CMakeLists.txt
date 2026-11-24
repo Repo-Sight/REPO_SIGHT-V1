@@ -30,6 +30,7 @@ add_executable(cma_tests
     unit/test_metrics_engine.cpp
     unit/test_duplication_report.cpp
     unit/test_scan_budget.cpp
+    unit/test_c_language.cpp
 )
 
 target_link_libraries(cma_tests PRIVATE
