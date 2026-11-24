@@ -50,8 +50,8 @@ static std::optional<Config> parseArgs(int argc, char* argv[]) {
         else if (arg == "--badge") cfg.badgeFile  = argv[i + 1];
         else if (arg == "--html")  cfg.htmlFile   = argv[i + 1];
         else if (arg == "--time-budget-ms") {
-        const long long ms = std::strtoll(argv[i + 1], nullptr, 10);
-        cfg.timeBudgetMs = ms > 0 ? ms : 0;
+           const long long ms = std::strtoll(argv[i + 1], nullptr, 10);
+           cfg.timeBudgetMs = ms > 0 ? ms : 0;
         }
     }
     return cfg;
@@ -60,6 +60,7 @@ static std::optional<Config> parseArgs(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
     const auto cfg = parseArgs(argc, argv);
     if (!cfg) return 1;
+    
     // Starts counting before the directory walk so the budget covers the whole run.
     const LoopDeadline deadline(cfg->timeBudgetMs);
 
@@ -68,13 +69,13 @@ int main(int argc, char* argv[]) {
     std::vector<fs::path> files = scanner.scan(&unsupportedFiles);
     const std::size_t filesDiscovered = files.size();
  
-
     if (files.empty()) {
         std::cerr << "No recognized source files found in: " << cfg->targetPath << '\n';
         return 1;
     }
 
     std::cout << "Analyzing " << files.size() << " file(s)...\n";
+    
     // With a budget the files are visited in a fixed pseudo-random order, so a run that has to stop
     // early has analyzed a uniform sample of the repository, not just its first directories.
     if (deadline.enabled()) orderForSampling(files);
@@ -86,8 +87,8 @@ int main(int argc, char* argv[]) {
     bool stoppedEarly = false;
 
     for (const auto& filepath : files) {
-       // At least one file is always analyzed, so even a tiny budget yields a usable report.
-       if (analyzed > 0 && deadline.expired()) {
+        // At least one file is always analyzed, so even a tiny budget yields a usable report.
+        if (analyzed > 0 && deadline.expired()) {
             stoppedEarly = true;
             break;
         }
@@ -126,7 +127,7 @@ int main(int argc, char* argv[]) {
         engine.addFileTokens(filepath.string(), fm.language, tokens);
 
         engine.addFile(filepath.string(), std::move(fm));
-                ++analyzed;
+           ++analyzed;
     }
 
     // Back to path order, so a budgeted run that did finish everything equals an unbudgeted one.
@@ -175,8 +176,8 @@ int main(int argc, char* argv[]) {
 
     ProjectMetrics report = engine.compute();
     if (stoppedEarly) {
-       report.partialScan     = true;
-       report.filesDiscovered = static_cast<int>(filesDiscovered);
+        report.partialScan     = true;
+        report.filesDiscovered = static_cast<int>(filesDiscovered);
     }
     ReportGenerator::printSummary(report, std::cout);
 
