@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(toUser(data.session));
         // Brand-new account only: the server decides whether the one-time welcome email is due.
         if (data.session && isNewAccount(data.session)) requestWelcomeEmail(data.session.access_token, data.session.user.id);
-          const intent = data.session ? takeIntent() : null;
+        const intent = data.session ? takeIntent() : null;
         // An intent marker exists only right after the GitHub redirect, so this counts real sign-ins, not restored sessions.
         if (data.session && intent) trackSignIn(data.session.access_token);
         const note = data.session && intent ? welcomeNote(intent, isNewAccount(data.session)) : null;
