@@ -53,7 +53,6 @@ struct ProjectMetrics {
     // Left false/0 for complete scans, so their JSON is unchanged.
     bool partialScan     = false;
     int  filesDiscovered = 0;
-  
  
     int totalLines   = 0;
     int blankLines   = 0;
