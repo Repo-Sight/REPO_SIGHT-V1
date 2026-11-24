@@ -88,7 +88,8 @@ bool pathEndsWithComponent(const std::string& path, const std::string& candidate
     const char before = path[boundaryIdx - 1];
     return before == '/' || before == '\\';
 }
- // Last path component, splitting on both separators exactly like pathEndsWithComponent() does.
+
+// Last path component, splitting on both separators exactly like pathEndsWithComponent() does.
 std::string lastComponent(const std::string& s) {
     const auto pos = s.find_last_of("/\\");
     return pos == std::string::npos ? s : s.substr(pos + 1);
@@ -443,6 +444,7 @@ ProjectMetrics MetricsEngine::compute() const {
 
     return pm;
 }
+
 namespace {
 
 // Reorders `items` by `pathOf(item)` using std::filesystem::path ordering, the same ordering
@@ -485,6 +487,7 @@ DependencyGraph MetricsEngine::buildDependencyGraph() const {
     std::unordered_map<std::string, std::size_t> indexByPath;
     indexByPath.reserve(graph.files.size());
     for (std::size_t i = 0; i < graph.files.size(); ++i) indexByPath[graph.files[i].path] = i;
+ 
     // A candidate can only match a file whose last path component equals the candidate's last
     // component (pathEndsWithComponent() requires the tail to line up on a separator), so look up
     // just those files instead of scanning every file for every include. Index lists are in
@@ -494,8 +497,6 @@ DependencyGraph MetricsEngine::buildDependencyGraph() const {
     indicesByBasename.reserve(graph.files.size());
     for (std::size_t i = 0; i < graph.files.size(); ++i)
         indicesByBasename[lastComponent(graph.files[i].path)].push_back(i);
-
- 
     std::vector<std::set<std::string>> dependsOnSets(graph.files.size());
     std::vector<std::set<std::string>> dependedOnBySets(graph.files.size());
  
@@ -507,7 +508,7 @@ DependencyGraph MetricsEngine::buildDependencyGraph() const {
         for (const auto& target : fm.includeTargets) {
             bool resolved = false;
             for (const auto& candidate : candidateSuffixes(target)) {
-                for (std::size_t j = 0; j < graph.files.size(); ++j) {
+                
                 const auto sameName = indicesByBasename.find(lastComponent(candidate));
                 if (sameName == indicesByBasename.end()) continue;
                 for (const std::size_t j : sameName->second) {
