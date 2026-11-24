@@ -81,7 +81,7 @@ TEST(ScanBudgetDeadline, NoBudgetNeverExpires) {
 TEST(ScanBudgetDeadline, ExpiresOnlyAfterItsLoopShareOfTheBudget) {
     const LoopDeadline generous(3'600'000);
     EXPECT_TRUE(generous.enabled());
-   EXPECT_FALSE(generous.expired());
+    EXPECT_FALSE(generous.expired());
 
     // Loop share of a 40ms budget is 10ms: not expired right away, expired well after.
     const LoopDeadline tight(40);
@@ -157,7 +157,7 @@ TEST(ScanBudgetReport, PartialBlockAppearsOnlyForPartialScans) {
     ProjectMetrics complete;
     complete.filesAnalyzed = 10;
     const std::string full = ReportGenerator::toJson(complete, {});
-   EXPECT_EQ(full.find("\"partial\""), std::string::npos) << "complete scans keep their JSON unchanged";
+    EXPECT_EQ(full.find("\"partial\""), std::string::npos) << "complete scans keep their JSON unchanged";
 
     ProjectMetrics partial = complete;
     partial.partialScan = true;
