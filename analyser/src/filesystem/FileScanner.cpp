@@ -11,6 +11,7 @@ namespace cma {
 namespace {
 
 const std::unordered_set<std::string> kSupportedExtensions = {
+    ".c",
     ".cpp", ".cc", ".cxx", ".c++",
     ".h",   ".hpp", ".hxx", ".h++",
     ".py",
