@@ -149,7 +149,7 @@ const source = await fetchSource({ parsed, srcDir, githubToken, signal });
         status: 400,
         body: {
           error:
-            "No supported source files (C++, Python, Java, TypeScript, JavaScript, or C#) found in this repository.",
+            "No supported source files (C, C++, Python, Java, TypeScript, JavaScript, or C#) found in this repository.",
         },
       };
     }
