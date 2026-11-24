@@ -4,6 +4,8 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#incldue <vector> 
+
  
 namespace cma {
  
@@ -44,6 +46,8 @@ enum class Language {
     TypeScript,
     JavaScript,
     CSharp,
+    C,          // Phase 1 item 4 (V3): reuses the C++ lexer (C dialect) and parser; own rule set.
+
 };
  
 // Maps a file extension to the Language that should analyze it, or
@@ -69,23 +73,51 @@ enum class Language {
         {".js",  Language::JavaScript}, {".mjs", Language::JavaScript},
         {".cjs", Language::JavaScript}, {".jsx", Language::JavaScript},
         {".cs",  Language::CSharp},
+        {".c",   Language::C},
     };
     const auto it = kExtensionMap.find(path.extension().string());
     if (it == kExtensionMap.end()) return std::nullopt;
     return it->second;
 }
- 
+
+// ".h" is the one ambiguous extension: both C and C++ use it. Rule (V3 plan, section 2): a ".h" file
+// counts as C when the scan contains at least one ".c" file and no C++-only source file; otherwise
+// it counts as C++ (today's behavior, which also covers a single uploaded header). detectLanguage()
+// alone keeps returning C++ for ".h"; the scan-level decision is made once, from the whole file list.
+[[nodiscard]] inline bool isCppOnlyExtension(const std::string& ext) noexcept {
+    return ext == ".cpp" || ext == ".cc" || ext == ".cxx" || ext == ".c++" ||
+           ext == ".hpp" || ext == ".hxx" || ext == ".h++";
+}
+
+[[nodiscard]] inline Language headerLanguageFor(const std::vector<std::filesystem::path>& files) noexcept {
+    bool hasC = false;
+    for (const auto& f : files) {
+        const std::string ext = f.extension().string();
+        if (isCppOnlyExtension(ext)) return Language::Cpp;
+        if (ext == ".c") hasC = true;
+    }
+    return hasC ? Language::C : Language::Cpp;
+}
+
+// detectLanguage() with the ".h" decision applied.
+[[nodiscard]] inline std::optional<Language> detectLanguage(
+    const std::filesystem::path& path, Language headerLanguage) noexcept {
+    if (path.extension() == ".h") return headerLanguage;
+    return detectLanguage(path);
+}
+
 // Canonical lowercase string form of a Language, matching the literal
 // strings already hardcoded per-rule in CppRules.cpp/PythonRules.cpp/
 // JavaRules.cpp for Violation::language ("cpp"/"python"/"java").
 [[nodiscard]] inline std::string languageToString(Language lang) noexcept {
    switch (lang) {
-       case Language::Cpp:    return "cpp";
-       case Language::Python: return "python";
-       case Language::Java:   return "java";
+     case Language::Cpp:        return "cpp";
+     case Language::Python:     return "python";
+     case Language::Java:       return "java";
      case Language::TypeScript: return "typescript";
      case Language::JavaScript: return "javascript";
      case Language::CSharp:     return "csharp";
+     case Language::C:          return "c";
    }
     return "unknown";
 }
