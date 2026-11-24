@@ -30,8 +30,32 @@ static const std::unordered_set<std::string> kKeywords = {
     "wchar_t","while"
 };
  
-CppLexer::CppLexer(const std::string& source)
-    : m_stream(source) {}
+// C11 keywords plus the C23 spellings that are real keywords there (bool, true, false, nullptr,
+// alignas, alignof, static_assert, thread_local, typeof). Everything C++-only is deliberately absent.
+static const std::unordered_set<std::string> kCKeywords = {
+    "alignas","alignof","auto",
+    "bool","break",
+    "case","char","const","continue",
+    "default","do","double",
+    "else","enum","extern",
+    "false","float","for",
+    "goto",
+    "if","inline","int",
+    "long",
+    "nullptr",
+    "register","restrict","return",
+    "short","signed","sizeof","static","static_assert","struct","switch",
+    "thread_local","true","typedef","typeof",
+    "union","unsigned",
+    "void","volatile",
+    "while",
+    "_Alignas","_Alignof","_Atomic","_Bool","_Complex","_Generic","_Imaginary","_Noreturn",
+    "_Static_assert","_Thread_local"
+};
+
+CppLexer::CppLexer(const std::string& source, Dialect dialect)
+    : m_stream(source), m_dialect(dialect) {}
+
  
 std::vector<Token> CppLexer::tokenize() {
     std::vector<Token> tokens;
@@ -210,7 +234,7 @@ Token CppLexer::lexSymbol() {
 }
  
 bool CppLexer::isKeyword(const std::string& word) const noexcept {
-    return kKeywords.count(word) != 0;
+    return m_dialect == Dialect::C ? kCKeywords.count(word) != 0 : kKeywords.count(word) != 0;
 }
  
 } // namespace cma
