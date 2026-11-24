@@ -56,7 +56,7 @@ const SUPPORTED_EXTENSIONS = new Set([
 ]);
 
 const SUPPORTED_LANGUAGES_MESSAGE =
-  "Supported: C++ (.cpp/.cc/.cxx/.c++/.h/.hpp/.hxx/.h++), Python (.py), " +
+  "Supported: C (.c), C++ (.cpp/.cc/.cxx/.c++/.h/.hpp/.hxx/.h++), Python (.py), " +
   "Java (.java), TypeScript (.ts/.tsx), JavaScript (.js/.mjs/.cjs/.jsx), C# (.cs).";
 
 class PipelineTimeoutError extends Error {}
