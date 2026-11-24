@@ -54,6 +54,7 @@ target_link_libraries(cma_metrics PUBLIC cma_parser cma_vcs)
 
 add_library(cma_rules STATIC
     src/rules/CppRules.cpp
+    src/rules/CRules.cpp
     src/rules/PythonRules.cpp
     src/rules/JavaRules.cpp
     src/rules/TypeScriptRules.cpp
