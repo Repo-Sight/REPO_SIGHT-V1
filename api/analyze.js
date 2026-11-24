@@ -112,7 +112,7 @@ async function fetchSource({ parsed, srcDir, githubToken, signal }) {
 }
 
 async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken, signal, startedAt }) {
-   const source = await fetchSource({ parsed, srcDir, githubToken, signal });
+const source = await fetchSource({ parsed, srcDir, githubToken, signal });
 
   if (!source) {
     return {
@@ -125,6 +125,7 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
     };
   }
   const { branch, isPrivate } = source;
+  
   // Whatever the download took is gone; the analyser gets the rest (minus a reserve), or the scan is
   // reported as timed out when too little is left to analyze anything meaningful.
   const computed = engineBudgetMs(Date.now() - startedAt, OVERALL_TIMEOUT_MS);
@@ -134,13 +135,12 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
   const override = budgetOverride(process.env.CMA_TIME_BUDGET_MS);
   const budgetMs = override === null ? computed : Math.min(override, computed);
 
-
   let cmaResult;
   try {
     cmaResult = await execFileAsync(
       CMA_BINARY,
-       [srcDir, "--json", reportPath, "--time-budget-ms", String(budgetMs)],
-       { timeout: budgetMs + ENGINE_KILL_GRACE_MS, signal }
+      [srcDir, "--json", reportPath, "--time-budget-ms", String(budgetMs)],
+      { timeout: budgetMs + ENGINE_KILL_GRACE_MS, signal }
     );
   } catch (cmaErr) {
     const stderr = String(cmaErr?.stderr || "");
@@ -159,6 +159,7 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
   void cmaResult;
 
   const report = JSON.parse(await readFile(reportPath, "utf8"));
+  
   // The analyser reports `partial` when its time budget ended the run before every file was reached.
   // Keep only a validated block; a partial scan is a sample, so it never feeds the live badge (below).
   const partial = sanitizePartial(report.partial);
@@ -247,7 +248,7 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
     name: "scan_completed",
     userId: user?.id ?? null,
     repo: isPrivate ? null : repoKey(parsed.owner, parsed.repo),
-   meta: { kind: "repo", visibility: isPrivate ? "private" : "public", ...(partial ? { partial: true } : {}) },
+    meta: { kind: "repo", visibility: isPrivate ? "private" : "public", ...(partial ? { partial: true } : {}) },
   });
 
   return { status: 200, body: { scanId } };
@@ -371,8 +372,8 @@ export default async function handler(req, res) {
     await mkdir(srcDir, { recursive: true });
 
     const coverageReport = req.body?.coverageReport;
+    
     const startedAt = Date.now()
-
     pipelinePromise = runPipeline({
       parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken,
       signal: controller.signal, startedAt,
