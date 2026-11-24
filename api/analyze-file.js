@@ -45,6 +45,7 @@ const MAX_CONTENT_BYTES = 2 * 1024 * 1024;
 // extension(s) here too, or single-file uploads for it will be rejected
 // before ever reaching the binary.
 const SUPPORTED_EXTENSIONS = new Set([
+  ".c",
   ".cpp", ".cc", ".cxx", ".c++",
   ".h", ".hpp", ".hxx", ".h++",
   ".py",
