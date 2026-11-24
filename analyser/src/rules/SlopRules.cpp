@@ -25,6 +25,7 @@ SlopIds idsFor(Language lang) {
         case Language::TypeScript: return {"ts-complex-function",     "ts-unreviewed-placeholder"};
         case Language::JavaScript: return {"js-complex-function",     "js-unreviewed-placeholder"};
         case Language::CSharp:     return {"csharp-complex-function", "csharp-unreviewed-placeholder"};
+        case Language::C:          return {"c-complex-function",      "c-unreviewed-placeholder"};
     }
     return {nullptr, nullptr};
 }
@@ -87,7 +88,7 @@ int decisionPoints(Language lang, const std::vector<Token>& tk, std::size_t i,
     if (t.value != "?") return 0;
 
     // Java / C++: every '?' is a ternary.
-    if (lang == Language::Java || lang == Language::Cpp) return 1;
+    if (lang == Language::Java || lang == Language::Cpp || lang == Language::C) return 1;
 
     const bool nextIsQ = hasNext && isOp(tk[i + 1], "?");
     if (nextIsQ) {  // '??' nullish coalescing
