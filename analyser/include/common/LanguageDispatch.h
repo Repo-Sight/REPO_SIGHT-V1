@@ -59,7 +59,7 @@ namespace cma {
         case Language::C: {
             CppLexer lexer(source, CppLexer::Dialect::C);
             return lexer.tokenize();
-       }
+        }
     }
     return {}; // unreachable while every Language enumerator has a case
                // above; kept so a future enumerator added without a
@@ -98,6 +98,10 @@ namespace cma {
             CSharpParser parser(tokens, totalLines);
             return parser.analyze();
         }
+         case Language::C: {
+            CppParser parser(tokens, totalLines);
+            return parser.analyze();
++       }
     }
     return {}; // unreachable, same rationale as tokenizeSource() above
 }
