@@ -50,8 +50,8 @@ static std::optional<Config> parseArgs(int argc, char* argv[]) {
         else if (arg == "--badge") cfg.badgeFile  = argv[i + 1];
         else if (arg == "--html")  cfg.htmlFile   = argv[i + 1];
         else if (arg == "--time-budget-ms") {
-           const long long ms = std::strtoll(argv[i + 1], nullptr, 10);
-           cfg.timeBudgetMs = ms > 0 ? ms : 0;
+            const long long ms = std::strtoll(argv[i + 1], nullptr, 10);
+            cfg.timeBudgetMs = ms > 0 ? ms : 0;
         }
     }
     return cfg;
@@ -60,7 +60,7 @@ static std::optional<Config> parseArgs(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
     const auto cfg = parseArgs(argc, argv);
     if (!cfg) return 1;
-    
+
     // Starts counting before the directory walk so the budget covers the whole run.
     const LoopDeadline deadline(cfg->timeBudgetMs);
 
@@ -68,7 +68,9 @@ int main(int argc, char* argv[]) {
     std::vector<UnsupportedFile> unsupportedFiles;
     std::vector<fs::path> files = scanner.scan(&unsupportedFiles);
     const std::size_t filesDiscovered = files.size();
- 
+    // ".h" is C when the scan has .c files and no C++ source, else C++ (see common/Language.h).
+    const Language headerLanguage = headerLanguageFor(files);
+
     if (files.empty()) {
         std::cerr << "No recognized source files found in: " << cfg->targetPath << '\n';
         return 1;
@@ -100,7 +102,7 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        const auto lang = detectLanguage(filepath);
+        const auto lang = detectLanguage(filepath, headerLanguage);
         if (!lang) {
             std::cerr << "  [skip] unrecognized language: " << filepath << '\n';
             ++skipped;
@@ -127,7 +129,7 @@ int main(int argc, char* argv[]) {
         engine.addFileTokens(filepath.string(), fm.language, tokens);
 
         engine.addFile(filepath.string(), std::move(fm));
-           ++analyzed;
+        ++analyzed;
     }
 
     // Back to path order, so a budgeted run that did finish everything equals an unbudgeted one.
