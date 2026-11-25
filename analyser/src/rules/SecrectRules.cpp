@@ -19,7 +19,7 @@ const char* idFor(Language lang) {
         case Language::TypeScript: return "ts-sec-secret-token";
         case Language::JavaScript: return "js-sec-secret-token";
         case Language::CSharp:     return "csharp-sec-secret-token";
-        
+        case Language::C:          return "c-sec-secret-token";
     }
     return nullptr;
 }
