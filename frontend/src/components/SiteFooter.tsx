@@ -19,7 +19,7 @@ export function SiteFooter() {
             <span className="rs-display text-2xl">{SITE.name}</span>
           </div>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
-            A free static analysis engine for C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers,
+            A free static analysis engine for C, C++, Python, Java, TypeScript, JavaScript, and C#. Built for students, job seekers,
             and indie devs.
           </p>
         </div>
