@@ -1,0 +1,123 @@
+<section class="tool-hero">
+      <h1>C Code Analyzer</h1>
+      <p class="section-sub">Paste a public GitHub URL and REPO-SIGHT reads your C source directly &mdash; complexity, unsafe string functions, format strings, unchecked allocations, and 19 rules built specifically for C. Free.</p>
+      <div class="tool-hero-ctas">
+        <a href="/#analyze" class="btn-primary">Analyze a repo free</a>
+      </div>
+    </section>
+
+    <section class="features">
+      <h2>What REPO-SIGHT checks in your C code</h2>
+      <p class="section-sub">19 rules, tuned for C &mdash; 10 of them security-specific. Every <code>.c</code> file in the repo is analyzed.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+          </div>
+          <h3>Complexity &amp; structure</h3>
+          <p>Cyclomatic complexity, max nesting depth (<code>c-deep-nesting</code> flags files past 6 levels), <code>c-long-function</code> for functions over 100 lines, and <code>c-complex-function</code> for functions past complexity 10 &mdash; the same thresholds used in the health score.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-2-2M16 6l2-2M12 7v2M9 9h6a3 3 0 013 3v3a6 6 0 01-12 0v-3a3 3 0 013-3z"/></svg>
+          </div>
+          <h3>Unsafe buffers &amp; input</h3>
+          <p><code>c-sec-unsafe-buffer-fn</code> flags <code>gets</code>, <code>strcpy</code>, <code>strcat</code>, <code>sprintf</code> and <code>vsprintf</code>, and <code>c-sec-unsafe-scanf</code> flags <code>%s</code> and <code>%[</code> conversions with no field width.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-2-2M16 6l2-2M12 7v2M9 9h6a3 3 0 013 3v3a6 6 0 01-12 0v-3a3 3 0 013-3z"/></svg>
+          </div>
+          <h3>Format strings &amp; shell commands</h3>
+          <p><code>c-sec-format-string</code> flags <code>printf(msg)</code>-style calls that use a plain variable as the format, and <code>c-sec-system-call</code> / <code>c-sec-popen-call</code> flag <code>system()</code> and <code>popen()</code> &mdash; unless the command is made only of string literals and macro constants.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <h3>Memory handling</h3>
+          <p><code>c-malloc-unchecked</code> catches a pointer from <code>malloc</code>, <code>calloc</code>, <code>realloc</code> or <code>strdup</code> that is dereferenced in the very next statement with no NULL check, and <code>c-realloc-self-assign</code> catches <code>p = realloc(p, n)</code>, which leaks the block when the allocation fails.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-2-2M16 6l2-2M12 7v2M9 9h6a3 3 0 013 3v3a6 6 0 01-12 0v-3a3 3 0 013-3z"/></svg>
+          </div>
+          <h3>Macros, temp files, crypto &amp; secrets</h3>
+          <p><code>c-macro-multi-statement</code> flags function-like macros with several statements and no <code>do { } while (0)</code> wrapper; <code>c-sec-insecure-temp-file</code> flags <code>tmpnam</code>, <code>tempnam</code> and <code>mktemp</code>; weak <code>rand</code>/MD5/SHA1 use and hardcoded credentials round out 10 security checks in total.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="10" height="10" rx="1.5"/><rect x="10" y="10" width="10" height="10" rx="1.5"/></svg>
+          </div>
+          <h3>Duplication &amp; debt</h3>
+          <p>Token-based clone detection across the whole repo, plus every TODO/FIXME counted &mdash; <code>c-todo-without-ticket</code> flags the ones with no ticket reference.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tool-example">
+      <div class="tool-example-card">
+        <span class="finding-severity">Warning &middot; example finding</span>
+        <pre><code>char name[32];
+strcpy(name, argv[1]);
+printf(name);</code></pre>
+        <p class="finding-note">Illustrative example. <code>c-sec-unsafe-buffer-fn</code>: <code>strcpy</code> copies until the terminating NUL without looking at the size of <code>name</code>, so a longer argument overwrites neighbouring memory. <code>c-sec-format-string</code> also fires on the last line &mdash; <code>printf("%s", name)</code> keeps the text out of the format.</p>
+      </div>
+    </section>
+
+    <section class="tool-faq">
+      <h2>Frequently asked questions</h2>
+      <details class="faq-item">
+        <summary>Which C files does it analyze?</summary>
+        <p>Every <code>.c</code> file in the repository. Header files (<code>.h</code>) count as C when the repo has <code>.c</code> files and no C++ source files; in a repo that mixes C and C++, <code>.h</code> files are analyzed as C++.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Does it understand the preprocessor and macros?</summary>
+        <p>Preprocessor lines are read as single directives and are not expanded, so code that only exists after macro expansion is not analyzed. <code>#define</code> lines themselves are checked by <code>c-macro-multi-statement</code>.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How is this different from clang-tidy or cppcheck?</summary>
+        <p>Those tools can follow data through your code and usually need a build setup. REPO-SIGHT is token-based with no data-flow tracking, so it flags patterns for review and labels each finding with a confidence level. It runs from a GitHub URL alone and rolls the result into one project health score &mdash; a quick picture of the whole repo, not a replacement for a full toolchain.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Does REPO-SIGHT build or run my code?</summary>
+        <p>No. It's static analysis only &mdash; the source is parsed, never compiled or executed.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Is it actually free?</summary>
+        <p>Yes &mdash; no tiers, no paywalled metrics. A small amount of advertising covers hosting instead of a paid plan.</p>
+      </details>
+    </section>
+
+    <section class="tool-crosslinks">
+      <h2>Other languages</h2>
+      <div class="tool-crosslinks-grid">
+        <a href="/c-code-analyzer.html">C analyzer</a>
+        <a href="/cpp-code-analyzer.html">C++ analyzer</a>
+        <a href="/python-code-analyzer.html">Python analyzer</a>
+        <a href="/java-code-analyzer.html">Java analyzer</a>
+        <a href="/typescript-code-analyzer.html">TypeScript analyzer</a>
+        <a href="/javascript-code-analyzer.html">JavaScript analyzer</a>
+        <a href="/csharp-code-analyzer.html">C# analyzer</a>
+        <a href="/free-static-code-analyzer.html">Free static code analyzer</a>
+      </div>
+    </section>
+
+    <section class="tool-crosslinks">
+      <h2>Related reading</h2>
+      <div class="tool-crosslinks-grid">
+        <a href="/learn/cyclomatic-complexity-explained.html">Cyclomatic complexity explained</a>
+        <a href="/learn/what-is-code-complexity.html">What is code complexity?</a>
+        <a href="/learn/static-analysis-vs-code-review.html">Static analysis vs. code review</a>
+      </div>
+    </section>
+
+    <section class="cta-band">
+      <div class="cta-band-inner">
+        <div>
+          <h2>Scan a repository in seconds.</h2>
+          <p>No tiers and no paywalled metrics; a small amount of advertising pays for hosting. Sign-in is optional for public repositories and required for private ones.</p>
+        </div>
+        <a href="/#analyze" class="btn-primary btn-cta-band">Analyze a repo now</a>
+      </div>
+    </section>
