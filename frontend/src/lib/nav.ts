@@ -7,6 +7,7 @@ export const NAV = [
 ];
 
 export const LANGUAGES = [
+  { href: "/c-code-analyzer.html", label: "C" },
   { href: "/cpp-code-analyzer.html", label: "C++" },
   { href: "/python-code-analyzer.html", label: "Python" },
   { href: "/java-code-analyzer.html", label: "Java" },
@@ -27,6 +28,7 @@ export const FOOTER_COLUMNS: { title: string; links: { href: string; label: stri
   {
     title: "Tools",
     links: [
+      { href: "/c-code-analyzer.html", label: "C analyzer" },
       { href: "/cpp-code-analyzer.html", label: "C++ analyzer" },
       { href: "/python-code-analyzer.html", label: "Python analyzer" },
       { href: "/java-code-analyzer.html", label: "Java analyzer" },
