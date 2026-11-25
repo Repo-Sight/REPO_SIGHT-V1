@@ -1,13 +1,13 @@
 {
  "title": "REPO-SIGHT — Free static code analysis, graded in seconds",
- "description": "REPO-SIGHT reads your C, C++, Python, Java, TypeScript, JavaScript, or C# repository and grades it — size, complexity, duplication, security hotspots, and rule violations. Paste a public GitHub URL to start.",
+ "description": "REPO-SIGHT reads your  C++, Python, Java, TypeScript, JavaScript, or C# repository and grades it — size, complexity, duplication, security hotspots, and rule violations. Paste a public GitHub URL to start.",
  "canonical": "https://www.repo-sight.com/",
  "ogTitle": "REPO-SIGHT — Free static code analysis, graded in seconds",
  "ogDescription": "Paste a public GitHub URL and get a graded code health report across 7 languages — complexity, duplication, and security.",
  "robots": "index, follow",
  "h1Lead": "See what's inside",
  "h1Highlight": "your codebase",
- "heroSub": "Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo: size, structure, complexity, duplication, security hotspots, and rule violations, across C++, Python, Java, TypeScript, JavaScript, and C#.",
+ "heroSub": "Paste a public GitHub URL and REPO-SIGHT reads the source straight from the repo: size, structure, complexity, duplication, security hotspots, and rule violations, across C, C++, Python, Java, TypeScript, JavaScript, and C#.",
  "jsonLd": {
   "@context": "https://schema.org",
   "@graph": [
