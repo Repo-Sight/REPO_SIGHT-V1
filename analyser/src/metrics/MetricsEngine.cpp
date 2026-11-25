@@ -497,6 +497,7 @@ DependencyGraph MetricsEngine::buildDependencyGraph() const {
     indicesByBasename.reserve(graph.files.size());
     for (std::size_t i = 0; i < graph.files.size(); ++i)
         indicesByBasename[lastComponent(graph.files[i].path)].push_back(i);
+ 
     std::vector<std::set<std::string>> dependsOnSets(graph.files.size());
     std::vector<std::set<std::string>> dependedOnBySets(graph.files.size());
  
@@ -508,7 +509,6 @@ DependencyGraph MetricsEngine::buildDependencyGraph() const {
         for (const auto& target : fm.includeTargets) {
             bool resolved = false;
             for (const auto& candidate : candidateSuffixes(target)) {
-                
                 const auto sameName = indicesByBasename.find(lastComponent(candidate));
                 if (sameName == indicesByBasename.end()) continue;
                 for (const std::size_t j : sameName->second) {
