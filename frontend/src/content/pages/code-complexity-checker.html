@@ -1,6 +1,6 @@
 <section class="tool-hero">
       <h1>Code Complexity Checker</h1>
-      <p class="section-sub">Cyclomatic complexity and nesting depth, computed per function and rolled up per file &mdash; across C++, Python, Java, TypeScript, JavaScript, and C#.</p>
+      <p class="section-sub">Cyclomatic complexity and nesting depth, computed per function and rolled up per file &mdash; across C, C++, Python, Java, TypeScript, JavaScript, and C#.</p>
       <div class="tool-hero-ctas">
         <a href="/#analyze" class="btn-primary">Analyze a repo free</a>
       </div>
@@ -22,7 +22,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
           </div>
           <h3>Nesting depth</h3>
-          <p>How many levels deep a function's blocks go. REPO-SIGHT flags a file once its deepest function passes 6 levels, the same threshold across all six languages.</p>
+          <p>How many levels deep a function's blocks go. REPO-SIGHT flags a file once its deepest function passes 6 levels, the same threshold across all seven languages.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">
@@ -52,7 +52,7 @@
         <p>A function can have modest cyclomatic complexity but still nest 6+ levels deep, which is its own readability problem &mdash; that's why REPO-SIGHT scores it separately, at a 10% weight, with a good/bad reference of 3 and 8.</p>
       </details>
       <details class="faq-item">
-        <summary>Does complexity scoring work the same across all six languages?</summary>
+        <summary>Does complexity scoring work the same across all seven languages?</summary>
         <p>Yes &mdash; the nesting-depth threshold (6) and function-length threshold (100 lines) are identical in every supported language, so complexity numbers are comparable across a polyglot repo.</p>
       </details>
       <details class="faq-item">
@@ -73,6 +73,7 @@
     <section class="tool-crosslinks">
       <h2>By language</h2>
       <div class="tool-crosslinks-grid">
+        <a href="/c-code-analyzer.html">C analyzer</a>
         <a href="/cpp-code-analyzer.html">C++ analyzer</a>
         <a href="/python-code-analyzer.html">Python analyzer</a>
         <a href="/java-code-analyzer.html">Java analyzer</a>
