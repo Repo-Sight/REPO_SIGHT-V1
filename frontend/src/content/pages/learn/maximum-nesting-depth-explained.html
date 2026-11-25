@@ -44,7 +44,7 @@
     <p>Two details from the actual output are worth noticing. First, the nesting component of the health score moved from 60 to 100, because the score treats a depth of 3 as fully good and a depth of 8 as fully bad, and scales linearly between them: (8 &minus; 5) &divide; 5 = 0.6. Second, cyclomatic complexity was <strong>5 for both versions</strong>. Flattening the code removed no decision points. It only made them easier to see, which is exactly the gap between the two metrics.</p>
 
     <h2>What a flagged file looks like</h2>
-    <p>REPO-SIGHT raises a finding once a file passes a nesting depth of 6 (<code>cpp-deep-nesting</code>, <code>py-deep-nesting</code>, <code>java-deep-nesting</code>, <code>ts-deep-nesting</code>, <code>js-deep-nesting</code> and <code>csharp-deep-nesting</code>; the threshold is the same across all six languages). We tested the boundary: a function with five nested <code>if</code> statements reports 6 and is not flagged, and one with six reports 7 and is. Here is a function that crosses it:</p>
+     <p>REPO-SIGHT raises a finding once a file passes a nesting depth of 6 (<code>c-deep-nesting</code>, <code>cpp-deep-nesting</code>, <code>py-deep-nesting</code>, <code>java-deep-nesting</code>, <code>ts-deep-nesting</code>, <code>js-deep-nesting</code> and <code>csharp-deep-nesting</code>; the threshold is the same across all seven languages). We tested the boundary: a function with five nested <code>if</code> statements reports 6 and is not flagged, and one with six reports 7 and is. Here is a function that crosses it:</p>
     <pre><code>def reconcile(accounts, ledger):
     for acct in accounts:
         if acct.active:
@@ -87,7 +87,7 @@
     <h3>Does <code>else if</code> add depth?</h3>
     <p>No. An <code>else if</code> or <code>elif</code> continues the same chain, as the tested example above shows.</p>
     <h3>Can I compare depth across languages?</h3>
-    <p>Roughly. The rule and the score use the same thresholds in all six supported languages, but class-based languages spend levels on class and namespace blocks and JavaScript spends them on callbacks. Compare a project with others written in the same language, or with its own earlier scans.</p>
+    <p>Roughly. The rule and the score use the same thresholds in all seven supported languages, but class-based languages spend levels on class and namespace blocks and JavaScript spends them on callbacks. Compare a project with others written in the same language, or with its own earlier scans.</p>
 
     <h2>Check your own code</h2>
     <p><a href="/#analyze">Scan a repository</a> or paste a single file to see your deepest function, the files that hold it and your nesting score. If you want to see how nesting fits with the other four inputs, read <a href="/learn/how-to-measure-code-quality.html">how to measure code quality</a>.</p>
