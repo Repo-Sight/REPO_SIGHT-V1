@@ -56,7 +56,6 @@ static const std::unordered_set<std::string> kCKeywords = {
 CppLexer::CppLexer(const std::string& source, Dialect dialect)
     : m_stream(source), m_dialect(dialect) {}
 
- 
 std::vector<Token> CppLexer::tokenize() {
     std::vector<Token> tokens;
     tokens.reserve(m_stream.size() / 4);
