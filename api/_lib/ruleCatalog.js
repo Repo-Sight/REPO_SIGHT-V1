@@ -107,7 +107,7 @@ const FAMILIES = {
     fix: "Use bounded variants (strncpy, snprintf, fgets) or std::string / std::vector, and check lengths before copying.",
     caveat: "Copying a string of known-safe length is fine; the analyser cannot prove lengths.",
   },
-   "format-string": {
+  "format-string": {
     title: "Variable used as a printf format string",
     what: "A printf-family call receives a plain variable as its format string instead of a literal such as \"%s\".",
     why: "If the variable can hold user input, the % sequences in it are interpreted: an attacker can read memory (%x), crash the program (%s) or write to memory (%n).",
