@@ -4,9 +4,9 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#incldue <vector> 
 
- 
+#include <vector> 
+
 namespace cma {
  
 // Identifies which per-language front-end (Lexer/Parser pair) should
@@ -47,7 +47,6 @@ enum class Language {
     JavaScript,
     CSharp,
     C,          // Phase 1 item 4 (V3): reuses the C++ lexer (C dialect) and parser; own rule set.
-
 };
  
 // Maps a file extension to the Language that should analyze it, or
@@ -111,9 +110,9 @@ enum class Language {
 // JavaRules.cpp for Violation::language ("cpp"/"python"/"java").
 [[nodiscard]] inline std::string languageToString(Language lang) noexcept {
    switch (lang) {
-     case Language::Cpp:        return "cpp";
-     case Language::Python:     return "python";
-     case Language::Java:       return "java";
+       case Language::Cpp:        return "cpp";
+       case Language::Python:     return "python";
+       case Language::Java:       return "java";
      case Language::TypeScript: return "typescript";
      case Language::JavaScript: return "javascript";
      case Language::CSharp:     return "csharp";
