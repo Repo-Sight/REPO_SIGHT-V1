@@ -167,6 +167,7 @@ export interface ScanReport {
 export const TIERS: Tier[] = ["critical", "high", "medium", "low"];
 
 const LANGUAGE_LABELS: Record<string, string> = {
+  c: "C",
   cpp: "C++",
   python: "Python",
   java: "Java",
