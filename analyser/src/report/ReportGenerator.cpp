@@ -224,7 +224,7 @@ void ReportGenerator::writeJson(
     }
     out << "  },\n";
     
-     if (m.partialScan) {
+    if (m.partialScan) {
         out << "  \"partial\": {\n";
         out << "    \"filesScanned\": " << m.filesAnalyzed    << ",\n";
         out << "    \"filesTotal\": "   << m.filesDiscovered  << ",\n";
