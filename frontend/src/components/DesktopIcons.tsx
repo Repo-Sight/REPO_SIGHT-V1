@@ -227,6 +227,7 @@ export const LEFT: DesktopItem[] = [
     folder: {
       title: "Languages",
       links: [
+        { href: "/c-code-analyzer.html", label: "C analyzer" },
         { href: "/cpp-code-analyzer.html", label: "C++ analyzer" },
         { href: "/python-code-analyzer.html", label: "Python analyzer" },
         { href: "/java-code-analyzer.html", label: "Java analyzer" },
