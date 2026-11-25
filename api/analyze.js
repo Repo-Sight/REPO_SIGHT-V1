@@ -112,7 +112,7 @@ async function fetchSource({ parsed, srcDir, githubToken, signal }) {
 }
 
 async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken, signal, startedAt }) {
-const source = await fetchSource({ parsed, srcDir, githubToken, signal });
+ const source = await fetchSource({ parsed, srcDir, githubToken, signal });
 
   if (!source) {
     return {
@@ -370,7 +370,7 @@ export default async function handler(req, res) {
     }
 
     await mkdir(srcDir, { recursive: true });
-
+    
     const coverageReport = req.body?.coverageReport;
     
     const startedAt = Date.now()
