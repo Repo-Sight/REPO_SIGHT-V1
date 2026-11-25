@@ -15,7 +15,7 @@
     "file": "about.html",
     "kind": "legal",
     "title": "About — REPO-SIGHT",
-    "description": "Who builds REPO-SIGHT, what it does, and why it's free — a static code analysis tool for public C++, Python, Java, TypeScript, JavaScript, and C# repositories.",
+    "description": "Who builds REPO-SIGHT, what it does, and why it's free — a static code analysis tool for public C, C++, Python, Java, TypeScript, JavaScript, and C# repositories.",
     "canonical": "https://www.repo-sight.com/about.html",
     "ogTitle": "About — REPO-SIGHT",
     "ogDescription": "Who builds REPO-SIGHT, what it does, and why it's free.",
@@ -26,10 +26,10 @@
     "file": "code-complexity-checker.html",
     "kind": "tool",
     "title": "Code Complexity Checker — Cyclomatic Complexity & Nesting Depth | REPO-SIGHT",
-    "description": "Free cyclomatic complexity and nesting-depth checker for C++, Python, Java, TypeScript, JavaScript, and C#. Paste a GitHub URL.",
+    "description": "Free cyclomatic complexity and nesting-depth checker for C, C++, Python, Java, TypeScript, JavaScript, and C#. Paste a GitHub URL.",
     "canonical": "https://www.repo-sight.com/code-complexity-checker.html",
     "ogTitle": "Code Complexity Checker — Cyclomatic Complexity & Nesting Depth | REPO-SIGHT",
-    "ogDescription": "Free cyclomatic complexity and nesting-depth checker for C++, Python, Java, TypeScript, JavaScript, and C#. Paste a GitHub URL.",
+    "ogDescription": "Free cyclomatic complexity and nesting-depth checker for C, C++, Python, Java, TypeScript, JavaScript, and C#. Paste a GitHub URL.",
     "robots": "index, follow"
   },
   {
@@ -47,13 +47,14 @@
     "path": "/code-security-scanner.html",
     "file": "code-security-scanner.html",
     "kind": "tool",
-    "title": "Code Security Scanner — Free, 45 Checks, 6 Languages | REPO-SIGHT",
+    "title": "Code Security Scanner — Free, 55 Checks, 7 Languages | REPO-SIGHT",
     "description": "Free deterministic security scanning for C++, Python, Java, TypeScript, JavaScript, and C#: hardcoded secrets, injection risk, weak crypto, and more. 45 security checks.",
     "canonical": "https://www.repo-sight.com/code-security-scanner.html",
-    "ogTitle": "Code Security Scanner — Free, 45 Checks, 6 Languages | REPO-SIGHT",
+    "ogTitle": "Code Security Scanner — Free, 55 Checks, 7 Languages | REPO-SIGHT",
     "ogDescription": "Free deterministic security scanning for C++, Python, Java, TypeScript, JavaScript, and C#: hardcoded secrets, injection risk, weak crypto, and more. 45 security checks.",
     "robots": "index, follow"
   },
+  
   {
     "path": "/contact.html",
     "file": "contact.html",
@@ -63,6 +64,17 @@
     "canonical": "https://www.repo-sight.com/contact.html",
     "ogTitle": "Contact | REPO-SIGHT",
     "ogDescription": "Get in touch with REPO-SIGHT for bug reports, feature requests, or general questions.",
+    "robots": "index, follow"
+  },
+    {
+    "path": "/c-code-analyzer.html",
+    "file": "c-code-analyzer.html",
+    "kind": "tool",
+    "title": "C Code Analyzer — Free Static Analysis | REPO-SIGHT",
+    "description": "Paste a public GitHub URL and get real static analysis for your C code: unsafe string functions, format strings, unchecked malloc, and 19 rules built for C. Free.",
+    "canonical": "https://www.repo-sight.com/c-code-analyzer.html",
+    "ogTitle": "C Code Analyzer — Free Static Analysis | REPO-SIGHT",
+    "ogDescription": "Paste a public GitHub URL and get real static analysis for your C code: unsafe string functions, format strings, unchecked malloc, and 19 rules built for C. Free.",
     "robots": "index, follow"
   },
   {
@@ -81,10 +93,10 @@
     "file": "free-static-code-analyzer.html",
     "kind": "tool",
     "title": "Free Static Code Analyzer | REPO-SIGHT",
-    "description": "REPO-SIGHT is a genuinely free static code analyzer for C++, Python, Java, TypeScript, JavaScript, and C#. No trial, no tier, no credit card.",
+    "description": "REPO-SIGHT is a genuinely free static code analyzer for C, C++, Python, Java, TypeScript, JavaScript, and C#. No trial, no tier, no credit card.",
     "canonical": "https://www.repo-sight.com/free-static-code-analyzer.html",
     "ogTitle": "Free Static Code Analyzer | REPO-SIGHT",
-    "ogDescription": "REPO-SIGHT is a genuinely free static code analyzer for C++, Python, Java, TypeScript, JavaScript, and C#. No trial, no tier, no credit card.",
+    "ogDescription": "REPO-SIGHT is a genuinely free static code analyzer for C, C++, Python, Java, TypeScript, JavaScript, and C#. No trial, no tier, no credit card.",
     "robots": "index, follow"
   },
   {
@@ -202,10 +214,10 @@
     "file": "learn/index.html",
     "kind": "legal",
     "title": "Learn — Static Analysis Articles | REPO-SIGHT",
-    "description": "21 practical, no-fluff explainers on static code analysis, code metrics, and language-specific quality fixes across C++, Python, Java, TypeScript, JavaScript, and C#.",
+    "description": "21 practical, no-fluff explainers on static code analysis, code metrics, and language-specific quality fixes across C, C++, Python, Java, TypeScript, JavaScript, and C#.",
     "canonical": "https://www.repo-sight.com/learn/",
     "ogTitle": "Learn — Static Analysis Articles | REPO-SIGHT",
-    "ogDescription": "21 practical, no-fluff explainers on static code analysis, code metrics, and language-specific quality fixes across C++, Python, Java, TypeScript, JavaScript, and C#.",
+    "ogDescription": "21 practical, no-fluff explainers on static code analysis, code metrics, and language-specific quality fixes across C, C++, Python, Java, TypeScript, JavaScript, and C#.",
     "robots": "index, follow"
   },
   {
