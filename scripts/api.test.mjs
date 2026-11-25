@@ -23,7 +23,7 @@ test("catalog covers exactly the rule IDs the analyser can emit", () => {
   const ids = new Set();
   for (const f of readdirSync(dir).filter(n => n.endsWith("Rules.cpp"))) {
     const src = readFileSync(join(dir, f), "utf8");
-    for (const m of src.matchAll(/"((?:cpp|py|java|js|ts|csharp)-[a-z0-9-]+)"/g)) ids.add(m[1]);
+    for (const m of src.matchAll(/"((?:c|cpp|py|java|js|ts|csharp)-[a-z0-9-]+)"/g)) ids.add(m[1]);
   }
   const catalog = new Set(Object.keys(RULES));
   const missing = [...ids].filter(i => !catalog.has(i));
