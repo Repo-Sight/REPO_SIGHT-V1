@@ -7,6 +7,7 @@ import { describeEntries, describeEntry, groupUnanalyzed } from "../lib/unanalyz
 import { useAuth } from "../lib/authContext";
 import { computeScanDelta, type ScanDelta } from "../lib/delta";
 import { findPreviousScanId } from "../lib/history";
+import { RescanButton } from "./RescanButton";
 import { trackBadgeCopied } from "../lib/events";
 import { buildFindingPrompt, buildGroupPrompt } from "../lib/fixPrompt";
 import {
@@ -852,11 +853,14 @@ function ExportPanel({ report }: { report: ScanReport }) {
 function TrendCallout({ report }: { report: ScanReport }) {
   const { ready, user, openAccount } = useAuth();
   const [delta, setDelta] = useState<ScanDelta | null>(null);
+  // True once the comparison lookup has finished, so "no comparison" is not shown while it is still loading.
+  const [settled, setSettled] = useState(false);
   const userId = user?.id;
   const isRepoScan = Boolean(report.repoOwner && report.projectName);
 
   useEffect(() => {
     setDelta(null);
+    setSettled(false);
     if (!userId || !isRepoScan) return;
     let cancelled = false;
     (async () => {
@@ -865,9 +869,13 @@ function TrendCallout({ report }: { report: ScanReport }) {
       const previous = await fetchScan(prevId);
       // A score change between a sample and a full scan (or two different samples) would be noise, not progress.
       if (!cancelled && !report.partial && !previous.partial) setDelta(computeScanDelta(report, previous));
-    })().catch(() => {
-      // Comparison is a bonus: never surface an error for it.
-    });
+      })()
+      .catch(() => {
+        // Comparison is a bonus: never surface an error for it.
+      })
+      .finally(() => {
+        if (!cancelled) setSettled(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -902,6 +910,23 @@ function TrendCallout({ report }: { report: ScanReport }) {
             Biggest complexity jump: {d.mostComplexFile.path} (+{d.mostComplexFile.delta})
           </p>
         ) : null}
+         <div className="mt-3 flex flex-wrap items-center gap-2">
+          <RescanButton report={report} label="Rescan now" />
+        </div>
+      </section>
+    );
+  }
+
+  if (user && isRepoScan && settled) {
+    return (
+      <section className="rounded-md border border-dashed border-line p-3" aria-label="Rescan this repository">
+        <p className="text-sm">
+          Fixed some things? Rescan this repo and REPO-SIGHT shows what changed since this scan.
+          {report.partial ? " Comparisons need two full scans, and this one covered only part of the repo." : ""}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <RescanButton report={report} label="Rescan now" />
+        </div>
       </section>
     );
   }
