@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
+import { isRepoKey } from "../lib/api";
 import { useAuth, type AuthMode } from "../lib/authContext";
 import { listMyScans, type ScanRow } from "../lib/history";
 import { DialogWindow } from "./DialogWindow";
+import { RescanButton } from "./RescanButton";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
 
@@ -210,11 +212,11 @@ function SignedIn({
         ) : (
           <ul className="mt-2 max-h-72 space-y-2 overflow-y-auto">
             {rows.map((r) => (
-              <li key={r.scan_id}>
+              <li key={r.scan_id} className="flex flex-wrap items-stretch gap-2">
                 <Link
                   to={{ pathname: "/", search: `?scan=${encodeURIComponent(r.scan_id)}` }}
                   onClick={onClose}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line p-2 hover:bg-chrome"
+                  className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 rounded-md border border-line p-2 hover:bg-chrome"
                 >
                   <span className="min-w-0 break-all font-mono text-sm font-bold">{r.project_name}</span>
                   <span className="font-mono text-xs">
@@ -222,6 +224,8 @@ function SignedIn({
                     {r.health_score != null ? ` ${Math.round(r.health_score)}` : ""} · {new Date(r.scanned_at).toLocaleDateString()}
                   </span>
                 </Link>
+                 {/* Pasted-file scans are named by file (no "owner/repo"), and a file cannot be fetched again. */}
+                 {isRepoKey(r.project_name) ? <RescanButton scanId={r.scan_id} onDone={onClose} /> : null}
               </li>
             ))}
           </ul>
