@@ -101,7 +101,7 @@ namespace cma {
          case Language::C: {
             CppParser parser(tokens, totalLines);
             return parser.analyze();
-+       }
+        }
     }
     return {}; // unreachable, same rationale as tokenizeSource() above
 }
