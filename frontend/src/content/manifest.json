@@ -48,10 +48,10 @@
     "file": "code-security-scanner.html",
     "kind": "tool",
     "title": "Code Security Scanner — Free, 55 Checks, 7 Languages | REPO-SIGHT",
-    "description": "Free deterministic security scanning for C, C++, Python, Java, TypeScript, JavaScript, and C#: hardcoded secrets, injection risk, weak crypto, and more. 45 security checks.",
+    "description": "Free deterministic security scanning for C, C++, Python, Java, TypeScript, JavaScript, and C#: hardcoded secrets, injection risk, weak crypto, and more. 55 security checks.",
     "canonical": "https://www.repo-sight.com/code-security-scanner.html",
     "ogTitle": "Code Security Scanner — Free, 55 Checks, 7 Languages | REPO-SIGHT",
-    "ogDescription": "Free deterministic security scanning for C, C++, Python, Java, TypeScript, JavaScript, and C#: hardcoded secrets, injection risk, weak crypto, and more. 45 security checks.",
+    "ogDescription": "Free deterministic security scanning for C, C++, Python, Java, TypeScript, JavaScript, and C#: hardcoded secrets, injection risk, weak crypto, and more. 55 security checks.",
     "robots": "index, follow"
   },
   {
