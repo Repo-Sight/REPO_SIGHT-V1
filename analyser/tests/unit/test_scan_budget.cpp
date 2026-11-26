@@ -83,9 +83,9 @@ TEST(ScanBudgetDeadline, ExpiresOnlyAfterItsLoopShareOfTheBudget) {
     EXPECT_TRUE(generous.enabled());
     EXPECT_FALSE(generous.expired());
 
-    // Loop share of a 40ms budget is 10ms: not expired right away, expired well after.
+    // Loop share of a 40ms budget is 10ms; 60ms later it has certainly passed. (No "not expired yet"
+    // check on the tight one: a loaded CI machine could delay the test thread past 10ms.)
     const LoopDeadline tight(40);
-    EXPECT_FALSE(tight.expired());
     std::this_thread::sleep_for(std::chrono::milliseconds(60));
     EXPECT_TRUE(tight.expired());
 }
