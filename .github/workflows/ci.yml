@@ -31,6 +31,7 @@ jobs:
   api:
     runs-on: ubuntu-latest
     steps:
+      - run: npm ci
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
