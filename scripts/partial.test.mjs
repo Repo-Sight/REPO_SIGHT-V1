@@ -88,14 +88,17 @@ test("binary: a generous budget finishes everything and equals a run with no bud
   }
 });
 
-test("binary: the sample is deterministic for a given file set and a nonsense budget is ignored", () => {
+test("binary: samples come from one fixed order (smaller sample is a prefix of a bigger one) and a nonsense budget is ignored", () => {
   chmodSync(BIN, 0o755);
   const dir = makeTree(60);
   try {
-    // Budget 1 always analyzes exactly one file first; that file is the first in sampling order.
-    const a = run(dir, ["--time-budget-ms", "1"]).report;
-    const b = run(dir, ["--time-budget-ms", "1"]).report;
-    assert.equal(a.files[0].path, b.files[0].path);
+    // How many files a 1 ms budget gets through depends on timing, but WHICH files come first does not:
+    // every run walks the same hash order, so two samples are always nested.
+    const a = new Set(run(dir, ["--time-budget-ms", "1"]).report.files.map((f) => f.path));
+    const b = new Set(run(dir, ["--time-budget-ms", "1"]).report.files.map((f) => f.path));
+    const [small, big] = a.size <= b.size ? [a, b] : [b, a];
+    assert.ok(small.size >= 1);
+    assert.ok([...small].every((p) => big.has(p)), "the smaller sample is contained in the bigger one");
     const junk = run(dir, ["--time-budget-ms", "abc"]).report;
     assert.equal(junk.partial, undefined);
     assert.equal(junk.project.filesAnalyzed, 60);
