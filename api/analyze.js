@@ -24,6 +24,7 @@ import { randomUUID } from "node:crypto";
 import { getSupabase, getUserFromRequest, recordUserScan } from "./_lib/supabase.js";
 import { recordEvent, repoKey } from "./_lib/events.js";
 import { recordRepoLatest } from "./_lib/repoLatest.js";
+import { recordScanHistory } from "./_lib/scanHistory.js";
 import {
   parseGithubUrl,
   readGithubToken,
@@ -100,19 +101,21 @@ async function cleanStaleTmpDirs() {
 //   No token -> public path (codeload: main, master, then HEAD = default branch).
 //   Token    -> GitHub API: repo metadata (private flag + default branch),
 //               then the authenticated tarball of the default branch.
-// Returns { branch, isPrivate } or null when the public path finds nothing.
+// Returns { branch, isPrivate, commit } or null when the public path finds nothing. `commit` is
+// the full commit id the tarball was cut from (read from the tar header), or null.
 async function fetchSource({ parsed, srcDir, githubToken, signal }) {
+  const info = {};
   if (!githubToken) {
-    const branch = await downloadPublicAndExtract(parsed.owner, parsed.repo, srcDir, signal);
-    return branch ? { branch, isPrivate: false } : null;
+    const branch = await downloadPublicAndExtract(parsed.owner, parsed.repo, srcDir, signal, info);
+    return branch ? { branch, isPrivate: false, commit: info.commit ?? null } : null;
   }
   const meta = await fetchRepoMeta(parsed.owner, parsed.repo, githubToken, signal);
-  await downloadAuthedAndExtract(parsed.owner, parsed.repo, meta.defaultBranch, githubToken, srcDir, signal);
-  return { branch: meta.defaultBranch, isPrivate: meta.isPrivate };
+  await downloadAuthedAndExtract(parsed.owner, parsed.repo, meta.defaultBranch, githubToken, srcDir, signal, info);
+  return { branch: meta.defaultBranch, isPrivate: meta.isPrivate, commit: info.commit ?? null };
 }
 
 async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken, signal, startedAt }) {
- const source = await fetchSource({ parsed, srcDir, githubToken, signal });
+  const source = await fetchSource({ parsed, srcDir, githubToken, signal });
 
   if (!source) {
     return {
@@ -124,8 +127,8 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
       },
     };
   }
-  const { branch, isPrivate } = source;
-  
+  const { branch, isPrivate, commit } = source;
+
   // Whatever the download took is gone; the analyser gets the rest (minus a reserve), or the scan is
   // reported as timed out when too little is left to analyze anything meaningful.
   const computed = engineBudgetMs(Date.now() - startedAt, OVERALL_TIMEOUT_MS);
@@ -159,7 +162,7 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
   void cmaResult;
 
   const report = JSON.parse(await readFile(reportPath, "utf8"));
-  
+
   // The analyser reports `partial` when its time budget ended the run before every file was reached.
   // Keep only a validated block; a partial scan is a sample, so it never feeds the live badge (below).
   const partial = sanitizePartial(report.partial);
@@ -235,6 +238,16 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
     } catch (historyErr) {
       console.error("recordUserScan failed (scan itself still succeeded):", historyErr);
     }
+    // Compact trend row (kept long after the full report is evicted). Never throws.
+    await recordScanHistory(supabase, {
+      userId: user.id,
+      repo: repoKey(parsed.owner, parsed.repo),
+      scanId,
+      commit,
+      branch,
+      payload,
+      partial,
+    });
   }
   // Live badge / scorecard pointer: PUBLIC repos only, default branch (that is all a public scan reads).
   // Never for a partial scan: its score describes a sample, and a badge must describe the repo.
@@ -370,10 +383,10 @@ export default async function handler(req, res) {
     }
 
     await mkdir(srcDir, { recursive: true });
-    
+
     const coverageReport = req.body?.coverageReport;
-    
-    const startedAt = Date.now()
+
+    const startedAt = Date.now();
     pipelinePromise = runPipeline({
       parsed, srcDir, reportPath, scanId, supabase, user, coverageReport, githubToken,
       signal: controller.signal, startedAt,
