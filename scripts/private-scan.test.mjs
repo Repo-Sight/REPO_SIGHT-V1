@@ -18,6 +18,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as tar from "tar";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 import {
   parseGithubUrl,
@@ -49,6 +50,8 @@ let rawCalls = [];                  // requests to raw.githubusercontent.com
 let removedKeys = [];               // keys removed via Storage DELETE
 let userScanRows = [];              // what GET user_scans returns
 let eventRows = [];                 // rows POSTed to the Phase 0 events table
+let historyRows = [];               // rows upserted into public.scan_history
+let historyStatus = 201;            // status the fake scan_history endpoint answers with
 const repoLatestRows = new Map();   // repo_key -> row (fake public.repo_latest)
 let ghMeta = { status: 200, body: { private: true, default_branch: "trunk" }, headers: {} };
 let server;
@@ -74,6 +77,24 @@ async function buildTarball(extraFiles = 0) {
   for await (const c of stream) chunks.push(c);
   rmSync(dir, { recursive: true, force: true });
   return Buffer.concat(chunks);
+}
+
+// Prepend a pax global header (`comment=<sha>`), which is how `git archive` (GitHub) records the commit.
+function withCommitHeader(tgz, sha) {
+  const rec = (() => { const base = ` comment=${sha}\n`; let len = base.length + 1; while (String(len).length + base.length !== len) len += 1; return `${len}${base}`; })();
+  const data = Buffer.from(rec);
+  const h = Buffer.alloc(512);
+  h.write("pax_global_header", 0, 100, "utf8");
+  h.write("0000666\0", 100); h.write("0000000\0", 108); h.write("0000000\0", 116);
+  h.write(data.length.toString(8).padStart(11, "0") + "\0", 124);
+  h.write("00000000000\0", 136);
+  h.write("        ", 148);
+  h.write("g", 156);
+  h.write("ustar\0" + "00", 257);
+  let sum = 0; for (const b of h) sum += b;
+  h.write(sum.toString(8).padStart(6, "0") + "\0 ", 148);
+  const pad = Buffer.alloc((512 - (data.length % 512)) % 512);
+  return gzipSync(Buffer.concat([h, data, pad, gunzipSync(tgz)]));
 }
 
 function fakeSupabase() {
@@ -112,7 +133,7 @@ function fakeSupabase() {
             : send(404, { statusCode: "404", error: "not_found", message: "Object not found" });
         }
       }
-            if (url.pathname === "/rest/v1/repo_latest") {
+      if (url.pathname === "/rest/v1/repo_latest") {
         if (req.method === "POST") {
           const row = JSON.parse(body || "{}");
           repoLatestRows.set(row.repo_key, { removed: false, ...repoLatestRows.get(row.repo_key), ...row });
@@ -121,9 +142,15 @@ function fakeSupabase() {
         const key = (url.searchParams.get("repo_key") || "").replace(/^eq\./, "");
         return send(200, repoLatestRows.has(key) ? [repoLatestRows.get(key)] : []);
       }
-       if (url.pathname === "/rest/v1/events" && req.method === "POST") {
+      if (url.pathname === "/rest/v1/events" && req.method === "POST") {
         const parsed = JSON.parse(body || "{}");
         eventRows.push(...(Array.isArray(parsed) ? parsed : [parsed]));
+        return send(201);
+      }
+      if (url.pathname === "/rest/v1/scan_history" && req.method === "POST") {
+        if (historyStatus >= 400) return send(historyStatus, { message: "simulated scan_history failure" });
+        const parsed = JSON.parse(body || "{}");
+        historyRows.push(...(Array.isArray(parsed) ? parsed : [parsed]));
         return send(201);
       }
       if (url.pathname === "/rest/v1/user_scans") {
@@ -197,6 +224,8 @@ const reset = () => {
   removedKeys = [];
   userScanRows = [];
   eventRows = [];
+  historyRows = [];
+  historyStatus = 201;
   repoLatestRows.clear();
   stored.clear();
   ghMeta = { status: 200, body: { private: true, default_branch: "trunk" }, headers: {} };
@@ -593,4 +622,77 @@ test("AI explain can only ever see public code: file fetch carries no credential
   const sent = JSON.stringify(rawCalls[0].headers).toLowerCase();
   assert.ok(!sent.includes("authorization") && !sent.includes("x-github-token"),
     "an unauthenticated raw fetch can only return public files, so private source can never reach the Gemini call");
+});
+
+// ------------------------------------------------- compact scan history (Phase 2 item 5)
+const COMMIT = "1d233c714cc6addda158484fe4bbc3b0a5370c81";
+
+test("signed-in public scan writes one compact history row with the commit from the tar header", async () => {
+  reset();
+  const saved = tarballGz;
+  tarballGz = withCommitHeader(saved, COMMIT);
+  try {
+    const res = await analyze({ repoUrl: "https://github.com/acme/public-repo" }, { authorization: `Bearer ${OWNER_SESSION}` });
+    assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+    assert.equal(historyRows.length, 1);
+    const row = historyRows[0];
+    assert.equal(row.user_id, "user-owner");
+    assert.equal(row.repo_key, "acme/public-repo");
+    assert.equal(row.scan_id, res.body.scanId);
+    assert.equal(row.commit_sha, COMMIT);
+    assert.equal(row.branch, "main");
+    assert.equal(row.engine_version, "3.0");
+    assert.equal(typeof row.health_score, "number");
+    assert.ok(row.health_score >= 0 && row.health_score <= 100);
+    assert.match(row.health_grade, /^[A-F]$/);
+    for (const k of ["score_complexity", "score_function_length", "score_comments", "score_todo", "score_nesting"]) {
+      assert.equal(typeof row[k], "number", k);
+    }
+    for (const k of ["tier_critical", "tier_high", "tier_medium", "tier_low", "files_analyzed", "total_lines"]) {
+      assert.ok(Number.isInteger(row[k]) && row[k] >= 0, k);
+    }
+    assert.ok(row.files_analyzed >= 1);
+    assert.equal(row.partial, false);
+    // Numbers only: nothing about the code reaches the history table.
+    assert.ok(!JSON.stringify(row).includes("eval"), "no source text in a history row");
+  } finally {
+    tarballGz = saved;
+  }
+});
+
+test("a tarball without a commit header still records the scan, with commit_sha null", async () => {
+  reset();
+  const res = await analyze({ repoUrl: "https://github.com/acme/public-repo" }, { authorization: `Bearer ${OWNER_SESSION}` });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(historyRows.length, 1);
+  assert.equal(historyRows[0].commit_sha, null);
+});
+
+test("anonymous scans write no history row", async () => {
+  reset();
+  const res = await analyze({ repoUrl: "https://github.com/acme/public-repo" });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(historyRows.length, 0);
+});
+
+test("private scan history is stored under the owner's id only; the token never reaches it", async () => {
+  reset();
+  const res = await analyze(
+    { repoUrl: "https://github.com/acme/secret-repo" },
+    { "x-github-token": OWNER_GH_TOKEN, authorization: `Bearer ${OWNER_SESSION}` }
+  );
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(historyRows.length, 1);
+  assert.equal(historyRows[0].user_id, "user-owner");
+  assert.equal(historyRows[0].branch, "trunk");
+  assert.ok(!JSON.stringify(historyRows).includes(OWNER_GH_TOKEN));
+});
+
+test("a failing history write never fails the scan", async () => {
+  reset();
+  historyStatus = 500;
+  const res = await analyze({ repoUrl: "https://github.com/acme/public-repo" }, { authorization: `Bearer ${OWNER_SESSION}` });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(historyRows.length, 0);
+  assert.ok(res.body.scanId);
 });
