@@ -155,7 +155,17 @@ export async function fetchRepoMeta(owner, repo, token, signal) {
 //
 // Symlink/hardlink entries are skipped: the analyser follows symlinks, and a
 // scan has no use for them.
-async function extractResponse(res, srcDir, signal) {
+// The commit a GitHub tarball was cut from. `git archive` (which GitHub uses) writes the full
+// commit id into the tar's global pax header as `comment=<sha>`, and node-tar hands that header
+// to every entry as `globalExtended`. Returns null when absent or not a 40-hex id, so a changed
+// or hostile header can never put anything but a commit id into history.
+export function readCommitSha(entry) {
+  const c = entry?.globalExtended?.comment;
+  return typeof c === "string" && /^[0-9a-f]{40}$/.test(c) ? c : null;
+}
+
+// `info` is an optional out-object: extractResponse sets info.commit (or leaves it unset).
+async function extractResponse(res, srcDir, signal, info) {
   // Best-effort early reject; GitHub usually omits content-length.
   const contentLength = Number(res.headers.get("content-length") || 0);
   if (contentLength > MAX_TARBALL_BYTES) {
@@ -190,6 +200,10 @@ async function extractResponse(res, srcDir, signal) {
     cwd: srcDir,
     strip: 1,
     filter: (_path, entry) => {
+        if (info && !info.commit) {
+        const sha = readCommitSha(entry);
+        if (sha) info.commit = sha;
+      }
       if (limitError) return false;
       if (entry.type === "SymbolicLink" || entry.type === "Link") return false;
       entryCount += 1;
@@ -225,7 +239,7 @@ async function extractResponse(res, srcDir, signal) {
 // the repo's real default branch, so trunk/develop/etc. repos work.
 // Returns the ref that resolved ("HEAD" when the default branch name is not
 // known), or null if none exists.
-export async function downloadPublicAndExtract(owner, repo, srcDir, signal) {
+export async function downloadPublicAndExtract(owner, repo, srcDir, signal, info) {
   const refs = [
     { ref: "refs/heads/main", label: "main" },
     { ref: "refs/heads/master", label: "master" },
@@ -235,7 +249,7 @@ export async function downloadPublicAndExtract(owner, repo, srcDir, signal) {
     const url = `https://codeload.github.com/${owner}/${repo}/tar.gz/${ref}`;
     const res = await fetchStart(url, {}, signal);
     if (!res.ok) continue;
-    await extractResponse(res, srcDir, signal);
+    await extractResponse(res, srcDir, signal, info);
     return label;
   }
   return null;
@@ -245,11 +259,11 @@ export async function downloadPublicAndExtract(owner, repo, srcDir, signal) {
 // api.github.com answers 302 -> a pre-signed codeload URL. fetch drops the
 // Authorization header on that cross-origin redirect (fetch spec), so the
 // token never reaches codeload.
-export async function downloadAuthedAndExtract(owner, repo, branch, token, srcDir, signal) {
+export async function downloadAuthedAndExtract(owner, repo, branch, token, srcDir, signal, info) {
   const res = await fetchStart(`${GITHUB_API}/repos/${owner}/${repo}/tarball/${branch}`, {
     headers: authedHeaders(token),
     redirect: "follow",
   }, signal);
   if (!res.ok) throwForStatus(res);
-  await extractResponse(res, srcDir, signal);
+  await extractResponse(res, srcDir, signal, info);
 }
