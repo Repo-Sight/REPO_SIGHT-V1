@@ -61,7 +61,7 @@ async function call(method: "POST" | "DELETE", url: string, body?: Record<string
 }
 
 /** Make the given scan (one of the user's own full scans) the baseline of its repo. */
-export const setBaseline = (scanId: string): Promise<void> => call("POST", "/api/baseline", { scanId });
+export const setBaseline = (scanId: string): Promise<void> => call("POST", "/api/scans/baseline", { scanId });
 
 export const clearBaseline = (repoKey: string): Promise<void> =>
   call("DELETE", `/api/baseline?repo=${encodeURIComponent(repoKey)}`);
