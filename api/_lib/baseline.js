@@ -8,8 +8,9 @@
 // scan's full report is usually evicted long before it is needed. Groups are numbers and hashes only:
 // no code, no paths, no messages.
 //
-// Plain imported module, not a route: api/baseline.js is the route and only calls handleBaseline.
-// Keeping the logic here lets it move into a shared router if the function count ever needs it.
+// Plain imported module, not a route: api/scans/[scanId].js hands requests for /api/scans/baseline
+// to handleBaseline. It is not its own file in api/ because Vercel Hobby allows 12 functions per
+// deployment, every file in api/ is one, and item 6 (weekly digest) still needs a slot.
 import { enrichReport } from "./enrich.js";
 import { getSupabase, getUserFromRequest } from "./supabase.js";
 import { repoKey } from "./events.js";
@@ -95,8 +96,8 @@ async function readStoredReport(supabase, scanId) {
 }
 
 /**
- * POST   /api/baseline   body { "scanId": "<uuid>" }   set (or replace) the baseline of that scan's repo
- * DELETE /api/baseline?repo=owner/name                  clear it
+ * POST   /api/scans/baseline   body { "scanId": "<uuid>" }   set (or replace) the baseline of that scan's repo
+ * DELETE /api/scans/baseline?repo=owner/name                  clear it
  * Header: Authorization: Bearer <Supabase access token>   (required for both)
  *
  * The scan must be one of the caller's own (it must be in their user_scans history), and the repo
