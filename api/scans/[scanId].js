@@ -1,6 +1,7 @@
 // api/scans/[scanId].js
 //
 // GET /api/scans/:scanId[?format=sarif|json]
+// POST|DELETE /api/scans/baseline (set or clear a baseline; handled by api/_lib/baseline.js)
 //
 // format=sarif  SARIF 2.1.0 (GitHub code scanning, coding agents); format=json  the report with
 // repo-relative paths. Both go through exactly the same access check as the plain report.
@@ -16,6 +17,7 @@
 // found." a nonexistent id returns (no existence oracle). Public and
 // pre-Phase-C scans (no visibility field) are served exactly as before.
 
+import { handleBaseline } from "../_lib/baseline.js";
 import { getSupabase, getUserFromRequest } from "../_lib/supabase.js";
 import { enrichReport } from "../_lib/enrich.js";
 import { getRepoLatest, parseRepoParams } from "../_lib/repoLatest.js";
@@ -44,6 +46,9 @@ export default async function handler(req, res) {
     res.status(400).json({ status: "FAILED", errorMessage: "Missing scan id." });
     return;
   }
+  // POST|DELETE /api/scans/baseline: the per-repo baseline (api/_lib/baseline.js). It lives behind this
+  // route on purpose: Vercel Hobby allows 12 functions per deployment and every file in api/ is one.
+  if (scanId === "baseline") return handleBaseline(req, res);
   // GET /api/scans/latest?owner=<o>&repo=<r> (the repo scorecard): resolves to the latest PUBLIC
   // scan of that repo, then goes through exactly the same checks below.
   const wantsLatest = scanId === "latest";
@@ -51,7 +56,7 @@ export default async function handler(req, res) {
     res.status(400).json({ status: "FAILED", errorMessage: "Invalid scan id." });
     return;
   }
-  
+
   const rawFormat = Array.isArray(req.query?.format) ? req.query.format[0] : req.query?.format;
   const format = rawFormat === undefined || rawFormat === "" ? null : String(rawFormat).toLowerCase();
   if (format !== null && format !== "sarif" && format !== "json") {
