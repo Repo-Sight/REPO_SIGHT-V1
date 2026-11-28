@@ -146,6 +146,8 @@ export interface ScanReport {
   repoOwner?: string;
   repoName?: string;
   repoBranch?: string;
+  /** Engine that produced this report (api/_lib/engineVersion.js). Absent on reports stored before engine tracking. */
+  engineVersion?: string;
   createdAt?: string;
   /**
    * Present only when the scan stopped early (repo too large for the online time limit). The report then
