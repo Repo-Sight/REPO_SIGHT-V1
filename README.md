@@ -11,7 +11,7 @@ The analyser has 117 rules across the seven languages (55 are security-specific)
 Repository layout
 Path	What it holds
 `analyser/`	C++ engine: lexers, parsers, rules, metrics, report generation, unit tests
-`api/`	Vercel serverless endpoints (`analyze`, `analyze-file`, `analyze-diff`, `rules`, `scans`, `badge`, `explain-finding`, `feedback`, `keepalive`, `welcome`, `event`; the live badge is served at `/badge/gh/:owner/:repo` by a `vercel.json` rewrite to `api/badge/[scanId].js`); `GET /api/scans/:id?format=sarif|json` exports a report as SARIF 2.1.0 or as JSON with repo-relative paths, under the same access rule as the report; every finding carries a stable `fp` fingerprint, see `api/_lib/fingerprint.js`); shared code lives in `api/_lib/` (not counted as functions)
+`api/`	Vercel serverless endpoints (`analyze`, `analyze-file`, `analyze-diff`, `rules`, `scans`, `badge`, `explain-finding`, `feedback`, `keepalive`, `welcome`, `event`, `baseline`; the live badge is served at `/badge/gh/:owner/:repo` by a `vercel.json` rewrite to `api/badge/[scanId].js`); `GET /api/scans/:id?format=sarif|json` exports a report as SARIF 2.1.0 or as JSON with repo-relative paths, under the same access rule as the report; every finding carries a stable `fp` fingerprint, see `api/_lib/fingerprint.js`); `POST`/`DELETE /api/baseline` sets or clears the signed-in user's per-repo baseline, stored as finding fingerprint counts only; shared code lives in `api/_lib/` (not counted as functions)
 `backend/bin/`	Prebuilt Linux x64 analyser binary used in production
 `frontend/`	React + Vite + Tailwind app, prerendered to static HTML with `vite-react-ssg`
 `scripts/`	API, badge, audit and diff tests; analyser binary drift check; non-deployed fixtures in `scripts/fixtures/`
@@ -30,6 +30,8 @@ npm run test:api
 ```
 The analyser is built with CMake (see `analyser/CMakeLists.txt`). Vercel does not compile C++, so whenever analyser source changes, rebuild it and commit the new `backend/bin/linux-x64-cma`; CI checks for binary drift.
 Configuration
+Database changes are SQL files in `supabase/migrations/`. Run each new file by hand in the Supabase SQL editor of both projects (production and preview) before deploying the code that uses it. Code that writes history or baselines fails soft when its table is missing, so scans keep working.
+
 Secrets are environment variables set in Vercel and never committed. The API reads `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, plus `GEMINI_API_KEY` (and optionally `GEMINI_MODEL`) for the finding explainer. For the one-time welcome email sent to new accounts (`api/welcome.js`) it reads `RESEND_API_KEY` and `WELCOME_FROM_EMAIL` (a sender on a domain verified in Resend, for example `REPO-SIGHT <hello@repo-sight.com>`), plus optionally `WELCOME_REPLY_TO`; if either of the first two is unset the endpoint sends nothing. `RESEND_API_KEY` is shared with the feedback notifier. The browser-side Supabase client settings are in `frontend/src/lib/supabase.ts`.
 Branches
 `main` is production and deploys to https://www.repo-sight.com/. V3 development happens on `Version3`, which Vercel builds as a preview deployment (previews use separate Supabase and API keys). Changes reach `main` by pull request after CI and the preview smoke test pass. `Version2` is kept as history. CI runs on `main`, `Version2` and `Version3`.
