@@ -1,3 +1,4 @@
+import { diffByFingerprint, engineNote, groupFingerprints, type EngineNote } from "./change";
 import { relPath, type ScanReport, type Violation } from "./report";
 
 export interface ScanDelta {
@@ -12,12 +13,20 @@ export interface ScanDelta {
   filesSimpler: number;
   filesMoreComplex: number;
   mostComplexFile: { path: string; delta: number } | null;
+  /** Fingerprints of the current findings the previous scan did not have; null when matching fell back to file and rule. */
+  newFps: Set<string> | null;
+  /** True when findings were matched by stable fingerprint, false for the older file-and-rule match. */
+  viaFingerprint: boolean;
+  engineNote: EngineNote;
+  currentEngine: string | null;
+  previousEngine: string | null;
 }
 
 /**
- * Findings are matched per (repo-relative file, rule), not per line: server paths carry a
- * per-scan temp prefix, and line numbers shift whenever code above a finding changes.
- * Per key, any drop in count is "resolved" and any rise is "new".
+ * Fallback match, used only for reports that carry no fingerprints. Findings are matched per
+ * (repo-relative file, rule), not per line: server paths carry a per-scan temp prefix, and line
+ * numbers shift whenever code above a finding changes. Per key, any drop in count is "resolved"
+ * and any rise is "new". Reports served by the API always carry fingerprints (api/_lib/enrich.js).
  */
 function countByKey(violations: Violation[]): Map<string, number> {
   const m = new Map<string, number>();
@@ -40,9 +49,14 @@ export function computeScanDelta(current: ScanReport, previous: ScanReport): Sca
   const currentScore = Math.round(current.project.healthScore || 0);
   const previousScore = Math.round(previous.project.healthScore || 0);
 
-  const all = diffCounts(countByKey(current.violations), countByKey(previous.violations));
   const isSec = (v: Violation) => v.category === "security";
-  const sec = diffCounts(countByKey(current.violations.filter(isSec)), countByKey(previous.violations.filter(isSec)));
+  // Preferred match: stable fingerprints (they name the problem, so a finding that only moved is not new).
+  const prevGroups = groupFingerprints(previous.violations);
+  const fpAll = prevGroups ? diffByFingerprint(current.violations, prevGroups) : null;
+  const prevSec = previous.violations.filter(isSec);
+  const fpSec = fpAll ? diffByFingerprint(current.violations.filter(isSec), groupFingerprints(prevSec) ?? {}) : null;
+  const all = fpAll ?? diffCounts(countByKey(current.violations), countByKey(previous.violations));
+  const sec = fpSec ?? diffCounts(countByKey(current.violations.filter(isSec)), countByKey(prevSec));
 
   // Only files present in both scans can get simpler or more complex; new or deleted files are just new or gone.
   const prevByPath = new Map(previous.files.map((f) => [relPath(f.path), f]));
@@ -73,5 +87,10 @@ export function computeScanDelta(current: ScanReport, previous: ScanReport): Sca
     filesSimpler,
     filesMoreComplex,
     mostComplexFile,
+    newFps: fpAll && fpSec ? fpAll.newFps : null,
+    viaFingerprint: Boolean(fpAll && fpSec),
+    engineNote: engineNote(current.engineVersion, previous.engineVersion),
+    currentEngine: current.engineVersion ?? null,
+    previousEngine: previous.engineVersion ?? null,
   };
 }
