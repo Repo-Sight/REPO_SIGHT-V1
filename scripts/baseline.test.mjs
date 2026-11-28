@@ -3,7 +3,9 @@
 // POST and DELETE, and migration/code parity.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url"
 import { buildBaselineGroups, buildBaselineRow, handleBaseline, MAX_BASELINE_GROUPS } from "../api/_lib/baseline.js";
 import { assignFingerprints } from "../api/_lib/fingerprint.js";
 
@@ -246,7 +248,33 @@ test("the group cap matches the browser's", async (t) => {
   assert.equal(change.MAX_BASELINE_GROUPS, MAX_BASELINE_GROUPS);
 });
 
-test("the route is registered with a duration cap", () => {
+test("/api/scans/baseline is served by the scans route, not by a function of its own", async () => {
+  assert.equal(existsSync(new URL("../api/baseline.js", import.meta.url)), false);
   const cfg = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
-  assert.ok(cfg.functions["api/baseline.js"]?.maxDuration <= 10);
+  for (const file of Object.keys(cfg.functions ?? {})) {
+    assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `vercel.json configures ${file}, which does not exist`);
+  }
+  const { default: scans } = await import("../api/scans/[scanId].js");
+  const res = fakeRes();
+  await scans({ method: "GET", headers: {}, query: { scanId: "baseline" } }, res);
+  assert.equal(res.code, 405);
+  assert.equal(res.headers.Allow, "POST, DELETE");
+});
+
+test("api/ keeps at most 11 functions: Hobby allows 12 per deployment and the static site is counted too", () => {
+  const MAX_FUNCTIONS = 11;
+  const found = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === "_lib") continue;
+      const full = join(dir, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (e.name.endsWith(".js")) found.push(full);
+    }
+  };
+  walk(fileURLToPath(new URL("../api", import.meta.url)));
+  assert.ok(
+    found.length <= MAX_FUNCTIONS,
+    `api/ has ${found.length} functions (${MAX_FUNCTIONS} allowed). Fold the new route into an existing one (see api/scans/[scanId].js) or move to a plan without the limit.`,
+  );
 });
