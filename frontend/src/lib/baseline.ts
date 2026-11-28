@@ -64,4 +64,4 @@ async function call(method: "POST" | "DELETE", url: string, body?: Record<string
 export const setBaseline = (scanId: string): Promise<void> => call("POST", "/api/scans/baseline", { scanId });
 
 export const clearBaseline = (repoKey: string): Promise<void> =>
-  call("DELETE", `/api/baseline?repo=${encodeURIComponent(repoKey)}`);
+  call("DELETE", `/api/scans/baseline?repo=${encodeURIComponent(repoKey)}`);
