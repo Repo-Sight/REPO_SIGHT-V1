@@ -5,9 +5,11 @@ import { LanguageBar, formatShare, languageShade, sortLanguages } from "./Langua
 import { SITE } from "../site";
 import { describeEntries, describeEntry, groupUnanalyzed } from "../lib/unanalyzed";
 import { useAuth } from "../lib/authContext";
-import { computeScanDelta, type ScanDelta } from "../lib/delta";
-import { findPreviousScanId } from "../lib/history";
+import { describeEngineNote } from "../lib/change";
+import { ChangeProvider, useChange } from "./ChangeContext";
 import { RescanButton } from "./RescanButton";
+import { TrendPanel } from "./TrendPanel";
+import { BaselinePanel } from "./BaselinePanel";
 import { trackBadgeCopied } from "../lib/events";
 import { buildFindingPrompt, buildGroupPrompt } from "../lib/fixPrompt";
 import {
@@ -79,7 +81,7 @@ export function ReportView({ scanId, repo, onNewScan }: { scanId: string; repo?:
     let cancelled = false;
     setState({ kind: "loading" });
     (repo ? fetchLatestScan(repo) : fetchScan(scanId))
-    .then((report) => !cancelled && setState({ kind: "ready", report }))
+      .then((report) => !cancelled && setState({ kind: "ready", report }))
       .catch((err: unknown) => {
         if (cancelled) return;
         setState({ kind: "error", message: err instanceof ApiError ? err.message : "Could not load this report." });
@@ -87,8 +89,8 @@ export function ReportView({ scanId, repo, onNewScan }: { scanId: string; repo?:
     return () => {
       cancelled = true;
     };
-    }, [scanId, repo]);
-  
+  }, [scanId, repo]);
+
   if (state.kind === "loading") {
     return (
       <p role="status" className="font-mono text-sm">
@@ -113,7 +115,16 @@ export function ReportView({ scanId, repo, onNewScan }: { scanId: string; repo?:
 
 /* --------------------------------- body ---------------------------------- */
 
+/** The comparison with the user's earlier scan is looked up once here and shared with every tab. */
 export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewScan: () => void }) {
+  return (
+    <ChangeProvider report={report}>
+      <ReportBodyInner report={report} onNewScan={onNewScan} />
+    </ChangeProvider>
+  );
+}
+
+function ReportBodyInner({ report, onNewScan }: { report: ScanReport; onNewScan: () => void }) {
   const [tab, setTab] = useState<TabId>("overview");
   const p = report.project;
   const created = report.createdAt ? new Date(report.createdAt) : null;
@@ -139,7 +150,7 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
       <SharePanel report={report} />
       <ExportPanel report={report} />
       <AuditExport report={report} />
-      
+
       <div role="tablist" aria-label="Report sections" className="rs-tabs">
         {TABS.map((t) => (
           <button
@@ -171,6 +182,7 @@ export function ReportBody({ report, onNewScan }: { report: ScanReport; onNewSca
     </div>
   );
 }
+
 /* ------------------------------ partial scan ----------------------------- */
 
 /** Shown on every report that covers a sample instead of the whole repo, so no number is read as a full-repo fact. */
@@ -283,7 +295,6 @@ function SharePanel({ report }: { report: ScanReport }) {
   );
 }
 
-
 /* -------------------------------- overview ------------------------------- */
 
 function OverviewTab({ report }: { report: ScanReport }) {
@@ -296,6 +307,8 @@ function OverviewTab({ report }: { report: ScanReport }) {
   return (
     <div className="space-y-6">
       <TrendCallout report={report} />
+      <TrendPanel report={report} />
+      <BaselinePanel report={report} />
       <FixNowCard report={report} />
       <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
         <div className={`${card} flex items-center gap-4 p-4`}>
@@ -420,11 +433,11 @@ function LanguageMix({ report }: { report: ScanReport }) {
 const FIX_NOW_LOCATIONS = 5;
 
 /**
- * Critical-fault elevation: non-security findings that are both severe and
- * certain (tier high/critical, confidence high), e.g. empty catch blocks that
- * swallow failures. Shown above everything else on the Overview so they never
- * sit under stylistic noise. Security findings have their own tab and rank in
- * Fix First, so they are excluded here. Renders nothing when there are none.
+- Critical-fault elevation: non-security findings that are both severe and
+- certain (tier high/critical, confidence high), e.g. empty catch blocks that
+- swallow failures. Shown above everything else on the Overview so they never
+- sit under stylistic noise. Security findings have their own tab and rank in
+- Fix First, so they are excluded here. Renders nothing when there are none.
  */
 function FixNowCard({ report }: { report: ScanReport }) {
   const groups = useMemo(
@@ -785,10 +798,61 @@ function CopyPromptButton({ build, label = "Copy fix prompt" }: { build: () => s
   );
 }
 
+/** Text, not just colour: a finding the active comparison did not have. */
+function NewBadge() {
+  const { label } = useChange();
+  return (
+    <span
+      title={`Not present ${label}`}
+      className="rounded-md border border-amber px-1.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wide"
+    >
+      New
+    </span>
+  );
+}
+
+/** Checkbox and (with more than one comparison) a picker for the "only new findings" view. Shared by the Findings and Security tabs. */
+function NewFilter() {
+  const { source, sources, setSource, onlyNew, setOnlyNew, newCount, label } = useChange();
+  if (!source) return null;
+  return (
+    <div className="space-y-1 rounded-md border border-line p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 font-semibold">
+          <input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} />
+          Show only new findings
+        </label>
+        {sources.length > 1 ? (
+          <select
+            aria-label="Compare against"
+            value={source}
+            onChange={(e) => setSource(e.target.value as typeof source)}
+            className="rounded-md border border-line bg-white px-2 py-1 font-mono text-xs"
+          >
+            {sources.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        <span className="font-mono text-xs">
+          {formatNumber(newCount)} new {label}
+        </span>
+      </div>
+      <p className="text-xs text-ink/80">
+        New is matched by fingerprint, so a finding that only moved lines is not new. A renamed function or a moved file reads as one fixed and one new.
+      </p>
+    </div>
+  );
+}
+
 /** Per-finding actions: copy a fix prompt (free, in the browser) and, when available, the AI explanation. */
 function FindingActions({ report, v }: { report: ScanReport; v: Violation }) {
+  const { isNew } = useChange();
   return (
     <div className="mt-1 flex flex-wrap items-start gap-2 font-sans">
+      {isNew(v) ? <NewBadge /> : null}
       <CopyPromptButton build={() => buildFindingPrompt(report, v)} />
       <ExplainButton report={report} v={v} />
     </div>
@@ -852,34 +916,8 @@ function ExportPanel({ report }: { report: ScanReport }) {
 
 function TrendCallout({ report }: { report: ScanReport }) {
   const { ready, user, openAccount } = useAuth();
-  const [delta, setDelta] = useState<ScanDelta | null>(null);
-  // True once the comparison lookup has finished, so "no comparison" is not shown while it is still loading.
-  const [settled, setSettled] = useState(false);
-  const userId = user?.id;
+  const { delta, settled } = useChange();
   const isRepoScan = Boolean(report.repoOwner && report.projectName);
-
-  useEffect(() => {
-    setDelta(null);
-    setSettled(false);
-    if (!userId || !isRepoScan) return;
-    let cancelled = false;
-    (async () => {
-      const prevId = await findPreviousScanId(report.projectName ?? "", report.scanId, report.createdAt);
-      if (!prevId) return;
-      const previous = await fetchScan(prevId);
-      // A score change between a sample and a full scan (or two different samples) would be noise, not progress.
-      if (!cancelled && !report.partial && !previous.partial) setDelta(computeScanDelta(report, previous));
-      })()
-      .catch(() => {
-        // Comparison is a bonus: never surface an error for it.
-      })
-      .finally(() => {
-        if (!cancelled) setSettled(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, isRepoScan, report]);
 
   if (delta) {
     const d = delta;
@@ -910,7 +948,8 @@ function TrendCallout({ report }: { report: ScanReport }) {
             Biggest complexity jump: {d.mostComplexFile.path} (+{d.mostComplexFile.delta})
           </p>
         ) : null}
-         <div className="mt-3 flex flex-wrap items-center gap-2">
+        {d.engineNote ? <p className="mt-1 text-xs">{describeEngineNote(d.engineNote, d.currentEngine, d.previousEngine)}</p> : null}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <RescanButton report={report} label="Rescan now" />
         </div>
       </section>
@@ -1027,8 +1066,20 @@ const GROUP_COLLAPSE_AT = 4;
 const GROUP_LOCATIONS = 25;
 
 function FindingsTab({ report }: { report: ScanReport }) {
-  const groups = useMemo(() => groupByRule(report.violations, (v) => v.category !== "security"), [report.violations]);
+  const { onlyNew, isNew, label } = useChange();
+  const groups = useMemo(
+    () => groupByRule(report.violations, (v) => v.category !== "security" && (!onlyNew || isNew(v))),
+    [report.violations, onlyNew, isNew],
+  );
 
+  if (groups.length === 0 && onlyNew) {
+    return (
+      <div className="space-y-4">
+        <NewFilter />
+        <p className={`${card} p-4 text-sm font-semibold`}>No new code-quality findings {label}.</p>
+      </div>
+    );
+  }
   if (groups.length === 0) {
     return (
       <div className={`${card} space-y-2 p-4 text-sm`}>
@@ -1042,6 +1093,7 @@ function FindingsTab({ report }: { report: ScanReport }) {
   const securityTotal = report.violations.filter((v) => v.category === "security").length;
   return (
     <div className="space-y-4">
+      <NewFilter />
       <p className="text-sm">
         {formatNumber(total)} {total === 1 ? "finding" : "findings"} across {formatNumber(groups.length)}{" "}
         {groups.length === 1 ? "rule" : "rules"}, grouped by rule so repeated notices stay out of the way.{" "}
@@ -1094,8 +1146,20 @@ function FindingsTab({ report }: { report: ScanReport }) {
 /* -------------------------------- security (grouping) -------------------- */
 
 function SecurityTab({ report }: { report: ScanReport }) {
-  const groups = useMemo(() => groupByRule(report.violations, (v) => v.category === "security"), [report.violations]);
+  const { onlyNew, isNew, label } = useChange();
+  const groups = useMemo(
+    () => groupByRule(report.violations, (v) => v.category === "security" && (!onlyNew || isNew(v))),
+    [report.violations, onlyNew, isNew],
+  );
 
+  if (groups.length === 0 && onlyNew) {
+    return (
+      <div className="space-y-4">
+        <NewFilter />
+        <p className={`${card} p-4 text-sm font-semibold`}>No new security findings {label}.</p>
+      </div>
+    );
+  }
   if (groups.length === 0) {
     return (
       <div className={`${card} space-y-2 p-4 text-sm`}>
@@ -1110,6 +1174,7 @@ function SecurityTab({ report }: { report: ScanReport }) {
 
   return (
     <div className="space-y-4">
+      <NewFilter />
       <p className="text-sm">
         {formatNumber(groups.reduce((n, g) => n + g.items.length, 0))} potential security issues across {formatNumber(groups.length)}{" "}
         {groups.length === 1 ? "rule" : "rules"}. These are static pattern matches: review each in context before acting.
@@ -1136,7 +1201,7 @@ function SecurityTab({ report }: { report: ScanReport }) {
                 </li>
               ))}
               {g.items.length > LOCATIONS_PER_RULE ? (
-                <li className="text-ink/70">+ {g.items.length - LOCATIONS_PER_RULE} more</li>
+                <li className="text-ink/70">+ {formatNumber(g.items.length - LOCATIONS_PER_RULE)} more</li>
               ) : null}
             </ul>
           </li>
