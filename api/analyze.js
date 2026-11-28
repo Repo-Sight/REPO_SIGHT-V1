@@ -25,6 +25,7 @@ import { getSupabase, getUserFromRequest, recordUserScan } from "./_lib/supabase
 import { recordEvent, repoKey } from "./_lib/events.js";
 import { recordRepoLatest } from "./_lib/repoLatest.js";
 import { recordScanHistory } from "./_lib/scanHistory.js";
+import { ENGINE_VERSION } from "./_lib/engineVersion.js";
 import {
   parseGithubUrl,
   readGithubToken,
@@ -209,6 +210,10 @@ async function runPipeline({ parsed, srcDir, reportPath, scanId, supabase, user,
     visibility: isPrivate ? "private" : "public",
     ...(isPrivate ? { ownerId: user.id } : {}),
     ...report,
+    // Additive (V3 item 5): which engine produced this report. Comparisons (new vs previous scan,
+    // new vs baseline) use it to say "the engine changed" instead of "the repo got worse". Set after
+    // the spread so the analyser output can never override it. Older stored scans simply lack it.
+    engineVersion: ENGINE_VERSION,
   };
 
   // Private reports live under a "private/" key prefix, not at the bucket
