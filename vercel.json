@@ -56,9 +56,6 @@
     "api/explain-finding.js": {
       "maxDuration": 25
     },
-     "api/baseline.js": {
-      "maxDuration": 10
-    },
     "api/keepalive.js": {
       "maxDuration": 10
     }
